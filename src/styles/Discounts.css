@@ -1,0 +1,72 @@
+.promo-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.promo-icon {
+  color: #db2777;
+}
+
+.promo-code-text {
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: 1px;
+  background: rgba(219, 39, 119, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px dashed rgba(219, 39, 119, 0.3);
+}
+
+.discount-value {
+  font-weight: 500;
+  color: #10b981;
+}
+
+.date-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.rules-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.rule-badge {
+  background: rgba(124, 58, 237, 0.1);
+  color: #c084fc;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rule-badge.neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+}
+
+.large-modal {
+  max-width: 600px !important;
+}
+
+.section-divider {
+  margin: 20px 0 10px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
