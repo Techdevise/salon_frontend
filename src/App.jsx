@@ -13,6 +13,7 @@ import RecurringAppointments from "./pages/RecurringAppointments";
 import Billing from "./pages/Billing";
 import ServicePackages from "./pages/ServicePackages";
 import { PrivateRoute, RoleRoute, PublicOnlyRoute } from "./components/routes/ProtectedRoutes";
+import { useSelector } from 'react-redux';
 
 function App() {
   return (
@@ -51,10 +52,19 @@ function App() {
         </Route>
 
         {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter>
   );
+}
+
+// Helper component for fallback redirection
+function FallbackRoute() {
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'Staff') return <Navigate to="/dashboard/appointments" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default App;

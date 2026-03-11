@@ -31,7 +31,13 @@ function Login() {
         user: res.data.user,
         token: res.data.token
       }));
-      navigate("/dashboard");
+      
+      // Redirect based on role
+      if (res.data.user.role === 'Staff') {
+        navigate("/dashboard/appointments");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {

@@ -11,7 +11,7 @@ import '../../styles/DashboardLayout.css';
 
 // Admin Routes vs Staff Routes definition
 const SIDEBAR_ROUTES = [
-  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
+  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist'] },
   { path: '/dashboard/calendar', name: 'Booking Calendar', icon: <CalendarDays size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
   { path: '/dashboard/appointments', name: 'Appointments & Bookings', icon: <Calendar size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
   { path: '/dashboard/recurring', name: 'Recurring Bookings', icon: <Repeat size={20} />, roles: ['Admin', 'Receptionist'] },
@@ -19,7 +19,7 @@ const SIDEBAR_ROUTES = [
   { path: '/dashboard/staff', name: 'Staff Management', icon: <UserCircle size={20} />, roles: ['Admin'] },
   { path: '/dashboard/services', name: 'Services & Pricing', icon: <Scissors size={20} />, roles: ['Admin'] },
   { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
+  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist'] },
   { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] }
 ];
 
