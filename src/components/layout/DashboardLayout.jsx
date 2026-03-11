@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { logout, updateProfileImage } from '../../redux/slices/authSlice';
 import axios from 'axios';
-import { 
+import {
   Users, Calendar, Scissors, CreditCard, Tag, Repeat, CalendarDays,
   Settings, LogOut, LayoutDashboard, UserCircle, Bell
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import '../../styles/DashboardLayout.css';
 
 // Admin Routes vs Staff Routes definition
 const SIDEBAR_ROUTES = [
+  // { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist',"staff"] },
   { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist'] },
   { path: '/dashboard/calendar', name: 'Booking Calendar', icon: <CalendarDays size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
   { path: '/dashboard/appointments', name: 'Appointments & Bookings', icon: <Calendar size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
@@ -29,7 +30,7 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isUploading, setIsUploading] = useState(false);
-  
+
   // Notification states
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -41,51 +42,51 @@ function DashboardLayout() {
 
     // Fetch notifications every 5 minutes
     const interval = setInterval(() => {
-        fetchNotifications();
+      fetchNotifications();
     }, 300000);
 
     const handleClickOutside = (event) => {
-        if (notifRef.current && !notifRef.current.contains(event.target)) {
-            setShowNotifications(false);
-        }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
-        clearInterval(interval);
-        document.removeEventListener("mousedown", handleClickOutside);
+      clearInterval(interval);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const fetchNotifications = async () => {
-      try {
-          const res = await axios.get('/api/notification', { withCredentials: true });
-          
-          // Flattening the grouped aggregate from the controller
-          let allAlerts = [];
-          let count = 0;
-          if (res.data?.data) {
-              res.data.data.forEach(group => {
-                  count += group.unreadCount || 0;
-                  allAlerts = [...allAlerts, ...group.notifications];
-              });
-          }
-          // Sort by latest
-          allAlerts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-          
-          setNotifications(allAlerts);
-          setUnreadCount(count);
-      } catch (err) {
-          console.error("Failed to load notifications", err);
+    try {
+      const res = await axios.get('/api/notification', { withCredentials: true });
+
+      // Flattening the grouped aggregate from the controller
+      let allAlerts = [];
+      let count = 0;
+      if (res.data?.data) {
+        res.data.data.forEach(group => {
+          count += group.unreadCount || 0;
+          allAlerts = [...allAlerts, ...group.notifications];
+        });
       }
+      // Sort by latest
+      allAlerts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setNotifications(allAlerts);
+      setUnreadCount(count);
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+    }
   };
 
   const markAsRead = async (id) => {
-      try {
-          await axios.patch(`/api/notification/read/${id}`, {}, { withCredentials: true });
-          fetchNotifications(); // Refresh list to update counts
-      } catch (error) {
-          console.error("Error marking read", error);
-      }
+    try {
+      await axios.patch(`/api/notification/read/${id}`, {}, { withCredentials: true });
+      fetchNotifications(); // Refresh list to update counts
+    } catch (error) {
+      console.error("Error marking read", error);
+    }
   };
 
 
@@ -99,25 +100,25 @@ function DashboardLayout() {
     if (!file) return;
 
     setIsUploading(true);
-    
+
     try {
       // 1. Upload raw Image file to ImageKit via backend
       const formData = new FormData();
       formData.append('image', file);
 
-      const uploadRes = await axios.post('/api/upload/single', formData, { 
-          headers: { 'Content-Type': 'multipart/form-data' },
-          withCredentials: true 
+      const uploadRes = await axios.post('/api/upload/single', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true
       });
 
       const imageUrl = uploadRes.data?.data?.url;
 
-      if(imageUrl) {
-          // 2. Map Image URL to User Auth schema
-          await axios.post('/api/auth/upload-profile', { profileImage: imageUrl }, { withCredentials: true });
-          
-          // 3. Update local Redux store visually
-          dispatch(updateProfileImage(imageUrl));
+      if (imageUrl) {
+        // 2. Map Image URL to User Auth schema
+        await axios.post('/api/auth/upload-profile', { profileImage: imageUrl }, { withCredentials: true });
+
+        // 3. Update local Redux store visually
+        dispatch(updateProfileImage(imageUrl));
       }
     } catch (error) {
       console.error("Failed to upload profile picture to ImageKit:", error);
@@ -141,20 +142,20 @@ function DashboardLayout() {
         {/* Profile Section */}
         <div className="profile-section">
           <div className="profile-image-container">
-            <img 
-              src={user?.profileImage || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=c084fc&color=fff`} 
-              alt="Profile" 
-              className="profile-image" 
+            <img
+              src={user?.profileImage || `https://ui-avatars.com/api/?name=${user?.name || 'User'}&background=c084fc&color=fff`}
+              alt="Profile"
+              className="profile-image"
             />
             <label className="image-upload-overlay" htmlFor="profile-upload">
               {isUploading ? "..." : "Edit"}
             </label>
-            <input 
-              type="file" 
-              id="profile-upload" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-              style={{ display: 'none' }} 
+            <input
+              type="file"
+              id="profile-upload"
+              accept="image/*"
+              onChange={handleImageUpload}
+              style={{ display: 'none' }}
             />
           </div>
           <h3 className="profile-name">{user?.name || "User"}</h3>
@@ -164,9 +165,9 @@ function DashboardLayout() {
         {/* Navigation */}
         <nav className="sidebar-nav">
           {visibleRoutes.map((route) => (
-            <Link 
-              key={route.path} 
-              to={route.path} 
+            <Link
+              key={route.path}
+              to={route.path}
               className={`nav-item ${location.pathname === route.path ? 'active' : ''}`}
             >
               {route.icon}
@@ -188,52 +189,52 @@ function DashboardLayout() {
       <div className="main-content">
         <header className="top-header">
           <div className="header-actions" style={{ marginLeft: 'auto' }}>
-            
+
             {/* Notification Bell */}
             <div className="notification-wrapper" ref={notifRef}>
-                <button 
-                  className="notification-btn" 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  title="Alerts & Reminders"
-                >
-                    <Bell size={20} />
-                    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-                </button>
-                
-                {/* Popover */}
-                {showNotifications && (
-                    <div className="notification-dropdown">
-                        <div className="notification-header">
-                           <h3>Notifications</h3>
+              <button
+                className="notification-btn"
+                onClick={() => setShowNotifications(!showNotifications)}
+                title="Alerts & Reminders"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              </button>
+
+              {/* Popover */}
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">
+                    <h3>Notifications</h3>
+                  </div>
+                  <div className="notification-list">
+                    {notifications.length > 0 ? (
+                      notifications.map(n => (
+                        <div
+                          key={n._id}
+                          className={`notification-item ${n.isRead ? 'read' : 'unread'}`}
+                          onClick={() => !n.isRead && markAsRead(n._id)}
+                        >
+                          <h4>{n.title}</h4>
+                          <p>{n.message}</p>
+                          <span className="notif-time">{new Date(n.createdAt).toLocaleDateString()}</span>
                         </div>
-                        <div className="notification-list">
-                            {notifications.length > 0 ? (
-                                notifications.map(n => (
-                                    <div 
-                                      key={n._id} 
-                                      className={`notification-item ${n.isRead ? 'read' : 'unread'}`}
-                                      onClick={() => !n.isRead && markAsRead(n._id)}
-                                    >
-                                        <h4>{n.title}</h4>
-                                        <p>{n.message}</p>
-                                        <span className="notif-time">{new Date(n.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="no-notifications">No alerts for now.</div>
-                            )}
-                        </div>
-                    </div>
-                )}
+                      ))
+                    ) : (
+                      <div className="no-notifications">No alerts for now.</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="user-header-profile">
-               <UserCircle size={18} />
-               <span>{user?.name || 'User'}</span>
+              <UserCircle size={18} />
+              <span>{user?.name || 'User'}</span>
             </div>
           </div>
         </header>
-        
+
         <div className="content-scrollable">
           {/* Nested routes render here */}
           <Outlet />
