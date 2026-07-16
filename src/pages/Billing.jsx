@@ -2,17 +2,23 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, Plus, Trash2, IndianRupee, Printer } from 'lucide-react';
 import '../styles/Billing.css';
+import { useSelector } from 'react-redux';
 
 function Billing() {
+  const { selectedSalonId } = useSelector((state) => state.salon);
+  const { user } = useSelector((state) => state.auth);
+
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
-  
+  const [staffList, setStaffList] = useState([]);
+
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
   const [searchCustomer, setSearchCustomer] = useState('');
-  
+
   const [billItems, setBillItems] = useState([]);
   const [selectedService, setSelectedService] = useState('');
-  
+
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,11 +27,13 @@ function Billing() {
   useEffect(() => {
     fetchCustomers();
     fetchServices();
-  }, []);
+    fetchStaff();
+  }, [selectedSalonId]);
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get('/api/customer', { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/customer${salonParam}`, { withCredentials: true });
       if (res.data?.data) {
         setCustomers(res.data.data);
       }
@@ -45,23 +53,45 @@ function Billing() {
     }
   };
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(searchCustomer.toLowerCase()) || 
+  const fetchStaff = async () => {
+    try {
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/staff/all${salonParam}`, { withCredentials: true });
+      if (res.data?.data) {
+        setStaffList(res.data.data);
+
+        // Auto-select staff member matching logged in user
+        if (user) {
+          const matchedStaff = res.data.data.find(
+            s => s.email?.toLowerCase() === user.email?.toLowerCase() || s.name?.toLowerCase() === user.name?.toLowerCase()
+          );
+          if (matchedStaff) {
+            setSelectedStaffId(matchedStaff._id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load staff list", err);
+    }
+  };
+
+  const filteredCustomers = customers.filter(c =>
+    c.name.toLowerCase().includes(searchCustomer.toLowerCase()) ||
     c.phone.includes(searchCustomer)
   );
 
   const handleAddService = () => {
     if (!selectedService) return;
-    
+
     const serviceObj = services.find(s => s._id === selectedService);
     if (!serviceObj) return;
 
     // Check if already in bill
     const existing = billItems.find(item => item.serviceId === serviceObj._id);
     if (existing) {
-      setBillItems(billItems.map(item => 
-        item.serviceId === serviceObj._id 
-          ? { ...item, quantity: item.quantity + 1 } 
+      setBillItems(billItems.map(item =>
+        item.serviceId === serviceObj._id
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
@@ -70,10 +100,9 @@ function Billing() {
         name: serviceObj.serviceName,
         price: serviceObj.price,
         quantity: 1,
-        // Backend expects certain things in the services array, it might loop through them directly. Note: backend uses `s.price`, so appending `price` here is good.
       }]);
     }
-    
+
     setSelectedService('');
   };
 
@@ -83,7 +112,7 @@ function Billing() {
 
   const handleQuantityChange = (id, newQty) => {
     if (newQty < 1) return;
-    setBillItems(billItems.map(item => 
+    setBillItems(billItems.map(item =>
       item.serviceId === id ? { ...item, quantity: newQty } : item
     ));
   };
@@ -97,6 +126,10 @@ function Billing() {
       setMessage({ text: 'Please select a customer', type: 'error' });
       return;
     }
+    if (!selectedStaffId) {
+      setMessage({ text: 'Please select a staff member', type: 'error' });
+      return;
+    }
     if (billItems.length === 0) {
       setMessage({ text: 'Please add at least one service', type: 'error' });
       return;
@@ -106,14 +139,13 @@ function Billing() {
     setMessage({ text: '', type: '' });
 
     try {
-      // Using mock staffId and mapping the services array to match backend expectations
-      // Assuming user exists in Redux, but we might not have staffId directly. Using a fallback or mock just in case.
       const payload = {
         customerId: selectedCustomer._id,
-        services: billItems.map(i => ({ 
-            serviceId: i.serviceId, 
-            price: i.price * i.quantity,
-            quantity: i.quantity 
+        staffId: selectedStaffId,
+        services: billItems.map(i => ({
+          serviceId: i.serviceId,
+          price: i.price * i.quantity,
+          quantity: i.quantity
         })),
         tax: 18,
         discountAmount: Number(discount),
@@ -121,11 +153,10 @@ function Billing() {
         paymentMethod
       };
 
-      // Ensure backend has this route, otherwise this will need to be created.
       const res = await axios.post('/api/billing/generate', payload, { withCredentials: true });
-      
+
       setMessage({ text: 'Bill generated successfully!', type: 'success' });
-      
+
       // Reset form
       setBillItems([]);
       setSelectedCustomer(null);
@@ -133,23 +164,39 @@ function Billing() {
       setDiscount(0);
       setPaymentMethod('Cash');
 
+      // Re-trigger auto-selection of logged in user
+      if (user) {
+        const matchedStaff = staffList.find(
+          s => s.email?.toLowerCase() === user.email?.toLowerCase() || s.name?.toLowerCase() === user.name?.toLowerCase()
+        );
+        if (matchedStaff) {
+          setSelectedStaffId(matchedStaff._id);
+        } else {
+          setSelectedStaffId('');
+        }
+      } else {
+        setSelectedStaffId('');
+      }
+
     } catch (err) {
       console.error(err);
-      setMessage({ 
-        text: err.response?.data?.message || 'Failed to generate bill', 
-        type: 'error' 
+      setMessage({
+        text: err.response?.data?.message || 'Failed to generate bill',
+        type: 'error'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const selectedStaff = staffList.find(s => s._id === selectedStaffId);
+
   return (
     <div className="billing-container">
       <div className="billing-header">
         <h1>Billing & Payment</h1>
-        <button 
-          className="btn-secondary" 
+        <button
+          className="btn-secondary"
           disabled={!message.text || message.type === 'error'}
           onClick={() => window.print()}
         >
@@ -166,7 +213,7 @@ function Billing() {
       <div className="billing-grid">
         {/* Left Side - Selection */}
         <div className="billing-left">
-          
+
           {/* Customer Selection */}
           <div className="billing-card">
             <h3>1. Select Customer</h3>
@@ -174,20 +221,20 @@ function Billing() {
               <div className="customer-search">
                 <div className="search-input-wrapper">
                   <Search size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search by name or phone..." 
+                  <input
+                    type="text"
+                    placeholder="Search by name or phone..."
                     value={searchCustomer}
                     onChange={(e) => setSearchCustomer(e.target.value)}
                   />
                 </div>
-                
+
                 {searchCustomer && (
                   <div className="search-results">
                     {filteredCustomers.length > 0 ? (
                       filteredCustomers.map(c => (
-                        <div 
-                          key={c._id} 
+                        <div
+                          key={c._id}
                           className="search-item"
                           onClick={() => {
                             setSelectedCustomer(c);
@@ -219,20 +266,20 @@ function Billing() {
           <div className="billing-card">
             <h3>2. Add Services</h3>
             <div className="service-add-row">
-              <select 
-                value={selectedService} 
+              <select
+                value={selectedService}
                 onChange={(e) => setSelectedService(e.target.value)}
                 className="service-select"
               >
                 <option value="">-- Select a Service --</option>
-               {services.map(s => (
+                {services.map(s => (
                   <option key={s._id} value={s._id}>
                     {s.serviceName} - ₹{s.price}
                   </option>
                 ))}
               </select>
-              <button 
-                className="btn-primary" 
+              <button
+                className="btn-primary"
                 onClick={handleAddService}
                 disabled={!selectedService}
               >
@@ -240,14 +287,56 @@ function Billing() {
               </button>
             </div>
           </div>
-          
+
+          {/* Staff Selection */}
+          <div className="billing-card">
+            <h3>3. Select Staff Member</h3>
+            <div className="service-add-row">
+              <select
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+                className="service-select"
+              >
+                <option value="">-- Select Staff Member --</option>
+                {staffList.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.name} ({s.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
         </div>
 
         {/* Right Side - Invoice Details */}
         <div className="billing-right">
           <div className="invoice-card">
-            <h3>Invoice Details</h3>
-            
+            <div className="invoice-header-info">
+              <h3>Invoice Details</h3>
+              <div className="invoice-meta">
+                <span className="invoice-date">Date: {new Date().toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            {/* Print Friendly Customer & Staff Details */}
+            <div className="invoice-details-section">
+              <div className="invoice-details-row">
+                <span className="label">Customer:</span>
+                <span className="value">{selectedCustomer ? selectedCustomer.name : 'Not Selected'}</span>
+              </div>
+              {selectedCustomer?.phone && (
+                <div className="invoice-details-row">
+                  <span className="label">Phone:</span>
+                  <span className="value">{selectedCustomer.phone}</span>
+                </div>
+              )}
+              <div className="invoice-details-row">
+                <span className="label">Served By:</span>
+                <span className="value">{selectedStaff ? selectedStaff.name : 'Not Selected'}</span>
+              </div>
+            </div>
+
             <div className="invoice-items">
               {billItems.length === 0 ? (
                 <div className="empty-invoice">No services added yet</div>
@@ -267,10 +356,10 @@ function Billing() {
                       <tr key={item.serviceId}>
                         <td>{item.name}</td>
                         <td>
-                          <input 
-                            type="number" 
-                            min="1" 
-                            value={item.quantity} 
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
                             onChange={(e) => handleQuantityChange(item.serviceId, parseInt(e.target.value) || 1)}
                             className="qty-input"
                           />
@@ -302,22 +391,22 @@ function Billing() {
               <div className="summary-row discount-row">
                 <span>Discount (₹)</span>
                 <div>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    value={discount} 
+                  <input
+                    type="number"
+                    min="0"
+                    value={discount}
                     onChange={(e) => setDiscount(e.target.value)}
                     className="discount-input"
                   />
                   <span className="print-only" style={{ display: 'none' }}>₹{discount}</span>
                 </div>
               </div>
-              
+
               <div className="payment-method-row">
                 <span>Payment Method</span>
                 <div>
-                  <select 
-                    value={paymentMethod} 
+                  <select
+                    value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="payment-select"
                   >
@@ -335,10 +424,10 @@ function Billing() {
               </div>
             </div>
 
-            <button 
-              className="btn-generate-bill" 
+            <button
+              className="btn-generate-bill"
               onClick={handleGenerateBill}
-              disabled={isSubmitting || billItems.length === 0 || !selectedCustomer}
+              disabled={isSubmitting || billItems.length === 0 || !selectedCustomer || !selectedStaffId}
             >
               {isSubmitting ? 'Processing...' : 'Generate Bill'}
             </button>

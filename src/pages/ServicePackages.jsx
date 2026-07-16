@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 import { Tag, Plus, Search, Edit2, Trash2, IndianRupee, Layers, X, Scissors } from 'lucide-react';
 import '../styles/DashboardPages.css';
+import { useConfirm } from '../components/ConfirmModal';
 
 function ServicePackages() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [packagesList, setPackagesList] = useState([]);
   const [availableServices, setAvailableServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [fetchError, setFetchError] = useState('');
+
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState(null);
-  
+
   // Form states
   const [formData, setFormData] = useState({
     packageName: '',
@@ -25,21 +30,28 @@ function ServicePackages() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchData = async () => {
     setLoading(true);
+    setFetchError('');
     try {
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
       // Parallel fetch packages & services
       const [pkgsRes, svcsRes] = await Promise.all([
-        axios.get('/api/package', { withCredentials: true }).catch(err => ({ data: { data: [] } })),
-        axios.get('/api/service/all', { withCredentials: true }).catch(err => ({ data: { data: [] } }))
+        axios.get(`/api/package${salonParam}`, { withCredentials: true }),
+        axios.get(`/api/service/all${salonParam}`, { withCredentials: true })
       ]);
-      
+
       setPackagesList(pkgsRes.data?.data || []);
       setAvailableServices(svcsRes.data?.data || []);
     } catch (error) {
-        console.error("Error fetching packages data:", error);
+      console.error("Error fetching packages data:", error);
+      if (error.response?.status === 403) {
+        setFetchError(error.response?.data?.message || 'Subscription validation failed.');
+      }
+      setPackagesList([]);
+      setAvailableServices([]);
     } finally {
       setLoading(false);
     }
@@ -51,12 +63,12 @@ function ServicePackages() {
 
   const toggleServiceSelection = (serviceId) => {
     setFormData(prev => {
-        const isSelected = prev.selectedServices.includes(serviceId);
-        if (isSelected) {
-            return { ...prev, selectedServices: prev.selectedServices.filter(id => id !== serviceId) };
-        } else {
-            return { ...prev, selectedServices: [...prev.selectedServices, serviceId] };
-        }
+      const isSelected = prev.selectedServices.includes(serviceId);
+      if (isSelected) {
+        return { ...prev, selectedServices: prev.selectedServices.filter(id => id !== serviceId) };
+      } else {
+        return { ...prev, selectedServices: [...prev.selectedServices, serviceId] };
+      }
     });
   };
 
@@ -84,10 +96,10 @@ function ServicePackages() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (formData.selectedServices.length < 2) {
-        setErrorMsg('Please select at least 2 services to form a package.');
-        return;
+      setErrorMsg('Please select at least 2 services to form a package.');
+      return;
     }
 
     setFormLoading(true);
@@ -95,10 +107,11 @@ function ServicePackages() {
 
     // Transform `selectedServices` array of IDs back into the array of objects the backend expects
     const payload = {
-        packageName: formData.packageName,
-        description: formData.description,
-        packagePrice: Number(formData.packagePrice),
-        services: formData.selectedServices.map(id => ({ serviceId: id }))
+      packageName: formData.packageName,
+      description: formData.description,
+      packagePrice: Number(formData.packagePrice),
+      services: formData.selectedServices.map(id => ({ serviceId: id })),
+      ...(selectedSalonId && { salonId: selectedSalonId })
     };
 
     try {
@@ -117,12 +130,21 @@ function ServicePackages() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this package?")) {
+    const pkg = packagesList.find(p => p._id === id);
+    const packageName = pkg?.packageName || 'this package';
+    const confirmed = await confirm({
+      title: 'Delete Service Package',
+      message: `Are you sure you want to delete the package "${packageName}"? This action is permanent.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.delete(`/api/package/delete/${id}`, { withCredentials: true });
         fetchData();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete');
+        console.error('Failed to delete package:', error);
       }
     }
   };
@@ -132,21 +154,21 @@ function ServicePackages() {
       await axios.patch(`/api/package/toggle/${id}`, {}, { withCredentials: true });
       fetchData();
     } catch (error) {
-        alert(error.response?.data?.message || 'Failed to toggle status');
+      alert(error.response?.data?.message || 'Failed to toggle status');
     }
   };
 
   // Calculate dynamic savings in the form based on selected services
   const calculateFormSavings = () => {
-     let originalTotal = 0;
-     formData.selectedServices.forEach(id => {
-         const d = availableServices.find(s => s._id === id);
-         if(d) originalTotal += Number(d.price || 0);
-     });
-     return { originalTotal, savings: originalTotal - Number(formData.packagePrice || 0) };
+    let originalTotal = 0;
+    formData.selectedServices.forEach(id => {
+      const d = availableServices.find(s => s._id === id);
+      if (d) originalTotal += Number(d.price || 0);
+    });
+    return { originalTotal, savings: originalTotal - Number(formData.packagePrice || 0) };
   };
 
-  const filteredPackages = packagesList.filter(p => 
+  const filteredPackages = packagesList.filter(p =>
     p.packageName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -162,12 +184,21 @@ function ServicePackages() {
         </button>
       </div>
 
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 mb-6 text-sm flex items-center justify-between">
+          <span>{fetchError}</span>
+          <a href="/dashboard/subscription" className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg no-underline text-xs transition-colors">
+            Subscribe Now
+          </a>
+        </div>
+      )}
+
       <div className="table-controls">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search packages..." 
+          <input
+            type="text"
+            placeholder="Search packages..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -195,47 +226,47 @@ function ServicePackages() {
                   <tr key={pkg._id}>
                     <td>
                       <div className="service-cell">
-                        <div className="service-icon-box" style={{background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6'}}><Layers size={16}/></div>
+                        <div className="service-icon-box" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}><Layers size={16} /></div>
                         <div className="service-details">
-                            <span className="service-name">{pkg.packageName}</span>
-                            <span className="service-desc">{pkg.description?.substring(0, 30)}{pkg.description?.length > 30 ? '...' : ''}</span>
+                          <span className="service-name">{pkg.packageName}</span>
+                          <span className="service-desc">{pkg.description?.substring(0, 30)}{pkg.description?.length > 30 ? '...' : ''}</span>
                         </div>
                       </div>
                     </td>
                     <td>
                       <div className="service-tags">
-                          {pkg.services.slice(0, 2).map((s, idx) => (
-                              <span key={idx} className="small-tag">{s.serviceName}</span>
-                          ))}
-                          {pkg.services.length > 2 && (
-                              <span className="small-tag more">+{pkg.services.length - 2} more</span>
-                          )}
+                        {pkg.services.slice(0, 2).map((s, idx) => (
+                          <span key={idx} className="small-tag">{s.serviceName}</span>
+                        ))}
+                        {pkg.services.length > 2 && (
+                          <span className="small-tag more">+{pkg.services.length - 2} more</span>
+                        )}
                       </div>
                     </td>
                     <td>
-                      <div className="text-muted" style={{textDecoration: 'line-through'}}>
+                      <div className="text-muted" style={{ textDecoration: 'line-through' }}>
                         ₹ {pkg.totalOriginalPrice}
                       </div>
                     </td>
                     <td>
                       <div className="price-cell">
-                        <IndianRupee size={14}/> {pkg.packagePrice}
+                        <IndianRupee size={14} /> {pkg.packagePrice}
                       </div>
                       <div className="savings-badge">Save ₹{pkg.savings}</div>
                     </td>
                     <td>
-                      <button 
-                         className={`status-badge border-0 cursor-pointer ${pkg.isActive ? 'active' : 'inactive'}`}
-                         onClick={() => handleToggleStatus(pkg._id)}
-                         title="Click to toggle status"
+                      <button
+                        className={`status-badge border-0 cursor-pointer ${pkg.isActive ? 'active' : 'inactive'}`}
+                        onClick={() => handleToggleStatus(pkg._id)}
+                        title="Click to toggle status"
                       >
                         {pkg.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="icon-btn edit" onClick={() => openModal(pkg)}><Edit2 size={16}/></button>
-                        <button className="icon-btn delete" onClick={() => handleDelete(pkg._id)}><Trash2 size={16}/></button>
+                        <button className="icon-btn edit" onClick={() => openModal(pkg)}><Edit2 size={16} /></button>
+                        <button className="icon-btn delete" onClick={() => handleDelete(pkg._id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -253,14 +284,14 @@ function ServicePackages() {
       {/* Modal / Form */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth: '600px'}}>
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h2>{editingPackage ? 'Edit Package' : 'Create New Package'}</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Package Name *</label>
@@ -270,43 +301,43 @@ function ServicePackages() {
               <div className="form-group">
                 <label>Select Included Services (Select minimum 2) *</label>
                 <div className="services-selection-list">
-                    {availableServices.length > 0 ? (
-                        availableServices.map(svc => (
-                            <div 
-                               key={svc._id} 
-                               className={`service-picker-card ${formData.selectedServices.includes(svc._id) ? 'selected' : ''}`}
-                               onClick={() => toggleServiceSelection(svc._id)}
-                            >
-                                <div className="sp-header">
-                                    <Scissors size={14} /> <span>{svc.serviceName}</span>
-                                </div>
-                                <div className="sp-price">₹{svc.price}</div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="text-muted">No services found. Add standalone services first.</div>
-                    )}
+                  {availableServices.length > 0 ? (
+                    availableServices.map(svc => (
+                      <div
+                        key={svc._id}
+                        className={`service-picker-card ${formData.selectedServices.includes(svc._id) ? 'selected' : ''}`}
+                        onClick={() => toggleServiceSelection(svc._id)}
+                      >
+                        <div className="sp-header">
+                          <Scissors size={14} /> <span>{svc.serviceName}</span>
+                        </div>
+                        <div className="sp-price">₹{svc.price}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-muted">No services found. Add standalone services first.</div>
+                  )}
                 </div>
               </div>
-              
+
               <div className="form-row">
-                 <div className="form-group">
-                     <label>Original Total Value</label>
-                     <div className="readonly-box">₹ {calculateFormSavings().originalTotal}</div>
-                 </div>
-                 <div className="form-group">
-                     <label>Final Package Price (₹) *</label>
-                     <input type="number" name="packagePrice" required min="0" value={formData.packagePrice} onChange={handleInputChange} placeholder="e.g. 1500" />
-                 </div>
+                <div className="form-group">
+                  <label>Original Total Value</label>
+                  <div className="readonly-box">₹ {calculateFormSavings().originalTotal}</div>
+                </div>
+                <div className="form-group">
+                  <label>Final Package Price (₹) *</label>
+                  <input type="number" name="packagePrice" required min="0" value={formData.packagePrice} onChange={handleInputChange} placeholder="e.g. 1500" />
+                </div>
               </div>
 
               {Number(formData.packagePrice) > 0 && (
-                  <div className={`savings-indicator ${calculateFormSavings().savings >= 0 ? 'positive' : 'negative'}`}>
-                      {calculateFormSavings().savings >= 0 
-                         ? `Client saves ₹${calculateFormSavings().savings} on this package 🎉`
-                         : `Warning: Package price is ₹${Math.abs(calculateFormSavings().savings)} MORE than standalone services!`
-                      }
-                  </div>
+                <div className={`savings-indicator ${calculateFormSavings().savings >= 0 ? 'positive' : 'negative'}`}>
+                  {calculateFormSavings().savings >= 0
+                    ? `Client saves ₹${calculateFormSavings().savings} on this package 🎉`
+                    : `Warning: Package price is ₹${Math.abs(calculateFormSavings().savings)} MORE than standalone services!`
+                  }
+                </div>
               )}
 
               <div className="form-group">

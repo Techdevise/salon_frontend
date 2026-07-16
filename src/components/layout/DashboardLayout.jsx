@@ -5,7 +5,7 @@ import { logout, updateProfileImage } from '../../redux/slices/authSlice';
 import axios from 'axios';
 import {
   Users, Calendar, Scissors, CreditCard, Tag, Repeat, CalendarDays,
-  Settings, LogOut, LayoutDashboard, UserCircle, Bell
+  Settings, LogOut, LayoutDashboard, UserCircle, Bell, Sparkles
 } from 'lucide-react';
 import '../../styles/DashboardLayout.css';
 
@@ -20,8 +20,9 @@ const SIDEBAR_ROUTES = [
   { path: '/dashboard/staff', name: 'Staff Management', icon: <UserCircle size={20} />, roles: ['Admin'] },
   { path: '/dashboard/services', name: 'Services & Pricing', icon: <Scissors size={20} />, roles: ['Admin'] },
   { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist'] },
-  { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] }
+  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
+  { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] },
+  { path: '/dashboard/subscription', name: 'Subscription Plan', icon: <Sparkles size={20} />, roles: ['Admin', 'Receptionist'] }
 ];
 
 function DashboardLayout() {

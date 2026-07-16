@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 import { Tag, Plus, Search, Edit2, Trash2, X } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import '../styles/Discounts.css';
+import { useConfirm } from '../components/ConfirmModal';
 
 function Discounts() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [discounts, setDiscounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -30,16 +35,23 @@ function Discounts() {
 
   useEffect(() => {
     fetchDiscounts();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchDiscounts = async () => {
+    setLoading(true);
+    setFetchError('');
     try {
-      const res = await axios.get('/api/discount', { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/discount${salonParam}`, { withCredentials: true });
       if (res.data?.data) {
         setDiscounts(res.data.data);
       }
     } catch (error) {
       console.error("Error fetching discounts:", error);
+      if (error.response?.status === 403) {
+        setFetchError(error.response?.data?.message || 'Subscription validation failed.');
+      }
+      setDiscounts([]);
     } finally {
       setLoading(false);
     }
@@ -86,7 +98,10 @@ function Discounts() {
     setErrorMsg('');
 
     try {
-      const payload = { ...formData };
+      const payload = { 
+        ...formData,
+        ...(selectedSalonId && { salonId: selectedSalonId })
+      };
       
       // Auto-fill title if missing
       if (!payload.title) payload.title = `${payload.discountValue}${payload.discountType === 'Percentage' ? '%' : ' Rs'} off`;
@@ -111,12 +126,21 @@ function Discounts() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this promo code?")) {
+    const discount = discounts.find(d => d._id === id);
+    const promoCode = discount?.promoCode || 'this promo code';
+    const confirmed = await confirm({
+      title: 'Delete Promo Code',
+      message: `Are you sure you want to delete promo code "${promoCode}"? This action is permanent.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.delete(`/api/discount/delete/${id}`, { withCredentials: true });
         fetchDiscounts();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete');
+        console.error('Failed to delete promo code:', error);
       }
     }
   };
@@ -145,6 +169,15 @@ function Discounts() {
           <Plus size={18} /> Add Promo Code
         </button>
       </div>
+
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 mb-6 text-sm flex items-center justify-between">
+          <span>{fetchError}</span>
+          <a href="/dashboard/subscription" className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg no-underline text-xs transition-colors">
+            Subscribe Now
+          </a>
+        </div>
+      )}
 
       <div className="table-controls">
         <div className="search-bar">

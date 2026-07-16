@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 import { UserCircle, Plus, Search, Edit2, Trash2, Mail, Phone, Calendar, X } from 'lucide-react';
 import '../styles/DashboardPages.css';
+import { useConfirm } from '../components/ConfirmModal';
 
 function Staff() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [staffList, setStaffList] = useState([]);
   const [availableServices, setAvailableServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -28,14 +33,21 @@ function Staff() {
   useEffect(() => {
     fetchStaff();
     fetchServices();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchStaff = async () => {
+    setLoading(true);
+    setFetchError('');
     try {
-      const res = await axios.get('/api/staff/all', { withCredentials: true });
-      setStaffList(res.data.data);
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/staff/all${salonParam}`, { withCredentials: true });
+      setStaffList(res.data.data || []);
     } catch (error) {
       console.error("Error fetching staff:", error);
+      if (error.response?.status === 403) {
+        setFetchError(error.response?.data?.message || 'Subscription validation failed.');
+      }
+      setStaffList([]);
     } finally {
       setLoading(false);
     }
@@ -43,10 +55,12 @@ function Staff() {
 
   const fetchServices = async () => {
     try {
-        const res = await axios.get('/api/service/all', { withCredentials: true });
+        const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+        const res = await axios.get(`/api/service/all${salonParam}`, { withCredentials: true });
         setAvailableServices(res.data.data || []);
     } catch (error) {
         console.error("Failed to load services for staff selection");
+        setAvailableServices([]);
     }
   };
 
@@ -102,7 +116,11 @@ function Staff() {
 
         await axios.put(`/api/staff/update/${editingStaff._id}`, payload, { withCredentials: true });
       } else {
-        await axios.post('/api/staff/add', formData, { withCredentials: true });
+        const payload = {
+          ...formData,
+          ...(selectedSalonId && { salonId: selectedSalonId })
+        };
+        await axios.post('/api/staff/add', payload, { withCredentials: true });
       }
       fetchStaff();
       closeModal();
@@ -114,12 +132,21 @@ function Staff() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to remove this staff member?")) {
+    const staff = staffList.find(s => s._id === id);
+    const staffName = staff?.name || 'this staff member';
+    const confirmed = await confirm({
+      title: 'Remove Staff Member',
+      message: `Are you sure you want to remove staff member "${staffName}"? This action cannot be undone.`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.delete(`/api/staff/delete/${id}`, { withCredentials: true });
         fetchStaff();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete');
+        console.error('Failed to delete staff:', error);
       }
     }
   };
@@ -149,6 +176,15 @@ function Staff() {
           <Plus size={18} /> Add Staff
         </button>
       </div>
+
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 mb-6 text-sm flex items-center justify-between">
+          <span>{fetchError}</span>
+          <a href="/dashboard/subscription" className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg no-underline text-xs transition-colors">
+            Subscribe Now
+          </a>
+        </div>
+      )}
 
       <div className="table-controls">
         <div className="search-bar">

@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Search, Edit2, Trash2, Phone, Mail, X } from 'lucide-react';
 import '../styles/DashboardPages.css';
+import { useConfirm } from '../components/ConfirmModal';
+import { useSelector } from 'react-redux';
 
 function Customers() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,11 +31,12 @@ function Customers() {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get('/api/customer', { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/customer${salonParam}`, { withCredentials: true });
       setCustomers(res.data.data);
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -78,7 +83,12 @@ function Customers() {
       if (editingCustomer) {
         await axios.put(`/api/customer/${editingCustomer._id}`, formData, { withCredentials: true });
       } else {
-        await axios.post('/api/customer/create', formData, { withCredentials: true });
+        // Add customer to the selected salon
+        const payload = {
+          ...formData,
+          ...(selectedSalonId && { salonId: selectedSalonId })
+        };
+        await axios.post('/api/customer/create', payload, { withCredentials: true });
       }
       fetchCustomers();
       closeModal();
@@ -90,12 +100,21 @@ function Customers() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this customer record?")) {
+    const customer = customers.find(c => c._id === id);
+    const customerName = customer?.name || 'this customer';
+    const confirmed = await confirm({
+      title: 'Delete Customer Record',
+      message: `Are you sure you want to delete the record for "${customerName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.delete(`/api/customer/${id}`, { withCredentials: true });
         fetchCustomers();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete');
+        console.error('Failed to delete customer:', error);
       }
     }
   };
@@ -105,12 +124,12 @@ function Customers() {
       await axios.patch(`/api/customer/${id}/toggle`, {}, { withCredentials: true });
       fetchCustomers();
     } catch (error) {
-        alert(error.response?.data?.message || 'Failed to toggle status');
+      alert(error.response?.data?.message || 'Failed to toggle status');
     }
   };
 
 
-  const filteredCustomers = customers.filter(c => 
+  const filteredCustomers = customers.filter(c =>
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.phone?.includes(searchTerm)
   );
@@ -130,9 +149,9 @@ function Customers() {
       <div className="table-controls">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search by name or phone..." 
+          <input
+            type="text"
+            placeholder="Search by name or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -165,24 +184,24 @@ function Customers() {
                     </td>
                     <td>
                       <div className="contact-cell">
-                        <span><Phone size={14}/> {customer.phone}</span>
-                        {customer.email && <span><Mail size={14}/> {customer.email}</span>}
+                        <span><Phone size={14} /> {customer.phone}</span>
+                        {customer.email && <span><Mail size={14} /> {customer.email}</span>}
                       </div>
                     </td>
                     <td>{customer.totalVisits || 0} visits</td>
                     <td>
-                      <button 
-                         className={`status-badge border-0 cursor-pointer ${customer.isActive ? 'active' : 'inactive'}`}
-                         onClick={() => handleToggleStatus(customer._id)}
-                         title="Click to toggle status"
+                      <button
+                        className={`status-badge border-0 cursor-pointer ${customer.isActive ? 'active' : 'inactive'}`}
+                        onClick={() => handleToggleStatus(customer._id)}
+                        title="Click to toggle status"
                       >
                         {customer.isActive ? 'Active' : 'Inactive'}
                       </button>
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="icon-btn edit" onClick={() => openModal(customer)}><Edit2 size={16}/></button>
-                        <button className="icon-btn delete" onClick={() => handleDelete(customer._id)}><Trash2 size={16}/></button>
+                        <button className="icon-btn edit" onClick={() => openModal(customer)}><Edit2 size={16} /></button>
+                        <button className="icon-btn delete" onClick={() => handleDelete(customer._id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -203,17 +222,17 @@ function Customers() {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Full Name *</label>
                 <input type="text" name="name" required value={formData.name} onChange={handleInputChange} placeholder="e.g. John Doe" />
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Phone Number *</label>
@@ -226,18 +245,18 @@ function Customers() {
               </div>
 
               <div className="form-row">
-                  <div className="form-group">
-                    <label>Gender</label>
-                    <select name="gender" value={formData.gender} onChange={handleInputChange}>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Date of Birth</label>
-                    <input type="date" name="dob" className="date-picker-input" value={formData.dob} onChange={handleInputChange} />
-                  </div>
+                <div className="form-group">
+                  <label>Gender</label>
+                  <select name="gender" value={formData.gender} onChange={handleInputChange}>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Date of Birth</label>
+                  <input type="date" name="dob" className="date-picker-input" value={formData.dob} onChange={handleInputChange} />
+                </div>
               </div>
 
               <div className="form-group">

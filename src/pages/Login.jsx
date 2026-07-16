@@ -31,7 +31,7 @@ function Login() {
         user: res.data.user,
         token: res.data.token
       }));
-      
+
       // Redirect based on role
       if (res.data.user.role === 'Staff') {
         navigate("/dashboard/appointments");

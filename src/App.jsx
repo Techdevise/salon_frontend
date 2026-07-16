@@ -12,12 +12,15 @@ import BookingCalendar from "./pages/BookingCalendar";
 import RecurringAppointments from "./pages/RecurringAppointments";
 import Billing from "./pages/Billing";
 import ServicePackages from "./pages/ServicePackages";
+import Subscription from "./pages/Subscription";
 import { PrivateRoute, RoleRoute, PublicOnlyRoute } from "./components/routes/ProtectedRoutes";
 import { useSelector } from 'react-redux';
+import { ConfirmProvider } from "./components/ConfirmModal";
 
 function App() {
   return (
-    <BrowserRouter>
+    <ConfirmProvider>
+      <BrowserRouter>
       <Routes>
         {/* Public Routes - Auto redirect to dashboard if logged in */}
         <Route element={<PublicOnlyRoute />}>
@@ -48,6 +51,11 @@ function App() {
               <Route path="billing" element={<Billing />} />
             </Route>
 
+            {/* Accessible to Admin and Receptionist */}
+            <Route element={<RoleRoute allowedRoles={['Admin', 'Receptionist']} />}>
+              <Route path="subscription" element={<Subscription />} />
+            </Route>
+
           </Route>
         </Route>
 
@@ -55,6 +63,7 @@ function App() {
         <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter>
+    </ConfirmProvider>
   );
 }
 

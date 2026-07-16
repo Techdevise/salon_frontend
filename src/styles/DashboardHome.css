@@ -196,3 +196,237 @@
     grid-column: 1;
   }
 }
+
+/* ========== Add Salon Controls & Info Card Styles ========== */
+.dashboard-title-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.salon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #c084fc;
+  font-weight: 500;
+}
+
+.salon-badge-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.salon-selector-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1.8rem 0.5rem 1rem;
+  border-radius: 8px;
+  position: relative;
+  gap: 0.5rem;
+  color: #fff;
+  height: 38px;
+  box-sizing: border-box;
+}
+
+.salon-selector-wrap select {
+  background: transparent;
+  border: none;
+  color: white;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.salon-selector-wrap select option {
+  background: #181825;
+  color: white;
+}
+
+.selector-icon {
+  color: #a1a1aa;
+}
+
+.selector-chevron {
+  position: absolute;
+  right: 0.8rem;
+  pointer-events: none;
+  color: #a1a1aa;
+}
+
+.add-salon-btn {
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  color: white;
+  border: none;
+  padding: 0 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+  font-size: 0.9rem;
+  height: 38px;
+}
+
+.add-salon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+.salon-detail-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.salon-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.salon-detail-icon {
+  background: rgba(124, 58, 237, 0.1);
+  color: #c084fc;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.salon-detail-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.salon-detail-header p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.salon-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .salon-detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.salon-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 0.9rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+.detail-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.detail-status.active {
+  color: #34d399;
+}
+
+.detail-status.inactive {
+  color: #f87171;
+}
+
+/* Action buttons in salon detail card */
+.salon-detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.salon-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.salon-action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.salon-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.salon-action-btn.edit:hover {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.3);
+  color: #c084fc;
+}
+
+.salon-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}

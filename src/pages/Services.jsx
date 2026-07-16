@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 import { Scissors, Plus, Search, Edit2, Trash2, Clock, IndianRupee, X } from 'lucide-react';
 import '../styles/DashboardPages.css';
+import { useConfirm } from '../components/ConfirmModal';
 
 function Services() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fetchError, setFetchError] = useState('');
   
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -25,17 +30,21 @@ function Services() {
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchServices = async () => {
+    setLoading(true);
+    setFetchError('');
     try {
-      const res = await axios.get('/api/service/all', { withCredentials: true });
-      setServices(res.data.data);
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/service/all${salonParam}`, { withCredentials: true });
+      setServices(res.data.data || []);
     } catch (error) {
       console.error("Error fetching services:", error);
-      if(error.response?.status !== 404) {
-         // Only log if it's not a expected 404 (no services)
+      if (error.response?.status === 403) {
+        setFetchError(error.response?.data?.message || 'Subscription validation failed.');
       }
+      setServices([]);
     } finally {
       setLoading(false);
     }
@@ -79,7 +88,11 @@ function Services() {
         await axios.put(`/api/service/update/${editingService._id}`, formData, { withCredentials: true });
       } else {
         // Create
-        await axios.post('/api/service/create', formData, { withCredentials: true });
+        const payload = {
+          ...formData,
+          ...(selectedSalonId && { salonId: selectedSalonId })
+        };
+        await axios.post('/api/service/create', payload, { withCredentials: true });
       }
       fetchServices();
       closeModal();
@@ -91,12 +104,21 @@ function Services() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this service?")) {
+    const service = services.find(s => s._id === id);
+    const serviceName = service?.serviceName || 'this service';
+    const confirmed = await confirm({
+      title: 'Delete Service',
+      message: `Are you sure you want to delete the service "${serviceName}"? This action is permanent.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.delete(`/api/service/delete/${id}`, { withCredentials: true });
         fetchServices();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete');
+        console.error('Failed to delete service:', error);
       }
     }
   };
@@ -126,6 +148,15 @@ function Services() {
           <Plus size={18} /> Add Service
         </button>
       </div>
+
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 mb-6 text-sm flex items-center justify-between">
+          <span>{fetchError}</span>
+          <a href="/dashboard/subscription" className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg no-underline text-xs transition-colors">
+            Subscribe Now
+          </a>
+        </div>
+      )}
 
       <div className="table-controls">
         <div className="search-bar">

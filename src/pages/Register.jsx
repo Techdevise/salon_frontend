@@ -5,7 +5,6 @@ import { useDispatch } from "react-redux";
 import { loginSuccess } from "../redux/slices/authSlice";
 import "../styles/Auth.css";
 
-const ROLES = ["Admin", "Staff", "Receptionist"];
 
 function Register() {
   const navigate = useNavigate();
@@ -177,39 +176,18 @@ function Register() {
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="role">Role</label>
-                <div className="input-wrapper select-wrapper">
-                  <select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    required
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r.charAt(0).toUpperCase() + r.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="salonName">Salon Name</label>
-                <div className="input-wrapper">
-                  <input
-                    id="salonName"
-                    type="text"
-                    name="salonName"
-                    placeholder="Enter Salon Name"
-                    value={formData.salonName}
-                    onChange={handleChange}
-                    required={formData.role === "Staff" || formData.role === "Receptionist"}
-                  />
-                </div>
+            <div className="form-group">
+              <label htmlFor="salonName">Salon Name</label>
+              <div className="input-wrapper">
+                <input
+                  id="salonName"
+                  type="text"
+                  name="salonName"
+                  placeholder="Enter Salon Name"
+                  value={formData.salonName}
+                  onChange={handleChange}
+                  required
+                />
               </div>
             </div>
 

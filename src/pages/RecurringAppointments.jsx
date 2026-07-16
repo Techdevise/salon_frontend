@@ -3,8 +3,12 @@ import axios from 'axios';
 import { Repeat, Plus, Search, Trash2, Calendar, User, Clock, Scissors, X } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import '../styles/RecurringAppointments.css';
+import { useSelector } from 'react-redux';
+import { useConfirm } from '../components/ConfirmModal';
 
 function RecurringAppointments() {
+  const confirm = useConfirm();
+  const { selectedSalonId } = useSelector((state) => state.salon);
   const [recurringList, setRecurringList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,11 +37,12 @@ function RecurringAppointments() {
   useEffect(() => {
     fetchRecurring();
     fetchOptions();
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchRecurring = async () => {
     try {
-      const res = await axios.get('/api/recurring', { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/recurring${salonParam}`, { withCredentials: true });
       if (res.data?.data) {
         setRecurringList(res.data.data);
       }
@@ -50,10 +55,11 @@ function RecurringAppointments() {
 
   const fetchOptions = async () => {
     try {
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
       const [custRes, servRes, staffRes] = await Promise.all([
-        axios.get('/api/customer', { withCredentials: true }),
+        axios.get(`/api/customer${salonParam}`, { withCredentials: true }),
         axios.get('/api/service/all', { withCredentials: true }),
-        axios.get('/api/staff/all', { withCredentials: true })
+        axios.get(`/api/staff/all${salonParam}`, { withCredentials: true })
       ]);
       setCustomers(custRes.data?.data || []);
       setServices(servRes.data?.data || []);
@@ -70,7 +76,7 @@ function RecurringAppointments() {
   const openModal = () => {
     setErrorMsg('');
     setFormData({
-      customerId: '', serviceId: '', staffId: '', frequency: 'Weekly', 
+      customerId: '', serviceId: '', staffId: '', frequency: 'Weekly',
       firstAppointmentDate: '', appointmentTime: '', endDate: '', notes: ''
     });
     setShowModal(true);
@@ -84,7 +90,12 @@ function RecurringAppointments() {
     setErrorMsg('');
 
     try {
-      await axios.post('/api/recurring/create', formData, { withCredentials: true });
+      // Create recurring booking in the selected salon
+      const payload = {
+        ...formData,
+        ...(selectedSalonId && { salonId: selectedSalonId })
+      };
+      await axios.post('/api/recurring/create', payload, { withCredentials: true });
       fetchRecurring();
       closeModal();
     } catch (error) {
@@ -95,17 +106,26 @@ function RecurringAppointments() {
   };
 
   const handleCancel = async (id) => {
-    if (window.confirm("Are you sure you want to cancel all future appointments in this series?")) {
+    const item = recurringList.find(r => r._id === id);
+    const customerName = item?.customerName || 'this series';
+    const confirmed = await confirm({
+      title: 'Cancel Recurring Series',
+      message: `Are you sure you want to cancel all future appointments in the series for "${customerName}"?`,
+      confirmText: 'Cancel Series',
+      cancelText: 'Keep Series',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.patch(`/api/recurring/cancel/${id}`, {}, { withCredentials: true });
         fetchRecurring();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to cancel');
+        console.error('Failed to cancel recurring series:', error);
       }
     }
   };
 
-  const filteredList = recurringList.filter(r => 
+  const filteredList = recurringList.filter(r =>
     r.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.serviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -125,9 +145,9 @@ function RecurringAppointments() {
       <div className="table-controls">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search by customer or service..." 
+          <input
+            type="text"
+            placeholder="Search by customer or service..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -162,7 +182,7 @@ function RecurringAppointments() {
                     <td>
                       <div className="flex-col-cell">
                         <span className="font-medium text-white flex-center gap-2"><Scissors size={14} className="text-pink" /> {item.serviceName || 'Service'}</span>
-                        <span className="text-sm text-gray flex-center gap-2 mt-1"><User size={12}/> with {item.staffName || 'Any'}</span>
+                        <span className="text-sm text-gray flex-center gap-2 mt-1"><User size={12} /> with {item.staffName || 'Any'}</span>
                       </div>
                     </td>
                     <td>
@@ -186,7 +206,7 @@ function RecurringAppointments() {
                     <td>
                       <div className="action-buttons">
                         {item.status === 'Active' && (
-                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series"><X size={16}/></button>
+                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series"><X size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -207,11 +227,11 @@ function RecurringAppointments() {
           <div className="modal-content large-modal">
             <div className="modal-header">
               <h2>Setup Recurring Appointment</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-row">
                 <div className="form-group">

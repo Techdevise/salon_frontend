@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store } from 'lucide-react';
 import '../styles/DashboardPages.css';
+import { useSelector } from 'react-redux';
+
+import { useConfirm } from '../components/ConfirmModal';
 
 function Appointments() {
+  const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+  const confirm = useConfirm();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Modal & Option States
   const [showModal, setShowModal] = useState(false);
@@ -30,32 +35,34 @@ function Appointments() {
 
   useEffect(() => {
     fetchAppointments();
-  }, [filterDate]);
+  }, [filterDate, selectedSalonId]);
 
   useEffect(() => {
-     // Fetch dropdown data once
-     fetchOptions();
-  }, []);
+    // Fetch dropdown data when salon changes
+    fetchOptions();
+  }, [selectedSalonId]);
 
   const fetchOptions = async () => {
     try {
-        const [staffRes, custRes, servRes] = await Promise.all([
-           axios.get('/api/staff/all', { withCredentials: true }),
-           axios.get('/api/customer', { withCredentials: true }),
-           axios.get('/api/service/all', { withCredentials: true })
-        ]);
-        setStaffList(staffRes.data.data || []);
-        setCustomerList(custRes.data.data || []);
-        setServiceList(servRes.data.data || []);
-    } catch(err) {
-        console.error("Failed to load select options");
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const [staffRes, custRes, servRes] = await Promise.all([
+        axios.get(`/api/staff/all${salonParam}`, { withCredentials: true }),
+        axios.get(`/api/customer${salonParam}`, { withCredentials: true }),
+        axios.get('/api/service/all', { withCredentials: true })
+      ]);
+      setStaffList(staffRes.data.data || []);
+      setCustomerList(custRes.data.data || []);
+      setServiceList(servRes.data.data || []);
+    } catch (err) {
+      console.error("Failed to load select options");
     }
   };
 
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/appointment/date?date=${filterDate}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/appointment/date?date=${filterDate}${salonParam}`, { withCredentials: true });
       setAppointments(res.data.data);
     } catch (error) {
       console.error("Error fetching appointments:", error);
@@ -67,13 +74,13 @@ function Appointments() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Auto populate price logic
     let updatedData = { ...formData, [name]: value };
     if (name === 'serviceId') {
       const selectedService = serviceList.find(s => s._id === value);
       if (selectedService) {
-         updatedData.totalAmount = selectedService.price;
+        updatedData.totalAmount = selectedService.price;
       }
     }
     setFormData(updatedData);
@@ -94,9 +101,9 @@ function Appointments() {
       });
     } else {
       setEditingAppointment(null);
-      setFormData({ 
-        customerId: '', staffId: '', serviceId: '', 
-        date: filterDate, startTime: '', totalAmount: '', notes: '' 
+      setFormData({
+        customerId: '', staffId: '', serviceId: '',
+        date: filterDate, startTime: '', totalAmount: '', notes: ''
       });
     }
     setShowModal(true);
@@ -116,23 +123,25 @@ function Appointments() {
       const payload = {
         customerId: formData.customerId,
         staffId: formData.staffId,
-        services: [formData.serviceId], // Controller expects array
+        services: [formData.serviceId],
         date: formData.date,
-        timeSlot: { start: formData.startTime, end: "TBD" }, // End is placeholder as per schema flex
+        timeSlot: { start: formData.startTime, end: "TBD" },
         totalAmount: formData.totalAmount,
-        notes: formData.notes
+        notes: formData.notes,
+        // Create booking in the selected salon
+        ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
       if (editingAppointment) {
-         // Controller currently has no 'update full booking' route easily visible, just status
-         // We'll throw temporary error if trying full edit instead of status
-         alert("Full edit not supported by current API routes. Use status toggles.");
-         setFormLoading(false);
-         return;
+        // Controller currently has no 'update full booking' route easily visible, just status
+        // We'll throw temporary error if trying full edit instead of status
+        alert("Full edit not supported by current API routes. Use status toggles.");
+        setFormLoading(false);
+        return;
       } else {
         await axios.post('/api/appointment/create', payload, { withCredentials: true });
       }
-      
+
       fetchAppointments();
       closeModal();
     } catch (error) {
@@ -152,12 +161,21 @@ function Appointments() {
   };
 
   const handleCancel = async (id) => {
-    if (window.confirm("Are you sure you want to cancel this booking?")) {
+    const apt = appointments.find(a => a._id === id);
+    const customerName = apt?.customerDetails?.name || 'this booking';
+    const confirmed = await confirm({
+      title: 'Cancel Appointment',
+      message: `Are you sure you want to cancel the appointment for "${customerName}"?`,
+      confirmText: 'Cancel Booking',
+      cancelText: 'Keep Booking',
+      type: 'danger'
+    });
+    if (confirmed) {
       try {
         await axios.patch(`/api/appointment/cancel/${id}`, {}, { withCredentials: true });
         fetchAppointments();
       } catch (error) {
-        alert(error.response?.data?.message || 'Failed to cancel');
+        console.error('Failed to cancel appointment:', error);
       }
     }
   };
@@ -187,18 +205,18 @@ function Appointments() {
       <div className="table-controls">
         <div className="search-bar">
           <CalendarIcon size={18} className="search-icon" />
-          <input 
-            type="date" 
+          <input
+            type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
             className="date-picker-input"
           />
         </div>
         <div className="quick-filters">
-            <button className="filter-pill active">All</button>
-            <button className="filter-pill">Confirmed</button>
-            <button className="filter-pill">Pending</button>
-            <button className="filter-pill">Cancelled</button>
+          <button className="filter-pill active">All</button>
+          <button className="filter-pill">Confirmed</button>
+          <button className="filter-pill">Pending</button>
+          <button className="filter-pill">Cancelled</button>
         </div>
       </div>
 
@@ -224,44 +242,44 @@ function Appointments() {
                   <tr key={apt._id}>
                     <td>
                       <div className="time-cell">
-                        <Clock size={16}/> {apt.timeSlot?.start || 'N/A'}
+                        <Clock size={16} /> {apt.timeSlot?.start || 'N/A'}
                       </div>
                     </td>
                     <td>
                       <div className="user-combo">
-                        <User size={14}/> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}
-                        {apt.customerDetails?.phone && <span style={{fontSize: '0.75rem', color: '#a1a1aa', borderLeft: '1px solid #333', paddingLeft: '5px', marginLeft: '5px'}}>{apt.customerDetails?.phone}</span>}
+                        <User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}
+                        {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', borderLeft: '1px solid #333', paddingLeft: '5px', marginLeft: '5px' }}>{apt.customerDetails?.phone}</span>}
                       </div>
                     </td>
                     <td>
                       <div className="service-combo">
-                        <Scissors size={14}/> {apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}
+                        <Scissors size={14} /> {apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}
                       </div>
                     </td>
                     <td>
-                       <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
+                      <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
                     </td>
                     <td>
-                        <div className="price-cell" style={{fontWeight: 600}}>
-                           <IndianRupee size={12}/> {apt.totalAmount}
-                        </div>
+                      <div className="price-cell" style={{ fontWeight: 600 }}>
+                        <IndianRupee size={12} /> {apt.totalAmount}
+                      </div>
                     </td>
                     <td>
-                      <select 
-                         className={`status-badge border-0 cursor-pointer ${getStatusColor(apt.status)}`}
-                         value={apt.status}
-                         onChange={(e) => handleStatusChange(apt._id, e.target.value)}
+                      <select
+                        className={`status-badge border-0 cursor-pointer ${getStatusColor(apt.status)}`}
+                        value={apt.status}
+                        onChange={(e) => handleStatusChange(apt._id, e.target.value)}
                       >
-                         <option value="Pending">Pending</option>
-                         <option value="Confirmed">Confirmed</option>
-                         <option value="Completed">Completed</option>
-                         <option value="Cancelled">Cancelled</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
                       </select>
                     </td>
                     <td>
                       <div className="action-buttons">
                         {apt.status !== 'Cancelled' && (
-                            <button className="icon-btn delete" onClick={() => handleCancel(apt._id)} title="Cancel Booking"><Trash2 size={16}/></button>
+                          <button className="icon-btn delete" onClick={() => handleCancel(apt._id)} title="Cancel Booking"><Trash2 size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -283,18 +301,18 @@ function Appointments() {
           <div className="modal-content">
             <div className="modal-header">
               <h2>New Appointment Booking</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Select Customer *</label>
                 <select name="customerId" required value={formData.customerId} onChange={handleInputChange}>
                   <option value="">-- Choose Customer --</option>
                   {customerList.map(c => (
-                      <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
+                    <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
                   ))}
                 </select>
               </div>
@@ -304,7 +322,7 @@ function Appointments() {
                 <select name="serviceId" required value={formData.serviceId} onChange={handleInputChange}>
                   <option value="">-- Choose Service --</option>
                   {serviceList.map(s => (
-                      <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
+                    <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
                   ))}
                 </select>
               </div>
@@ -314,15 +332,15 @@ function Appointments() {
                 <select name="staffId" required value={formData.staffId} onChange={handleInputChange}>
                   <option value="">-- Assign To Staff --</option>
                   {staffList.map(s => (
-                      <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
+                    <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
                   ))}
                 </select>
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Date *</label>
-                  <input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="date-picker-input"/>
+                  <input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="date-picker-input" />
                 </div>
                 <div className="form-group">
                   <label>Time Slot *</label>
@@ -331,8 +349,8 @@ function Appointments() {
               </div>
 
               <div className="form-group">
-                  <label>Total Price (₹)</label>
-                  <input type="number" name="totalAmount" required min="0" value={formData.totalAmount} onChange={handleInputChange} placeholder="Auto calculates or enter manual" />
+                <label>Total Price (₹)</label>
+                <input type="number" name="totalAmount" required min="0" value={formData.totalAmount} onChange={handleInputChange} placeholder="Auto calculates or enter manual" />
               </div>
 
               <div className="form-group">

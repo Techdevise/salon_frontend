@@ -5,33 +5,104 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import '../styles/DashboardHome.css';
-import { IndianRupee, Users, Scissors, TrendingUp } from 'lucide-react';
+import { IndianRupee, Users, Scissors, TrendingUp, Plus, Store, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { setSalons as setSalonsList, setSelectedSalon } from '../redux/slices/salonSlice';
+import AddSalon from './AddSalon';
+import { useConfirm } from '../components/ConfirmModal';
 
 const COLORS = ['#7c3aed', '#db2777', '#3b82f6', '#10b981', '#f59e0b'];
 
 function DashboardHome() {
+  const dispatch = useDispatch();
+  const confirm = useConfirm();
+  const { user } = useSelector((state) => state.auth);
+  const { salons, selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+  const isAdmin = user?.role === 'Admin';
+
   const [filter, setFilter] = useState('monthly');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
+  // Modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingSalonData, setEditingSalonData] = useState(null);
+
   // Data states
   const [businessData, setBusinessData] = useState(null);
   const [customerData, setCustomerData] = useState(null);
   const [staffData, setStaffData] = useState([]);
 
+  // Fetch salons list for Admin
   useEffect(() => {
-    fetchDashboardData();
-  }, [filter]);
+    if (isAdmin) {
+      fetchSalonsList();
+    } else {
+      // Non-admins don't have a salon selection flow, fetch dashboard stats directly
+      fetchDashboardData();
+    }
+  }, [isAdmin]);
+
+  const fetchSalonsList = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/api/salon/all', {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        dispatch(setSalonsList(res.data.data));
+        // Auto-select first salon if none selected yet
+        if (res.data.data.length > 0 && !selectedSalonId) {
+          dispatch(setSelectedSalon(res.data.data[0]));
+        } else if (res.data.data.length === 0) {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Salons fetch error:', err);
+      setLoading(false);
+    }
+  };
+
+  // When salon selection changes, dispatch to Redux
+  const handleSalonChange = (e) => {
+    const id = e.target.value;
+    const salon = salons.find(s => s._id === id);
+    if (salon) dispatch(setSelectedSalon(salon));
+  };
+
+  useEffect(() => {
+    if (selectedSalonId) {
+      fetchDashboardData();
+    } else if (isAdmin && salons.length === 0) {
+      setLoading(false);
+    }
+  }, [filter, selectedSalonId, salons.length, isAdmin]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
     try {
-      // Fetching from all 3 dashboard endpoints in parallel
+      const token = localStorage.getItem('token');
+      // salonId query param — selected salon for Admin, blank for others (uses JWT salonId)
+      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
+
       const [businessRes, customerRes, staffRes] = await Promise.all([
-        axios.get(`/api/dashboard/business?filter=${filter}`, { withCredentials: true }),
-        axios.get(`/api/dashboard/customers?filter=${filter}`, { withCredentials: true }),
-        axios.get(`/api/dashboard/staff?filter=${filter}`, { withCredentials: true })
+        axios.get(`/api/dashboard/business?filter=${filter}${salonParam}`, {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`/api/dashboard/customers?filter=${filter}${salonParam}`, {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`/api/dashboard/staff?filter=${filter}${salonParam}`, {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
 
       setBusinessData(businessRes.data.data);
@@ -39,25 +110,68 @@ function DashboardHome() {
       setStaffData(staffRes.data.data);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
-      // Don't completely break UI if one fails or no data yet, just show empty
       setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
+  // Called after successfully adding a new salon
+  const handleSalonAdded = (newSalon) => {
+    const updatedList = [newSalon, ...salons];
+    dispatch(setSalonsList(updatedList));
+    dispatch(setSelectedSalon(newSalon));
+  };
+
+  const handleSalonUpdated = (updatedSalon) => {
+    const updatedList = salons.map(s => s._id === updatedSalon._id ? updatedSalon : s);
+    dispatch(setSalonsList(updatedList));
+    dispatch(setSelectedSalon(updatedSalon));
+  };
+
+  const handleDeleteSalon = async (salon) => {
+    const confirmed = await confirm({
+      title: 'Delete Salon Branch',
+      message: `Are you sure you want to delete "${salon.salonName}"? This action is permanent and cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!confirmed) {
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.delete(`/api/salon/${salon._id}`, {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        const updatedList = salons.filter(s => s._id !== salon._id);
+        dispatch(setSalonsList(updatedList));
+        if (updatedList.length > 0) {
+          dispatch(setSelectedSalon(updatedList[0]));
+        } else {
+          dispatch(setSelectedSalon(null));
+        }
+        alert('Salon deleted successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to delete salon:', err);
+      alert(err.response?.data?.message || 'Failed to delete salon');
+    }
+  };
+
   if (loading) return <div className="dashboard-loading">Loading Analytics...</div>;
 
-  // Safe fallbacks for data
+  // Safe fallbacks
   const totalRev = businessData?.totalRevenue?.total || 0;
   const totalBills = businessData?.totalRevenue?.totalBills || 0;
   const newCust = customerData?.newCustomers || 0;
   const totalCust = customerData?.totalCustomers || 0;
-  
-  // Formatting data for charts
   const revenueTrend = businessData?.revenueTrend || [];
   const serviceBreakdown = businessData?.serviceBreakdown || [];
-  
+
   const formattedStaffData = staffData.map(s => ({
     name: s.staffName || 'Unknown',
     revenue: s.totalRevenue || 0,
@@ -66,18 +180,81 @@ function DashboardHome() {
 
   return (
     <div className="dashboard-home">
-      
+
       {/* Top Controls */}
       <div className="dashboard-controls">
-        <h1 className="page-title">Business Overview</h1>
-        <div className="filter-group">
-          <button className={`filter-btn ${filter === 'daily' ? 'active' : ''}`} onClick={() => setFilter('daily')}>Today</button>
-          <button className={`filter-btn ${filter === 'weekly' ? 'active' : ''}`} onClick={() => setFilter('weekly')}>This Week</button>
-          <button className={`filter-btn ${filter === 'monthly' ? 'active' : ''}`} onClick={() => setFilter('monthly')}>This Month</button>
+        <div className="dashboard-title-block">
+          <h1 className="page-title">Business Overview</h1>
+          {/* Salon Info Badge */}
+          {isAdmin && selectedSalonInfo && (
+            <div className="salon-badge">
+              <Store size={14} />
+              <span>{selectedSalonInfo.salonName}</span>
+              {selectedSalonInfo.isActive !== false && <span className="salon-badge-active">Active</span>}
+            </div>
+          )}
+        </div>
+
+        <div className="controls-right">
+          {/* Salon Selector - Only for Admin */}
+          {isAdmin && salons.length > 0 && (
+            <div className="salon-selector-wrap">
+              <Store size={16} className="selector-icon" />
+              <select
+                value={selectedSalonId}
+                onChange={handleSalonChange}
+                id="salon-selector"
+              >
+                {salons.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.salonName}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="selector-chevron" />
+            </div>
+          )}
+
+          {/* Add Salon Button - Only for Admin */}
+          {isAdmin && (
+            <button
+              className="add-salon-btn"
+              onClick={() => setShowAddModal(true)}
+              id="add-salon-btn"
+            >
+              <Plus size={18} />
+              <span>Add Salon</span>
+            </button>
+          )}
+
+          <div className="filter-group">
+            <button className={`filter-btn ${filter === 'daily' ? 'active' : ''}`} onClick={() => setFilter('daily')}>Today</button>
+            <button className={`filter-btn ${filter === 'weekly' ? 'active' : ''}`} onClick={() => setFilter('weekly')}>This Week</button>
+            <button className={`filter-btn ${filter === 'monthly' ? 'active' : ''}`} onClick={() => setFilter('monthly')}>This Month</button>
+          </div>
         </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        error.toLowerCase().includes('subscription') ? (
+          <div className="bg-gradient-to-r from-violet-600/20 via-pink-600/10 to-transparent border border-violet-500/20 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-violet-500/10 text-violet-400">
+                <TrendingUp size={24} />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-bold text-white mb-1">Active Subscription Required</h3>
+                <p className="text-zinc-400 text-sm m-0">{error}</p>
+              </div>
+            </div>
+            <a href="/dashboard/subscription" className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white text-sm font-semibold rounded-xl transition-all shadow-md no-underline whitespace-nowrap">
+              Subscribe Now
+            </a>
+          </div>
+        ) : (
+          <div className="error-banner">{error}</div>
+        )
+      )}
 
       {/* Metric Cards */}
       <div className="metrics-grid">
@@ -86,16 +263,16 @@ function DashboardHome() {
           <div className="metric-info">
             <p>Total Revenue</p>
             <h3>₹{totalRev.toLocaleString()}</h3>
-            <span className="trend positive"><TrendingUp size={14}/> {totalBills} Bills</span>
+            <span className="trend positive"><TrendingUp size={14} /> {totalBills} Bills</span>
           </div>
         </div>
-        
+
         <div className="metric-card">
           <div className="metric-icon customers"><Users size={24} /></div>
           <div className="metric-info">
             <p>Total Customers</p>
             <h3>{totalCust}</h3>
-            <span className="trend positive"><TrendingUp size={14}/> +{newCust} New</span>
+            <span className="trend positive"><TrendingUp size={14} /> +{newCust} New</span>
           </div>
         </div>
 
@@ -109,9 +286,66 @@ function DashboardHome() {
         </div>
       </div>
 
+      {/* Salon Details Card - only when a salon is selected */}
+      {isAdmin && selectedSalonInfo && (
+        <div className="salon-detail-card">
+          <div className="salon-detail-header">
+            <div className="salon-detail-header-left">
+              <div className="salon-detail-icon"><Store size={20} /></div>
+              <div>
+                <h3>{selectedSalonInfo.salonName}</h3>
+                <p>Salon Details</p>
+              </div>
+            </div>
+            <div className="salon-detail-actions">
+              <button 
+                className="salon-action-btn edit" 
+                onClick={() => setEditingSalonData(selectedSalonInfo)}
+                title="Edit Salon"
+              >
+                <Pencil size={16} />
+              </button>
+              <button 
+                className="salon-action-btn delete" 
+                onClick={() => handleDeleteSalon(selectedSalonInfo)}
+                title="Delete Salon"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="salon-detail-grid">
+            {selectedSalonInfo.ownerName && (
+              <div className="salon-detail-item">
+                <span className="detail-label">Owner</span>
+                <span className="detail-value">{selectedSalonInfo.ownerName}</span>
+              </div>
+            )}
+            {selectedSalonInfo.email && (
+              <div className="salon-detail-item">
+                <span className="detail-label">Email</span>
+                <span className="detail-value">{selectedSalonInfo.email}</span>
+              </div>
+            )}
+            {selectedSalonInfo.phone && (
+              <div className="salon-detail-item">
+                <span className="detail-label">Phone</span>
+                <span className="detail-value">{selectedSalonInfo.phone}</span>
+              </div>
+            )}
+            <div className="salon-detail-item">
+              <span className="detail-label">Status</span>
+              <span className={`detail-status ${selectedSalonInfo.isActive !== false ? 'active' : 'inactive'}`}>
+                {selectedSalonInfo.isActive !== false ? '● Active' : '● Inactive'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Charts Grid */}
       <div className="charts-container">
-        
+
         {/* Revenue Trend Chart */}
         <div className="chart-card featured">
           <h3>Revenue Trend</h3>
@@ -122,7 +356,7 @@ function DashboardHome() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis dataKey="_id" stroke="#a1a1aa" fontSize={12} tickMargin={10} />
                   <YAxis stroke="#a1a1aa" fontSize={12} tickFormatter={(val) => `₹${val}`} />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#181825', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
                     itemStyle={{ color: '#e879f9' }}
                   />
@@ -143,7 +377,7 @@ function DashboardHome() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={serviceBreakdown.slice(0, 5)} // Only top 5
+                    data={serviceBreakdown.slice(0, 5)}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -156,7 +390,7 @@ function DashboardHome() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#181825', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
                     formatter={(value) => `₹${value}`}
                   />
@@ -164,7 +398,7 @@ function DashboardHome() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-                <div className="empty-chart">No service data for this period</div>
+              <div className="empty-chart">No service data for this period</div>
             )}
           </div>
         </div>
@@ -179,26 +413,40 @@ function DashboardHome() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                   <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
                   <YAxis stroke="#a1a1aa" fontSize={12} tickFormatter={(val) => `₹${val}`} />
-                  <Tooltip 
+                  <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     contentStyle={{ backgroundColor: '#181825', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
                   />
                   <Bar dataKey="revenue" name="Total Revenue" fill="url(#colorRevenue)" radius={[6, 6, 0, 0]} />
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#db2777" stopOpacity={0.8}/>
+                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#db2777" stopOpacity={0.8} />
                     </linearGradient>
                   </defs>
                 </BarChart>
               </ResponsiveContainer>
-             ) : (
-                <div className="empty-chart">No staff performance data for this period</div>
+            ) : (
+              <div className="empty-chart">No staff performance data for this period</div>
             )}
           </div>
         </div>
 
       </div>
+
+      {/* Add/Edit Salon Modal */}
+      {(showAddModal || editingSalonData) && isAdmin && (
+        <AddSalon
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingSalonData(null);
+          }}
+          onSalonAdded={handleSalonAdded}
+          editingSalon={editingSalonData}
+          onSalonUpdated={handleSalonUpdated}
+        />
+      )}
+
     </div>
   );
 }
