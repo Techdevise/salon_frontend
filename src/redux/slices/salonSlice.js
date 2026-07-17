@@ -12,8 +12,13 @@ const salonSlice = createSlice({
       state.salons = action.payload;
     },
     setSelectedSalon: (state, action) => {
-      state.selectedSalonId = action.payload._id;
-      state.selectedSalonInfo = action.payload;
+      if (action.payload) {
+        state.selectedSalonId = action.payload._id;
+        state.selectedSalonInfo = action.payload;
+      } else {
+        state.selectedSalonId = null;
+        state.selectedSalonInfo = null;
+      }
     },
     clearSalon: (state) => {
       state.selectedSalonId = null;

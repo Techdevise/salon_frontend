@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import '../styles/DashboardHome.css';
-import { IndianRupee, Users, Scissors, TrendingUp, Plus, Store, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { IndianRupee, Users, Scissors, TrendingUp, Plus, Store, ChevronDown, Pencil, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setSalons as setSalonsList, setSelectedSalon } from '../redux/slices/salonSlice';
 import AddSalon from './AddSalon';
@@ -23,6 +23,12 @@ function DashboardHome() {
   const [filter, setFilter] = useState('monthly');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null); // { text, type }
+
+  const showToast = (text, type = 'success') => {
+    setToast({ text, type });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -154,11 +160,11 @@ function DashboardHome() {
         } else {
           dispatch(setSelectedSalon(null));
         }
-        alert('Salon deleted successfully!');
+        showToast('Salon deleted successfully!');
       }
     } catch (err) {
       console.error('Failed to delete salon:', err);
-      alert(err.response?.data?.message || 'Failed to delete salon');
+      showToast(err.response?.data?.message || 'Failed to delete salon', 'error');
     }
   };
 
@@ -445,6 +451,13 @@ function DashboardHome() {
           editingSalon={editingSalonData}
           onSalonUpdated={handleSalonUpdated}
         />
+      )}
+
+      {toast && (
+        <div className={`dashboard-toast ${toast.type}`}>
+          {toast.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle size={20} />}
+          <span>{toast.text}</span>
+        </div>
       )}
 
     </div>
