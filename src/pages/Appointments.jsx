@@ -8,6 +8,7 @@ import { useConfirm } from '../components/ConfirmModal';
 
 function Appointments() {
   const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+  const { user } = useSelector((state) => state.auth);
   const confirm = useConfirm();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +35,11 @@ function Appointments() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchAppointments();
+    if (selectedSalonId || user?.role !== 'Admin') fetchAppointments();
   }, [filterDate, selectedSalonId]);
 
   useEffect(() => {
-    // Fetch dropdown data when salon changes
-    fetchOptions();
+    if (selectedSalonId || user?.role !== 'Admin') fetchOptions();
   }, [selectedSalonId]);
 
   const fetchOptions = async () => {

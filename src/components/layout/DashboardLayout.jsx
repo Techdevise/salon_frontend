@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { logout, updateProfileImage } from '../../redux/slices/authSlice';
+import { setSalons, setSelectedSalon } from '../../redux/slices/salonSlice';
 import axios from 'axios';
 import {
   Users, Calendar, Scissors, CreditCard, Tag, Repeat, CalendarDays,
@@ -22,15 +23,48 @@ const SIDEBAR_ROUTES = [
   { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin'] },
   { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
   { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/subscription', name: 'Subscription Plan', icon: <Sparkles size={20} />, roles: ['Admin', 'Receptionist'] }
+  { path: '/dashboard/subscription', name: 'Subscription Plan', icon: <Sparkles size={20} />, roles: ['Admin'] }
 ];
 
 function DashboardLayout() {
   const { user } = useSelector((state) => state.auth);
+  const { selectedSalonId, salons } = useSelector((state) => state.salon);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [isUploading, setIsUploading] = useState(false);
+
+  // Initialize salon selection on every mount/refresh
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'Admin') {
+      // Admin: fetch all branches and auto-select first if needed
+      initAdminSalon();
+    }
+    // For Staff/Receptionist: their salonId is already in the JWT (user.salonId)
+    // The individual pages use req.user.salonId on the backend when no salonId param is sent
+  }, [user?.role]);
+
+  const initAdminSalon = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/api/salon/all', {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success && res.data.data.length > 0) {
+        const fetchedSalons = res.data.data;
+        dispatch(setSalons(fetchedSalons));
+        // Only auto-select if no valid salon is already selected
+        const stillValid = fetchedSalons.some(s => s._id === selectedSalonId);
+        if (!stillValid) {
+          dispatch(setSelectedSalon(fetchedSalons[0]));
+        }
+      }
+    } catch (err) {
+      console.error('DashboardLayout: Failed to initialize salon:', err);
+    }
+  };
 
   // Notification states
   const [notifications, setNotifications] = useState([]);

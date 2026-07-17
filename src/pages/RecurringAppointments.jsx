@@ -9,6 +9,7 @@ import { useConfirm } from '../components/ConfirmModal';
 function RecurringAppointments() {
   const confirm = useConfirm();
   const { selectedSalonId } = useSelector((state) => state.salon);
+  const { user } = useSelector((state) => state.auth);
   const [recurringList, setRecurringList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,8 +36,10 @@ function RecurringAppointments() {
   });
 
   useEffect(() => {
-    fetchRecurring();
-    fetchOptions();
+    if (selectedSalonId || user?.role !== 'Admin') {
+      fetchRecurring();
+      fetchOptions();
+    }
   }, [selectedSalonId]);
 
   const fetchRecurring = async () => {

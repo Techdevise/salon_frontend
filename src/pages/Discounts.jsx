@@ -34,7 +34,7 @@ function Discounts() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchDiscounts();
+    if (selectedSalonId) fetchDiscounts();
   }, [selectedSalonId]);
 
   const fetchDiscounts = async () => {

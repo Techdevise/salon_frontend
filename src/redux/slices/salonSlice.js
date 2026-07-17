@@ -6,10 +6,12 @@ const salonSlice = createSlice({
     selectedSalonId: null,
     selectedSalonInfo: null,
     salons: [],
+    salonsLoaded: false, // tracks if salon list has been fetched
   },
   reducers: {
     setSalons: (state, action) => {
       state.salons = action.payload;
+      state.salonsLoaded = true;
     },
     setSelectedSalon: (state, action) => {
       if (action.payload) {
@@ -24,6 +26,7 @@ const salonSlice = createSlice({
       state.selectedSalonId = null;
       state.selectedSalonInfo = null;
       state.salons = [];
+      state.salonsLoaded = false;
     }
   }
 });

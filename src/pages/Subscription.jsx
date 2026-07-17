@@ -86,7 +86,7 @@ function Subscription() {
   const [alertMsg, setAlertMsg] = useState(null);
 
   useEffect(() => {
-    fetchActiveSubscription();
+    if (selectedSalonId || !isAdmin) fetchActiveSubscription();
   }, [selectedSalonId]);
 
   const fetchActiveSubscription = async () => {

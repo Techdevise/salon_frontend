@@ -31,8 +31,10 @@ function Staff() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchStaff();
-    fetchServices();
+    if (selectedSalonId) {
+      fetchStaff();
+      fetchServices();
+    }
   }, [selectedSalonId]);
 
   const fetchStaff = async () => {

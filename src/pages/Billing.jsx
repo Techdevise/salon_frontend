@@ -25,9 +25,11 @@ function Billing() {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    fetchCustomers();
-    fetchServices();
-    fetchStaff();
+    if (selectedSalonId || user?.role !== 'Admin') {
+      fetchCustomers();
+      fetchServices();
+      fetchStaff();
+    }
   }, [selectedSalonId]);
 
   const fetchCustomers = async () => {

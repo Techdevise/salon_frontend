@@ -57,11 +57,14 @@ function DashboardHome() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
-        dispatch(setSalonsList(res.data.data));
-        // Auto-select first salon if none selected yet
-        if (res.data.data.length > 0 && !selectedSalonId) {
-          dispatch(setSelectedSalon(res.data.data[0]));
-        } else if (res.data.data.length === 0) {
+        const fetchedSalons = res.data.data;
+        dispatch(setSalonsList(fetchedSalons));
+        // Check if currently persisted selectedSalonId still exists in the fresh list
+        const stillExists = fetchedSalons.some(s => s._id === selectedSalonId);
+        if (!stillExists && fetchedSalons.length > 0) {
+          // Auto-select first salon if selection is stale or missing
+          dispatch(setSelectedSalon(fetchedSalons[0]));
+        } else if (fetchedSalons.length === 0) {
           setLoading(false);
         }
       } else {

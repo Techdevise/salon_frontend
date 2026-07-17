@@ -29,7 +29,7 @@ function ServicePackages() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchData();
+    if (selectedSalonId) fetchData();
   }, [selectedSalonId]);
 
   const fetchData = async () => {

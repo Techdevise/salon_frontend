@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 function Customers() {
   const confirm = useConfirm();
   const { selectedSalonId } = useSelector((state) => state.salon);
+  const { user } = useSelector((state) => state.auth);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,7 +31,7 @@ function Customers() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetchCustomers();
+    if (selectedSalonId || user?.role !== 'Admin') fetchCustomers();
   }, [selectedSalonId]);
 
   const fetchCustomers = async () => {

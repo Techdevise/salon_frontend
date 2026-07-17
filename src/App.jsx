@@ -51,8 +51,8 @@ function App() {
               <Route path="billing" element={<Billing />} />
             </Route>
 
-            {/* Accessible to Admin and Receptionist */}
-            <Route element={<RoleRoute allowedRoles={['Admin', 'Receptionist']} />}>
+            {/* Accessible to Admin Only */}
+            <Route element={<RoleRoute allowedRoles={['Admin']} />}>
               <Route path="subscription" element={<Subscription />} />
             </Route>
 
