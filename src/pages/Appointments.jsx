@@ -86,6 +86,96 @@ function Appointments() {
     setFormData(updatedData);
   };
 
+  // Walk-in Modal states (Manual Text Inputs)
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [walkInFormData, setWalkInFormData] = useState({
+    customerName: '',
+    customerPhone: '',
+    serviceName: '',
+    staffName: '',
+    startTime: '10:00 AM',
+    totalAmount: '',
+    notes: ''
+  });
+  const [walkInLoading, setWalkInLoading] = useState(false);
+  const [walkInError, setWalkInError] = useState('');
+
+  const openWalkInModal = () => {
+    setWalkInError('');
+    setWalkInFormData({
+      customerName: '',
+      customerPhone: '',
+      serviceName: '',
+      staffName: staffList[0]?.name || '',
+      startTime: '10:00 AM',
+      totalAmount: '',
+      notes: ''
+    });
+    setShowWalkInModal(true);
+  };
+
+  const handleWalkInChange = (e) => {
+    const { name, value } = e.target;
+    setWalkInFormData({ ...walkInFormData, [name]: value });
+  };
+
+  const handleWalkInSubmit = async (e) => {
+    e.preventDefault();
+    setWalkInLoading(true);
+    setWalkInError('');
+
+    try {
+      // 1. Resolve or create Customer
+      let targetCustomerId = '';
+      const existingCust = customerList.find(
+        c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) ||
+             (c.name.toLowerCase() === walkInFormData.customerName.toLowerCase())
+      );
+
+      if (existingCust) {
+        targetCustomerId = existingCust._id;
+      } else {
+        const custRes = await axios.post('/api/customer/create', {
+          name: walkInFormData.customerName || 'Walk-in Client',
+          phone: walkInFormData.customerPhone || '0000000000',
+          ...(selectedSalonId && { salonId: selectedSalonId })
+        }, { withCredentials: true });
+        targetCustomerId = custRes.data?.data?._id;
+      }
+
+      // 2. Resolve Staff ID
+      const matchedStaff = staffList.find(s => s.name.toLowerCase().includes(walkInFormData.staffName.toLowerCase()));
+      const targetStaffId = matchedStaff?._id || staffList[0]?._id;
+
+      // 3. Resolve Service ID
+      const matchedService = serviceList.find(s => s.serviceName.toLowerCase().includes(walkInFormData.serviceName.toLowerCase()));
+      const targetServiceId = matchedService?._id || serviceList[0]?._id;
+
+      if (!targetStaffId || !targetServiceId) {
+        throw new Error("Salon requires at least one staff and service record in database.");
+      }
+
+      const payload = {
+        customerId: targetCustomerId,
+        staffId: targetStaffId,
+        services: [targetServiceId],
+        date: new Date().toISOString().split('T')[0],
+        timeSlot: { start: walkInFormData.startTime || '10:00 AM', end: "TBD" },
+        totalAmount: Number(walkInFormData.totalAmount) || 0,
+        notes: walkInFormData.notes ? `[${walkInFormData.serviceName || 'Custom Service'}] ${walkInFormData.notes}` : `[${walkInFormData.serviceName || 'Custom Service'}]`,
+        ...(selectedSalonId && { salonId: selectedSalonId })
+      };
+
+      await axios.post('/api/appointment/create', payload, { withCredentials: true });
+      fetchAppointments();
+      setShowWalkInModal(false);
+    } catch (error) {
+      setWalkInError(error.response?.data?.message || error.message || 'Failed to create walk-in booking');
+    } finally {
+      setWalkInLoading(false);
+    }
+  };
+
   const openModal = (appointment = null) => {
     setErrorMsg('');
     if (appointment) {
@@ -93,7 +183,7 @@ function Appointments() {
       setFormData({
         customerId: appointment.customerId || '',
         staffId: appointment.staffId || '',
-        serviceId: appointment.services?.[0] || '', // Assuming single service for simple UI form
+        serviceId: appointment.services?.[0] || '',
         date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : filterDate,
         startTime: appointment.timeSlot?.start || '',
         totalAmount: appointment.totalAmount || '',
@@ -128,13 +218,10 @@ function Appointments() {
         timeSlot: { start: formData.startTime, end: "TBD" },
         totalAmount: formData.totalAmount,
         notes: formData.notes,
-        // Create booking in the selected salon
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
       if (editingAppointment) {
-        // Controller currently has no 'update full booking' route easily visible, just status
-        // We'll throw temporary error if trying full edit instead of status
         alert("Full edit not supported by current API routes. Use status toggles.");
         setFormLoading(false);
         return;
@@ -197,9 +284,14 @@ function Appointments() {
           <h1 className="page-title">Appointments & Bookings</h1>
           <p className="page-subtitle">Manage salon schedule, staff assignments, and client bookings</p>
         </div>
-        <button className="primary-btn" onClick={() => openModal()}>
-          <Plus size={18} /> New Booking
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="primary-btn" style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }} onClick={() => openWalkInModal()}>
+            <Plus size={18} /> Walk in Booking
+          </button>
+          <button className="primary-btn" onClick={() => openModal()}>
+            <Plus size={18} /> New Booking
+          </button>
+        </div>
       </div>
 
       <div className="table-controls">
@@ -295,7 +387,117 @@ function Appointments() {
         )}
       </div>
 
-      {/* Modern Modal / Create Booking Form */}
+      {/* Walk in Booking Modal (No Calendar Widget) */}
+      {showWalkInModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Walk in Booking</h2>
+              <button className="close-btn" onClick={() => setShowWalkInModal(false)}><X size={20} /></button>
+            </div>
+
+            {walkInError && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{walkInError}</div>}
+
+            <form onSubmit={handleWalkInSubmit} className="modal-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Customer Name *</label>
+                  <input
+                    type="text"
+                    name="customerName"
+                    required
+                    value={walkInFormData.customerName}
+                    onChange={handleWalkInChange}
+                    placeholder="e.g. Rahul Sharma"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Customer Phone *</label>
+                  <input
+                    type="tel"
+                    name="customerPhone"
+                    required
+                    value={walkInFormData.customerPhone}
+                    onChange={handleWalkInChange}
+                    placeholder="10-digit mobile number"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Service Name *</label>
+                  <input
+                    type="text"
+                    name="serviceName"
+                    required
+                    value={walkInFormData.serviceName}
+                    onChange={handleWalkInChange}
+                    placeholder="e.g. Haircut & Styling"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Staff Assigned *</label>
+                  <input
+                    type="text"
+                    name="staffName"
+                    required
+                    value={walkInFormData.staffName}
+                    onChange={handleWalkInChange}
+                    placeholder="e.g. Aman"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Time Slot *</label>
+                  <input
+                    type="text"
+                    name="startTime"
+                    required
+                    value={walkInFormData.startTime}
+                    onChange={handleWalkInChange}
+                    placeholder="e.g. 10:30 AM"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Total Price (₹) *</label>
+                  <input
+                    type="number"
+                    name="totalAmount"
+                    required
+                    min="0"
+                    value={walkInFormData.totalAmount}
+                    onChange={handleWalkInChange}
+                    placeholder="Enter manual amount"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Booking Notes</label>
+                <textarea
+                  name="notes"
+                  rows="2"
+                  value={walkInFormData.notes}
+                  onChange={handleWalkInChange}
+                  placeholder="Walk-in remarks..."
+                ></textarea>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowWalkInModal(false)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={walkInLoading}>
+                  {walkInLoading ? 'Booking...' : 'Confirm Walk in Booking'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Booking Modal (Original with Calendar Widget) */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">

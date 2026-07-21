@@ -29,6 +29,7 @@ function Customers() {
   });
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [subscriptionError, setSubscriptionError] = useState('');
 
   useEffect(() => {
     if (selectedSalonId || user?.role !== 'Admin') fetchCustomers();
@@ -36,11 +37,15 @@ function Customers() {
 
   const fetchCustomers = async () => {
     try {
+      setSubscriptionError('');
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
       const res = await axios.get(`/api/customer${salonParam}`, { withCredentials: true });
       setCustomers(res.data.data);
     } catch (error) {
       console.error("Error fetching customers:", error);
+      if (error.response?.status === 403) {
+        setSubscriptionError(error.response.data?.message || 'No active subscription found. Please purchase a subscription plan to access this feature.');
+      }
     } finally {
       setLoading(false);
     }
@@ -158,6 +163,25 @@ function Customers() {
           />
         </div>
       </div>
+
+      {/* Subscription error banner */}
+      {subscriptionError && (
+        <div style={{
+          background: 'rgba(239,68,68,0.12)',
+          border: '1px solid rgba(239,68,68,0.4)',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          marginBottom: '16px',
+          color: '#f87171',
+          fontSize: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span>{subscriptionError}</span>
+        </div>
+      )}
 
       <div className="table-container">
         {loading ? (

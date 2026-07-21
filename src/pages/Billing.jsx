@@ -10,6 +10,7 @@ function Billing() {
 
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [staffList, setStaffList] = useState([]);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -17,7 +18,12 @@ function Billing() {
   const [searchCustomer, setSearchCustomer] = useState('');
 
   const [billItems, setBillItems] = useState([]);
+  const [itemType, setItemType] = useState('service'); // 'service' | 'package' | 'custom'
+
   const [selectedService, setSelectedService] = useState('');
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [customServiceName, setCustomServiceName] = useState('');
+  const [customServicePrice, setCustomServicePrice] = useState('');
 
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -28,6 +34,7 @@ function Billing() {
     if (selectedSalonId || user?.role !== 'Admin') {
       fetchCustomers();
       fetchServices();
+      fetchPackages();
       fetchStaff();
     }
   }, [selectedSalonId]);
@@ -52,6 +59,18 @@ function Billing() {
       }
     } catch (err) {
       console.error("Failed to load services", err);
+    }
+  };
+
+  const fetchPackages = async () => {
+    try {
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/service-package${salonParam}`, { withCredentials: true });
+      if (res.data?.data) {
+        setPackages(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load packages", err);
     }
   };
 
@@ -82,46 +101,83 @@ function Billing() {
     c.phone.includes(searchCustomer)
   );
 
-  const handleAddService = () => {
-    if (!selectedService) return;
+  const handleAddItem = () => {
+    if (itemType === 'service') {
+      if (!selectedService) return;
+      const serviceObj = services.find(s => s._id === selectedService);
+      if (!serviceObj) return;
 
-    const serviceObj = services.find(s => s._id === selectedService);
-    if (!serviceObj) return;
+      const existing = billItems.find(item => item.id === serviceObj._id);
+      if (existing) {
+        setBillItems(billItems.map(item =>
+          item.id === serviceObj._id ? { ...item, quantity: item.quantity + 1 } : item
+        ));
+      } else {
+        setBillItems([...billItems, {
+          id: serviceObj._id,
+          serviceId: serviceObj._id,
+          name: serviceObj.serviceName,
+          price: serviceObj.price,
+          quantity: 1,
+          type: 'service'
+        }]);
+      }
+      setSelectedService('');
+    } else if (itemType === 'package') {
+      if (!selectedPackageId) return;
+      const pkgObj = packages.find(p => p._id === selectedPackageId);
+      if (!pkgObj) return;
 
-    // Check if already in bill
-    const existing = billItems.find(item => item.serviceId === serviceObj._id);
-    if (existing) {
-      setBillItems(billItems.map(item =>
-        item.serviceId === serviceObj._id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
+      const existing = billItems.find(item => item.id === pkgObj._id);
+      if (existing) {
+        setBillItems(billItems.map(item =>
+          item.id === pkgObj._id ? { ...item, quantity: item.quantity + 1 } : item
+        ));
+      } else {
+        setBillItems([...billItems, {
+          id: pkgObj._id,
+          packageId: pkgObj._id,
+          name: `📦 ${pkgObj.packageName}`,
+          price: pkgObj.price,
+          quantity: 1,
+          type: 'package'
+        }]);
+      }
+      setSelectedPackageId('');
+    } else if (itemType === 'custom') {
+      if (!customServiceName.trim() || !customServicePrice) return;
+      const customId = 'custom_' + Date.now();
       setBillItems([...billItems, {
-        serviceId: serviceObj._id,
-        name: serviceObj.serviceName,
-        price: serviceObj.price,
+        id: customId,
+        serviceId: null,
+        name: customServiceName.trim(),
+        price: Number(customServicePrice),
         quantity: 1,
+        type: 'custom'
       }]);
+      setCustomServiceName('');
+      setCustomServicePrice('');
     }
-
-    setSelectedService('');
   };
 
   const handleRemoveItem = (id) => {
-    setBillItems(billItems.filter(item => item.serviceId !== id));
+    setBillItems(billItems.filter(item => item.id !== id));
   };
 
   const handleQuantityChange = (id, newQty) => {
     if (newQty < 1) return;
     setBillItems(billItems.map(item =>
-      item.serviceId === id ? { ...item, quantity: newQty } : item
+      item.id === id ? { ...item, quantity: newQty } : item
     ));
   };
+
+  const [lastBill, setLastBill] = useState(null);
 
   const subtotal = billItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const tax = subtotal * 0.18; // 18% GST example
   const grandTotal = Math.max(0, subtotal + tax - discount);
+
+  const selectedStaff = staffList.find(s => s._id === selectedStaffId);
 
   const handleGenerateBill = async () => {
     if (!selectedCustomer) {
@@ -133,7 +189,7 @@ function Billing() {
       return;
     }
     if (billItems.length === 0) {
-      setMessage({ text: 'Please add at least one service', type: 'error' });
+      setMessage({ text: 'Please add at least one service or package', type: 'error' });
       return;
     }
 
@@ -141,14 +197,19 @@ function Billing() {
     setMessage({ text: '', type: '' });
 
     try {
+      const packageItem = billItems.find(i => i.type === 'package');
+      const selectedPkgId = packageItem ? packageItem.packageId : null;
+
       const payload = {
         customerId: selectedCustomer._id,
         staffId: selectedStaffId,
         services: billItems.map(i => ({
-          serviceId: i.serviceId,
+          serviceId: i.serviceId || null,
+          serviceName: i.name,
           price: i.price * i.quantity,
           quantity: i.quantity
         })),
+        packageId: selectedPkgId,
         tax: 18,
         discountAmount: Number(discount),
         paidAmount: grandTotal,
@@ -157,28 +218,34 @@ function Billing() {
 
       const res = await axios.post('/api/billing/generate', payload, { withCredentials: true });
 
+      // Save complete last bill snapshot before resetting form
+      const generatedBillObj = {
+        invoiceNo: res.data?.data?.invoiceNumber || res.data?.data?._id?.substring(0, 8) || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+        date: new Date().toLocaleString(),
+        customer: { ...selectedCustomer },
+        staff: selectedStaff ? { ...selectedStaff } : { name: 'Staff Member' },
+        items: [...billItems],
+        subtotal,
+        tax,
+        discount: Number(discount),
+        grandTotal,
+        paymentMethod
+      };
+
+      setLastBill(generatedBillObj);
       setMessage({ text: 'Bill generated successfully!', type: 'success' });
 
-      // Reset form
+      // Reset form fields
       setBillItems([]);
       setSelectedCustomer(null);
       setSearchCustomer('');
       setDiscount(0);
       setPaymentMethod('Cash');
 
-      // Re-trigger auto-selection of logged in user
-      if (user) {
-        const matchedStaff = staffList.find(
-          s => s.email?.toLowerCase() === user.email?.toLowerCase() || s.name?.toLowerCase() === user.name?.toLowerCase()
-        );
-        if (matchedStaff) {
-          setSelectedStaffId(matchedStaff._id);
-        } else {
-          setSelectedStaffId('');
-        }
-      } else {
-        setSelectedStaffId('');
-      }
+      // Auto trigger print dialog after small delay so DOM updates
+      setTimeout(() => {
+        window.print();
+      }, 300);
 
     } catch (err) {
       console.error(err);
@@ -191,15 +258,13 @@ function Billing() {
     }
   };
 
-  const selectedStaff = staffList.find(s => s._id === selectedStaffId);
-
   return (
     <div className="billing-container">
       <div className="billing-header">
         <h1>Billing & Payment</h1>
         <button
           className="btn-secondary"
-          disabled={!message.text || message.type === 'error'}
+          disabled={!lastBill && billItems.length === 0}
           onClick={() => window.print()}
         >
           <Printer size={18} /> Print Last Bill
@@ -264,30 +329,143 @@ function Billing() {
             )}
           </div>
 
-          {/* Service Selection */}
+          {/* Service & Package Selection */}
           <div className="billing-card">
-            <h3>2. Add Services</h3>
-            <div className="service-add-row">
-              <select
-                value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value)}
-                className="service-select"
-              >
-                <option value="">-- Select a Service --</option>
-                {services.map(s => (
-                  <option key={s._id} value={s._id}>
-                    {s.serviceName} - ₹{s.price}
-                  </option>
-                ))}
-              </select>
+            <h3>2. Add Services & Packages</h3>
+            
+            {/* Mode selection tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <button
-                className="btn-primary"
-                onClick={handleAddService}
-                disabled={!selectedService}
+                type="button"
+                className={`btn-secondary ${itemType === 'service' ? 'active' : ''}`}
+                onClick={() => setItemType('service')}
+                style={{
+                  background: itemType === 'service' ? '#7c3aed' : '#1e293b',
+                  color: '#fff',
+                  border: itemType === 'service' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500'
+                }}
               >
-                <Plus size={18} /> Add
+                Catalog Service
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary ${itemType === 'package' ? 'active' : ''}`}
+                onClick={() => setItemType('package')}
+                style={{
+                  background: itemType === 'package' ? '#7c3aed' : '#1e293b',
+                  color: '#fff',
+                  border: itemType === 'package' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500'
+                }}
+              >
+                📦 Add Package
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary ${itemType === 'custom' ? 'active' : ''}`}
+                onClick={() => setItemType('custom')}
+                style={{
+                  background: itemType === 'custom' ? '#7c3aed' : '#1e293b',
+                  color: '#fff',
+                  border: itemType === 'custom' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500'
+                }}
+              >
+                ✨ Custom Service
               </button>
             </div>
+
+            {/* Catalog Service Dropdown */}
+            {itemType === 'service' && (
+              <div className="service-add-row">
+                <select
+                  value={selectedService}
+                  onChange={(e) => setSelectedService(e.target.value)}
+                  className="service-select"
+                >
+                  <option value="">-- Select a Service --</option>
+                  {services.map(s => (
+                    <option key={s._id} value={s._id}>
+                      {s.serviceName} - ₹{s.price}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn-primary"
+                  onClick={handleAddItem}
+                  disabled={!selectedService}
+                >
+                  <Plus size={18} /> Add
+                </button>
+              </div>
+            )}
+
+            {/* Package Selection Dropdown */}
+            {itemType === 'package' && (
+              <div className="service-add-row">
+                <select
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  className="service-select"
+                >
+                  <option value="">-- Select a Service Package --</option>
+                  {packages.map(p => (
+                    <option key={p._id} value={p._id}>
+                      📦 {p.packageName} - ₹{p.price}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn-primary"
+                  onClick={handleAddItem}
+                  disabled={!selectedPackageId}
+                >
+                  <Plus size={18} /> Add Package
+                </button>
+              </div>
+            )}
+
+            {/* Custom Service Inputs */}
+            {itemType === 'custom' && (
+              <div className="service-add-row" style={{ flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Enter Custom Service Name"
+                  value={customServiceName}
+                  onChange={(e) => setCustomServiceName(e.target.value)}
+                  className="service-select"
+                  style={{ minWidth: '180px', flex: 2 }}
+                />
+                <input
+                  type="number"
+                  placeholder="Price (₹)"
+                  value={customServicePrice}
+                  onChange={(e) => setCustomServicePrice(e.target.value)}
+                  className="service-select"
+                  style={{ width: '110px', flex: 1 }}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={handleAddItem}
+                  disabled={!customServiceName.trim() || !customServicePrice}
+                >
+                  <Plus size={18} /> Add Custom
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Staff Selection */}
@@ -355,14 +533,14 @@ function Billing() {
                   </thead>
                   <tbody>
                     {billItems.map(item => (
-                      <tr key={item.serviceId}>
+                      <tr key={item.id}>
                         <td>{item.name}</td>
                         <td>
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
-                            onChange={(e) => handleQuantityChange(item.serviceId, parseInt(e.target.value) || 1)}
+                            onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 1)}
                             className="qty-input"
                           />
                           <span className="print-only" style={{ display: 'none' }}>{item.quantity}</span>
@@ -370,7 +548,7 @@ function Billing() {
                         <td>₹{item.price}</td>
                         <td>₹{item.price * item.quantity}</td>
                         <td>
-                          <button className="btn-icon danger" onClick={() => handleRemoveItem(item.serviceId)}>
+                          <button className="btn-icon danger" onClick={() => handleRemoveItem(item.id)}>
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -434,6 +612,59 @@ function Billing() {
               {isSubmitting ? 'Processing...' : 'Generate Bill'}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Dedicated Printable Thermal Receipt Layout */}
+      <div className="printable-receipt-container">
+        <div className="receipt-header">
+          <h2>SALON MANAGEMENT TAX RECEIPT</h2>
+          <p>Official Billing & Services Invoice</p>
+          <p className="receipt-date">Date: {lastBill?.date || new Date().toLocaleString()}</p>
+        </div>
+
+        <div className="receipt-info-grid">
+          <div><strong>Invoice No:</strong> {lastBill?.invoiceNo || 'INV-DRAFT'}</div>
+          <div><strong>Customer:</strong> {lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</div>
+          <div><strong>Phone:</strong> {lastBill?.customer?.phone || selectedCustomer?.phone || 'N/A'}</div>
+          <div><strong>Served By:</strong> {lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</div>
+        </div>
+
+        <table className="receipt-table">
+          <thead>
+            <tr>
+              <th>Service / Item</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {((lastBill ? lastBill.items : billItems).length > 0
+              ? (lastBill ? lastBill.items : billItems)
+              : [{ name: 'N/A', quantity: 1, price: 0 }]
+            ).map((item, idx) => (
+              <tr key={idx}>
+                <td>{item.name}</td>
+                <td>{item.quantity}</td>
+                <td>₹{item.price}</td>
+                <td>₹{item.price * item.quantity}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="receipt-totals">
+          <div className="row"><span>Subtotal:</span><span>₹{(lastBill ? lastBill.subtotal : subtotal).toFixed(2)}</span></div>
+          <div className="row"><span>GST (18%):</span><span>₹{(lastBill ? lastBill.tax : tax).toFixed(2)}</span></div>
+          <div className="row"><span>Discount:</span><span>-₹{lastBill ? lastBill.discount : discount}</span></div>
+          <div className="row"><span>Payment Method:</span><span>{lastBill ? lastBill.paymentMethod : paymentMethod}</span></div>
+          <div className="row grand"><span>Grand Total:</span><span>₹{(lastBill ? lastBill.grandTotal : grandTotal).toFixed(2)}</span></div>
+        </div>
+
+        <div className="receipt-footer">
+          <p>Thank you for visiting our Salon!</p>
+          <p>Have a wonderful day ahead.</p>
         </div>
       </div>
     </div>

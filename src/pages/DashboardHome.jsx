@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -39,6 +39,29 @@ function DashboardHome() {
   const [customerData, setCustomerData] = useState(null);
   const [staffData, setStaffData] = useState([]);
 
+  // Staff Activity State
+  const [allStaffList, setAllStaffList] = useState([]);
+  const [staffActivities, setStaffActivities] = useState([]);
+  const [activityFilter, setActivityFilter] = useState('daily');
+  const [customDate, setCustomDate] = useState('');
+  const [selectedStaffIdFilter, setSelectedStaffIdFilter] = useState('all');
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  // Unified staff list combining all sources so no staff member is missing from dropdown
+  const combinedStaffList = useMemo(() => {
+    const map = new Map();
+    (allStaffList || []).forEach(s => {
+      if (s._id && s.name) map.set(s._id.toString(), { id: s._id.toString(), name: s.name, role: s.role || 'Staff' });
+    });
+    (staffData || []).forEach(s => {
+      if (s._id && s.staffName) map.set(s._id.toString(), { id: s._id.toString(), name: s.staffName, role: 'Staff' });
+    });
+    (staffActivities || []).forEach(a => {
+      if (a.staffId && a.staffName) map.set(a.staffId.toString(), { id: a.staffId.toString(), name: a.staffName, role: a.staffRole || 'Staff' });
+    });
+    return Array.from(map.values());
+  }, [allStaffList, staffData, staffActivities]);
+
   // Fetch salons list for Admin
   useEffect(() => {
     if (isAdmin) {
@@ -46,6 +69,7 @@ function DashboardHome() {
     } else {
       // Non-admins don't have a salon selection flow, fetch dashboard stats directly
       fetchDashboardData();
+      fetchStaffList();
     }
   }, [isAdmin]);
 
@@ -76,6 +100,23 @@ function DashboardHome() {
     }
   };
 
+  // Fetch complete staff list for dropdown filter
+  const fetchStaffList = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const param = isAdmin ? '?allSalons=true' : (selectedSalonId ? `?salonId=${selectedSalonId}` : '');
+      const res = await axios.get(`/api/staff/all${param}`, {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setAllStaffList(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching staff list:', err);
+    }
+  };
+
   // When salon selection changes, dispatch to Redux
   const handleSalonChange = (e) => {
     const id = e.target.value;
@@ -84,12 +125,45 @@ function DashboardHome() {
   };
 
   useEffect(() => {
-    if (selectedSalonId) {
+    if (selectedSalonId || !isAdmin) {
       fetchDashboardData();
+      fetchStaffActivities();
+      fetchStaffList();
     } else if (isAdmin && salons.length === 0) {
       setLoading(false);
     }
   }, [filter, selectedSalonId, salons.length, isAdmin]);
+
+  useEffect(() => {
+    if (selectedSalonId || !isAdmin) {
+      fetchStaffActivities();
+    }
+  }, [activityFilter, customDate, selectedStaffIdFilter, selectedSalonId]);
+
+  const fetchStaffActivities = async () => {
+    setActivityLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
+      const dateParam = customDate ? `&selectedDate=${customDate}` : '';
+      const staffParam = selectedStaffIdFilter !== 'all' ? `&staffId=${selectedStaffIdFilter}` : '';
+
+      const res = await axios.get(
+        `/api/dashboard/staff-activity?filter=${activityFilter}${salonParam}${dateParam}${staffParam}`,
+        {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (res.data.success) {
+        setStaffActivities(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching staff activity:', err);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -351,6 +425,219 @@ function DashboardHome() {
           </div>
         </div>
       )}
+
+      {/* Staff Service Activity Section */}
+      <div className="staff-activity-section">
+        <div className="activity-header">
+          <div className="activity-header-title">
+            <div className="activity-icon-wrap">
+              <Scissors size={20} />
+            </div>
+            <div>
+              <h2>Staff Services Activity</h2>
+              <p>Track which staff provided which services on any day</p>
+            </div>
+          </div>
+
+          <div className="activity-controls">
+            {/* Filter Pills */}
+            <div className="filter-group">
+              <button
+                className={`filter-btn ${activityFilter === 'daily' && !customDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('daily'); setCustomDate(''); }}
+              >
+                Today
+              </button>
+              <button
+                className={`filter-btn ${activityFilter === 'weekly' && !customDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('weekly'); setCustomDate(''); }}
+              >
+                This Week
+              </button>
+              <button
+                className={`filter-btn ${activityFilter === 'monthly' && !customDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('monthly'); setCustomDate(''); }}
+              >
+                This Month
+              </button>
+              <button
+                className={`filter-btn ${activityFilter === 'all' && !customDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('all'); setCustomDate(''); }}
+              >
+                All
+              </button>
+            </div>
+
+            {/* Custom Date Input */}
+            <div className="date-input-wrap">
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => {
+                  setCustomDate(e.target.value);
+                  setActivityFilter('custom');
+                }}
+                className="activity-date-input"
+                title="Select specific date"
+              />
+            </div>
+
+            {/* Staff Dropdown Filter */}
+            <div className="staff-filter-wrap">
+              <select
+                value={selectedStaffIdFilter}
+                onChange={(e) => setSelectedStaffIdFilter(e.target.value)}
+                className="activity-staff-select"
+              >
+                <option value="all">All Staff Members</option>
+                {combinedStaffList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Staff Overview Summary Cards */}
+        {Object.values(
+          staffActivities.reduce((acc, act) => {
+            const key = act.staffName || 'Unassigned';
+            if (!acc[key]) {
+              acc[key] = {
+                name: act.staffName,
+                role: act.staffRole,
+                totalServices: 0,
+                totalRevenue: 0
+              };
+            }
+            acc[key].totalServices += act.services.length;
+            acc[key].totalRevenue += act.totalAmount;
+            return acc;
+          }, {})
+        ).length > 0 && (
+          <div className="staff-summary-grid">
+            {Object.values(
+              staffActivities.reduce((acc, act) => {
+                const key = act.staffName || 'Unassigned';
+                if (!acc[key]) {
+                  acc[key] = {
+                    name: act.staffName,
+                    role: act.staffRole,
+                    totalServices: 0,
+                    totalRevenue: 0
+                  };
+                }
+                acc[key].totalServices += act.services.length;
+                acc[key].totalRevenue += act.totalAmount;
+                return acc;
+              }, {})
+            ).map((summary, idx) => (
+              <div key={idx} className="staff-summary-card">
+                <div className="summary-card-top">
+                  <div className="summary-avatar">
+                    {summary.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="summary-staff-name">{summary.name}</h4>
+                    <span className="summary-staff-role">{summary.role}</span>
+                  </div>
+                </div>
+                <div className="summary-card-stats">
+                  <div className="summary-stat-box">
+                    <span className="stat-label">Services Delivered</span>
+                    <span className="stat-value">{summary.totalServices}</span>
+                  </div>
+                  <div className="summary-stat-box">
+                    <span className="stat-label">Total Amount</span>
+                    <span className="stat-value rupee">₹{summary.totalRevenue.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Detailed Service Activity Table */}
+        <div className="activity-table-card">
+          {activityLoading ? (
+            <div className="activity-loading">Loading staff service logs...</div>
+          ) : staffActivities.length > 0 ? (
+            <div className="activity-table-wrapper">
+              <table className="activity-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Staff Member</th>
+                    <th>Customer Name</th>
+                    <th>Services Provided</th>
+                    <th>Total Amount</th>
+                    <th>Payment Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffActivities.map((act) => (
+                    <tr key={act.billId}>
+                      <td className="activity-date-cell">
+                        <span className="date-main">
+                          {new Date(act.date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </span>
+                        <span className="time-sub">
+                          {new Date(act.date).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="activity-staff-pill">
+                          <span className="mini-avatar">{act.staffName.charAt(0).toUpperCase()}</span>
+                          <div>
+                            <span className="staff-name-bold">{act.staffName}</span>
+                            <span className="staff-role-sub">{act.staffRole}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="activity-customer-info">
+                          <span className="customer-name-bold">{act.customerName}</span>
+                          <span className="customer-phone-sub">{act.customerPhone}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="activity-services-list">
+                          {act.services.map((srv, i) => (
+                            <span key={i} className="activity-service-tag">
+                              {srv.serviceName} {srv.price > 0 && `(₹${srv.price})`}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="activity-amount-cell">
+                        ₹{act.totalAmount.toLocaleString()}
+                      </td>
+                      <td>
+                        <span className="activity-payment-badge">
+                          {act.paymentMethod}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="activity-empty">
+              No services recorded for the selected date/filter.
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Charts Grid */}
       <div className="charts-container">
