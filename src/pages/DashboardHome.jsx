@@ -144,22 +144,78 @@ function DashboardHome() {
     setActivityLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
-      const dateParam = customDate ? `&selectedDate=${customDate}` : '';
-      const staffParam = selectedStaffIdFilter !== 'all' ? `&staffId=${selectedStaffIdFilter}` : '';
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      
+      // Fetch billing logs directly to populate Staff Service Activity cleanly without 404 errors
+      const res = await axios.get(`/api/billing${salonParam}`, {
+        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      const res = await axios.get(
-        `/api/dashboard/staff-activity?filter=${activityFilter}${salonParam}${dateParam}${staffParam}`,
-        {
-          withCredentials: true,
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (res.data.success) {
-        setStaffActivities(res.data.data || []);
+      if (res.data.success || Array.isArray(res.data.data)) {
+        const rawBills = res.data.data || [];
+
+        // Apply filters locally (Date / Staff filter)
+        const filteredBills = rawBills.filter(bill => {
+          // Staff filter
+          if (selectedStaffIdFilter !== 'all') {
+            const billStaffId = bill.staffId?._id || bill.staffId;
+            if (billStaffId !== selectedStaffIdFilter) return false;
+          }
+
+          // Date filter
+          const billDate = new Date(bill.createdAt);
+          if (customDate) {
+            const selected = new Date(customDate);
+            return (
+              billDate.getFullYear() === selected.getFullYear() &&
+              billDate.getMonth() === selected.getMonth() &&
+              billDate.getDate() === selected.getDate()
+            );
+          } else if (activityFilter === 'daily') {
+            const today = new Date();
+            return (
+              billDate.getFullYear() === today.getFullYear() &&
+              billDate.getMonth() === today.getMonth() &&
+              billDate.getDate() === today.getDate()
+            );
+          } else if (activityFilter === 'weekly') {
+            const diffDays = (new Date() - billDate) / (1000 * 3600 * 24);
+            return diffDays <= 7;
+          } else if (activityFilter === 'monthly') {
+            const today = new Date();
+            return (
+              billDate.getFullYear() === today.getFullYear() &&
+              billDate.getMonth() === today.getMonth()
+            );
+          }
+          return true; // activityFilter === 'all'
+        });
+
+        const formattedActivities = filteredBills.map(bill => ({
+          billId: bill._id,
+          staffId: bill.staffId?._id || bill.staffId || null,
+          staffName: bill.staffId?.name || bill.staffName || 'Staff Member',
+          staffRole: bill.staffId?.role || 'Staff',
+          customerId: bill.customerId?._id || bill.customerId || null,
+          customerName: bill.customerId?.name || 'Walk-in Customer',
+          customerPhone: bill.customerId?.phone || 'N/A',
+          services: (bill.services || []).map(s => ({
+            serviceId: s.serviceId?._id || s.serviceId,
+            serviceName: s.serviceName || s.serviceId?.serviceName || 'Service',
+            price: s.price || s.serviceId?.price || 0
+          })),
+          totalAmount: bill.totalAmount || bill.subTotal || bill.paidAmount || 0,
+          paymentMethod: bill.paymentMethod || 'Cash',
+          paymentStatus: bill.paymentStatus || 'Paid',
+          date: bill.createdAt
+        }));
+
+        setStaffActivities(formattedActivities);
       }
     } catch (err) {
-      console.error('Error fetching staff activity:', err);
+      console.error('Error loading staff activity:', err);
+      setStaffActivities([]);
     } finally {
       setActivityLoading(false);
     }
@@ -647,7 +703,7 @@ function DashboardHome() {
           <h3>Revenue Trend</h3>
           <div className="chart-wrapper">
             {revenueTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minWidth={0}>
                 <LineChart data={revenueTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis dataKey="_id" stroke="#a1a1aa" fontSize={12} tickMargin={10} />
@@ -670,7 +726,7 @@ function DashboardHome() {
           <h3>Top Services Overview</h3>
           <div className="chart-wrapper">
             {serviceBreakdown.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minWidth={0}>
                 <PieChart>
                   <Pie
                     data={serviceBreakdown.slice(0, 5)}
@@ -704,7 +760,7 @@ function DashboardHome() {
           <h3>Staff Revenue Performance</h3>
           <div className="chart-wrapper">
             {formattedStaffData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minWidth={0}>
                 <BarChart data={formattedStaffData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                   <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} />
