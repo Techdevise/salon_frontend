@@ -1,3 +1,4 @@
+/* ── Calendar Header ──────────────────────────────────────────────────────── */
 .calendar-header {
   display: flex;
   justify-content: space-between;
@@ -5,14 +6,8 @@
   margin-bottom: 20px;
 }
 
-.mr-2 {
-  margin-right: 8px;
-}
-
-.inline {
-  display: inline;
-  vertical-align: text-bottom;
-}
+.mr-2 { margin-right: 8px; }
+.inline { display: inline; vertical-align: text-bottom; }
 
 .calendar-controls {
   display: flex;
@@ -37,6 +32,7 @@
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
+  text-transform: capitalize;
 }
 
 .toggle-btn.active {
@@ -63,9 +59,7 @@
   cursor: pointer;
 }
 
-.nav-btn:hover {
-  background: #334155;
-}
+.nav-btn:hover { background: #334155; }
 
 .today-btn {
   background: #1e293b;
@@ -78,10 +72,9 @@
   cursor: pointer;
 }
 
-.today-btn:hover {
-  background: #334155;
-}
+.today-btn:hover { background: #334155; }
 
+/* ── Sub-header ───────────────────────────────────────────────────────────── */
 .calendar-sub-header {
   display: flex;
   justify-content: space-between;
@@ -119,22 +112,42 @@
   border-radius: 50%;
 }
 
-.dot.pending { background: #f59e0b; }
+.dot.pending   { background: #f59e0b; }
 .dot.confirmed { background: #3b82f6; }
 .dot.completed { background: #10b981; }
+.dot.cancelled { background: #ef4444; }
 
+/* ── Calendar Container ───────────────────────────────────────────────────── */
 .calendar-container {
   background: #1e293b;
   border-radius: 0 0 12px 12px;
   border: 1px solid #334155;
-  min-height: 500px;
-  overflow: hidden;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
-/* Daily View */
+/* Scrollbar styling */
+.calendar-container::-webkit-scrollbar {
+  width: 6px;
+}
+.calendar-container::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+.calendar-container::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+.calendar-container::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ── Daily View ───────────────────────────────────────────────────────────── */
 .daily-view {
   display: flex;
   flex-direction: column;
+  min-height: 100%;
 }
 
 .time-slot-row {
@@ -143,53 +156,58 @@
   min-height: 80px;
 }
 
-.time-slot-row:last-child {
-  border-bottom: none;
-}
+.time-slot-row:last-child { border-bottom: none; }
 
 .time-label {
-  width: 80px;
-  padding: 16px;
+  width: 90px;
+  padding: 14px 10px;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   border-right: 1px solid #334155;
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  white-space: nowrap;
 }
 
 .slot-events {
   flex: 1;
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .calendar-event {
-  padding: 12px;
+  padding: 10px 14px;
   border-radius: 8px;
   border-left: 4px solid #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .calendar-event.status-pending {
   border-left-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
+  background: rgba(245, 158, 11, 0.08);
 }
 
-.calendar-event.status-confirmed, .calendar-event.status-scheduled {
+.calendar-event.status-confirmed {
   border-left-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .calendar-event.status-completed {
   border-left-color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.calendar-event.status-cancelled {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.07);
+  opacity: 0.75;
 }
 
 .event-title {
@@ -198,8 +216,24 @@
   gap: 6px;
   color: #f8fafc;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
 }
+
+/* Inline status badge on event card */
+.event-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 100px;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.event-status-badge.status-pending   { background: rgba(245,158,11,0.2);  color: #fcd34d; }
+.event-status-badge.status-confirmed { background: rgba(59,130,246,0.2);  color: #93c5fd; }
+.event-status-badge.status-completed { background: rgba(16,185,129,0.2);  color: #6ee7b7; }
+.event-status-badge.status-cancelled { background: rgba(239,68,68,0.15);  color: #fca5a5; }
 
 .event-details {
   display: flex;
@@ -228,7 +262,7 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Weekly Grid View */
+/* ── Weekly Grid View ─────────────────────────────────────────────────────── */
 .weekly-grid {
   display: flex;
   flex-direction: column;
@@ -243,8 +277,8 @@
 }
 
 .corner-cell {
-  width: 80px;
-  min-width: 80px;
+  width: 90px;
+  min-width: 90px;
   border-right: 1px solid #334155;
   padding: 12px;
   color: #64748b;
@@ -256,8 +290,8 @@
 
 .day-header {
   flex: 1;
-  min-width: 120px;
-  padding: 12px;
+  min-width: 110px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -265,56 +299,51 @@
   gap: 4px;
 }
 
-.day-header.today {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.day-header.today .day-number {
-  background: #3b82f6;
-  color: white;
-}
+.day-header.today { background: rgba(59, 130, 246, 0.1); }
+.day-header.today .day-number { background: #3b82f6; color: white; }
 
 .day-name {
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 11px;
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .day-number {
   color: #f8fafc;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
 }
 
+.weekly-body { overflow-x: auto; }
+
 .hour-row {
   display: flex;
   border-bottom: 1px solid #334155;
-  min-height: 100px;
+  min-height: 90px;
 }
 
 .grid-cell {
   flex: 1;
-  min-width: 120px;
+  min-width: 110px;
   border-right: 1px solid #334155;
   padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
-.grid-cell:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
+.grid-cell:hover { background: rgba(255, 255, 255, 0.02); }
 
 .mini-event {
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-radius: 4px;
   font-size: 11px;
   border-left: 3px solid;
@@ -324,29 +353,122 @@
   white-space: nowrap;
 }
 
-.mini-event.status-pending {
-  border-left-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
+.mini-event.status-pending  { border-left-color: #f59e0b; background: rgba(245,158,11,0.15); color: #fcd34d; }
+.mini-event.status-confirmed{ border-left-color: #3b82f6; background: rgba(59,130,246,0.15); color: #93c5fd; }
+.mini-event.status-completed{ border-left-color: #10b981; background: rgba(16,185,129,0.15); color: #6ee7b7; }
+.mini-event.status-cancelled{ border-left-color: #ef4444; background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+.mini-title  { font-weight: 600; }
+.mini-time   { opacity: 0.8; font-size: 10px; }
+.mini-status { font-size: 9px; text-transform: uppercase; opacity: 0.65; letter-spacing: 0.4px; }
+
+/* ── Monthly View ─────────────────────────────────────────────────────────── */
+.monthly-grid { width: 100%; }
+
+.month-week-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid #334155;
+  background: #0f172a;
 }
 
-.mini-event.status-confirmed, .mini-event.status-scheduled {
-  border-left-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
+.month-week-label {
+  padding: 10px;
+  text-align: center;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-right: 1px solid #334155;
 }
 
-.mini-event.status-completed {
-  border-left-color: #10b981;
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
+.month-week-label:last-child { border-right: none; }
+
+.month-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
 }
 
-.mini-title {
+.month-day-cell {
+  min-height: 110px;
+  padding: 6px 8px;
+  border-right: 1px solid #334155;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background 0.15s;
+}
+
+.month-day-cell:hover { background: rgba(255,255,255,0.025); }
+.month-day-cell.other-month { opacity: 0.3; }
+.month-day-cell.today { background: rgba(59,130,246,0.06); }
+
+.month-day-number {
+  font-size: 12px;
   font-weight: 600;
+  color: #94a3b8;
+  align-self: flex-end;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
-.mini-time {
-  opacity: 0.8;
+.month-day-number.today-number {
+  background: #3b82f6;
+  color: white;
+}
+
+.month-day-dots {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  min-height: 10px;
+}
+
+.month-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  cursor: help;
+}
+
+.month-status-dot.pending   { background: #f59e0b; }
+.month-status-dot.confirmed { background: #3b82f6; }
+.month-status-dot.completed { background: #10b981; }
+.month-status-dot.cancelled { background: #ef4444; }
+
+.month-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.month-mini-event {
   font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border-left: 2px solid;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.month-mini-event.status-pending  { border-left-color: #f59e0b; background: rgba(245,158,11,0.15); color: #fcd34d; }
+.month-mini-event.status-confirmed{ border-left-color: #3b82f6; background: rgba(59,130,246,0.15); color: #93c5fd; }
+.month-mini-event.status-completed{ border-left-color: #10b981; background: rgba(16,185,129,0.15); color: #6ee7b7; }
+.month-mini-event.status-cancelled{ border-left-color: #ef4444; background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+.month-more-badge {
+  font-size: 10px;
+  color: #64748b;
+  padding-left: 4px;
 }

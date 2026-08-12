@@ -46,7 +46,12 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
   const [success, setSuccess] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (name === 'phone') {
+      value = value.replace(/[^\d+]/g, '');
+    } else if (name === 'pincode') {
+      value = value.replace(/[^a-zA-Z0-9-]/g, '');
+    }
     setForm(prev => ({ ...prev, [name]: value }));
     setError('');
   };
@@ -74,6 +79,22 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
     if (!form.salonName.trim() || !form.email.trim() || !form.phone.trim()) {
       setError('Salon Name, Email, and Phone are required.');
       return;
+    }
+
+    // Phone Boundary Validation (7 to 15 digits)
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setError('Phone number must be between 7 and 15 digits.');
+      return;
+    }
+
+    // Pincode Boundary Validation (3 to 10 characters)
+    if (form.pincode.trim()) {
+      const cleanPincode = form.pincode.trim();
+      if (cleanPincode.length < 3 || cleanPincode.length > 10) {
+        setError('Pincode / Postal Code must be between 3 and 10 characters.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -189,7 +210,7 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                     name="ownerName"
                     value={form.ownerName}
                     onChange={handleChange}
-                    placeholder="e.g. Rahul Sharma"
+                    placeholder="e.g. John Smith"
                   />
                 </div>
                 <div className="form-field">
@@ -210,7 +231,7 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
-                    placeholder="9876543210"
+                    placeholder="e.g. +1 555-0199"
                     required
                   />
                 </div>
@@ -233,15 +254,15 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                 </div>
                 <div className="form-field">
                   <label>City</label>
-                  <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="Delhi" />
+                  <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="New York" />
                 </div>
                 <div className="form-field">
                   <label>State</label>
-                  <input type="text" name="state" value={form.state} onChange={handleChange} placeholder="Delhi" />
+                  <input type="text" name="state" value={form.state} onChange={handleChange} placeholder="NY" />
                 </div>
                 <div className="form-field">
-                  <label>Pincode</label>
-                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="110001" />
+                  <label>Pincode / Postal Code</label>
+                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="90210" />
                 </div>
               </div>
             </div>

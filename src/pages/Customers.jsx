@@ -32,7 +32,7 @@ function Customers() {
   const [subscriptionError, setSubscriptionError] = useState('');
 
   useEffect(() => {
-    if (selectedSalonId || user?.role !== 'Admin') fetchCustomers();
+    fetchCustomers();
   }, [selectedSalonId]);
 
   const fetchCustomers = async () => {
@@ -52,7 +52,15 @@ function Customers() {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    if (name === 'phone') {
+      // Restrict phone to digits and leading plus sign only
+      value = value.replace(/[^\d+]/g, '');
+    } else if (name === 'name') {
+      // Block numerical characters in Name field
+      value = value.replace(/[0-9]/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const openModal = (customer = null) => {
@@ -82,8 +90,39 @@ function Customers() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormLoading(true);
     setErrorMsg('');
+
+    // Mandatory Field Check
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setErrorMsg('Full Name and Phone Number are required mandatory fields.');
+      return;
+    }
+
+    // Name Validation
+    if (/\d/.test(formData.name)) {
+      setErrorMsg('Customer Name cannot contain numbers.');
+      return;
+    }
+
+    // Phone Boundary Validation (7 to 15 digits)
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setErrorMsg('Phone number must be between 7 and 15 digits.');
+      return;
+    }
+
+    // DOB Validation (Cannot be in the future)
+    if (formData.dob) {
+      const selectedDob = new Date(formData.dob);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDob > today) {
+        setErrorMsg('Date of birth cannot be in the future.');
+        return;
+      }
+    }
+
+    setFormLoading(true);
 
     try {
       if (editingCustomer) {
@@ -261,7 +300,7 @@ function Customers() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Phone Number *</label>
-                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="10-digit number" />
+                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="e.g. +1 555-0199" />
                 </div>
                 <div className="form-group">
                   <label>Email Address</label>
@@ -280,7 +319,14 @@ function Customers() {
                 </div>
                 <div className="form-group">
                   <label>Date of Birth</label>
-                  <input type="date" name="dob" className="date-picker-input" value={formData.dob} onChange={handleInputChange} />
+                  <input 
+                    type="date" 
+                    name="dob" 
+                    className="date-picker-input" 
+                    value={formData.dob} 
+                    onChange={handleInputChange} 
+                    max={new Date().toISOString().split('T')[0]}
+                  />
                 </div>
               </div>
 

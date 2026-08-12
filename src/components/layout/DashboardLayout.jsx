@@ -6,7 +6,7 @@ import { setSalons, setSelectedSalon } from '../../redux/slices/salonSlice';
 import axios from 'axios';
 import {
   Users, Calendar, Scissors, CreditCard, Tag, Repeat, CalendarDays,
-  Settings, LogOut, LayoutDashboard, UserCircle, Bell, Sparkles
+  Settings, LogOut, LayoutDashboard, UserCircle, Bell, Sparkles, Store
 } from 'lucide-react';
 import '../../styles/DashboardLayout.css';
 
@@ -33,6 +33,8 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isUploading, setIsUploading] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subModalMsg, setSubModalMsg] = useState('');
 
   // Initialize salon selection on every mount/refresh
   useEffect(() => {
@@ -43,7 +45,24 @@ function DashboardLayout() {
     }
     // For Staff/Receptionist: their salonId is already in the JWT (user.salonId)
     // The individual pages use req.user.salonId on the backend when no salonId param is sent
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
+
+  // Global subscription error interceptor
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        const data = err?.response?.data;
+        if (err?.response?.status === 403 && (data?.subscriptionRequired || data?.trialLimitReached)) {
+          setSubModalMsg(data?.message || 'Upgrade your plan to continue.');
+          setShowSubModal(true);
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptorId);
+  }, []);
 
   const initAdminSalon = async () => {
     try {
@@ -222,8 +241,39 @@ function DashboardLayout() {
 
       {/* Main Content Area */}
       <div className="main-content">
-        <header className="top-header">
-          <div className="header-actions" style={{ marginLeft: 'auto' }}>
+        <header className="top-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.5rem' }}>
+          {user?.role === 'Admin' && salons.length > 0 && (
+            <div className="salon-header-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Store size={18} style={{ color: '#a855f7' }} />
+              <select
+                value={selectedSalonId || ''}
+                onChange={(e) => {
+                  const s = salons.find(item => item._id === e.target.value);
+                  if (s) dispatch(setSelectedSalon(s));
+                }}
+                className="salon-dropdown-select"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#ffffff',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {salons.map(s => (
+                  <option key={s._id} value={s._id} style={{ background: '#18181b', color: '#ffffff' }}>
+                    {s.salonName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
 
             {/* Notification Bell */}
             <div className="notification-wrapper" ref={notifRef}>
@@ -275,6 +325,57 @@ function DashboardLayout() {
           <Outlet />
         </div>
       </div>
+
+      {/* ── Subscription Required Modal ── */}
+      {showSubModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            border: '1px solid #7c3aed',
+            borderRadius: '20px',
+            padding: '40px 36px',
+            maxWidth: '460px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 60px rgba(124,58,237,0.3)'
+          }}>
+            <div style={{ fontSize: '52px', marginBottom: '16px' }}>✨</div>
+            <h2 style={{ color: '#f8fafc', fontSize: '22px', fontWeight: 700, marginBottom: '12px' }}>
+              Free Trial Limit Reached
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: 1.6, marginBottom: '28px' }}>
+              {subModalMsg}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowSubModal(false)}
+                style={{
+                  background: 'transparent', border: '1px solid #334155',
+                  color: '#94a3b8', padding: '10px 24px', borderRadius: '10px',
+                  cursor: 'pointer', fontSize: '14px', fontWeight: 500
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowSubModal(false); navigate('/dashboard/subscription'); }}
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                  border: 'none', color: 'white', padding: '10px 28px',
+                  borderRadius: '10px', cursor: 'pointer', fontSize: '14px',
+                  fontWeight: 600, boxShadow: '0 4px 15px rgba(124,58,237,0.4)'
+                }}
+              >
+                🚀 Subscribe Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

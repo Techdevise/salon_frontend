@@ -16,6 +16,33 @@ import Subscription from "./pages/Subscription";
 import { PrivateRoute, RoleRoute, PublicOnlyRoute } from "./components/routes/ProtectedRoutes";
 import { useSelector } from 'react-redux';
 import { ConfirmProvider } from "./components/ConfirmModal";
+import axios from "axios";
+
+// Global Axios Request Interceptor (attach Bearer Token)
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Global Axios Response Interceptor (handle 401 Unauthorized token expiry)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 function App() {
   return (

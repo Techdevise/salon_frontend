@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import '../styles/DashboardHome.css';
-import { IndianRupee, Users, Scissors, TrendingUp, Plus, Store, ChevronDown, Pencil, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { IndianRupee, Users, Scissors, TrendingUp, Plus, Store, ChevronDown, Pencil, Trash2, AlertCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setSalons as setSalonsList, setSelectedSalon } from '../redux/slices/salonSlice';
 import AddSalon from './AddSalon';
@@ -46,21 +46,26 @@ function DashboardHome() {
   const [customDate, setCustomDate] = useState('');
   const [selectedStaffIdFilter, setSelectedStaffIdFilter] = useState('all');
   const [activityLoading, setActivityLoading] = useState(false);
+  const [activityPage, setActivityPage] = useState(1);
 
-  // Unified staff list combining all sources so no staff member is missing from dropdown
+  const ITEMS_PER_PAGE = 10;
+  const totalActivityPages = Math.ceil(staffActivities.length / ITEMS_PER_PAGE) || 1;
+
+  const paginatedStaffActivities = useMemo(() => {
+    const start = (activityPage - 1) * ITEMS_PER_PAGE;
+    return staffActivities.slice(start, start + ITEMS_PER_PAGE);
+  }, [staffActivities, activityPage]);
+
+  // Staff list for dropdown — only from selected salon
   const combinedStaffList = useMemo(() => {
     const map = new Map();
     (allStaffList || []).forEach(s => {
-      if (s._id && s.name) map.set(s._id.toString(), { id: s._id.toString(), name: s.name, role: s.role || 'Staff' });
-    });
-    (staffData || []).forEach(s => {
-      if (s._id && s.staffName) map.set(s._id.toString(), { id: s._id.toString(), name: s.staffName, role: 'Staff' });
-    });
-    (staffActivities || []).forEach(a => {
-      if (a.staffId && a.staffName) map.set(a.staffId.toString(), { id: a.staffId.toString(), name: a.staffName, role: a.staffRole || 'Staff' });
+      if (s._id && s.name) {
+        map.set(s._id.toString(), { id: s._id.toString(), name: s.name, role: s.role || 'Staff' });
+      }
     });
     return Array.from(map.values());
-  }, [allStaffList, staffData, staffActivities]);
+  }, [allStaffList]);
 
   // Fetch salons list for Admin
   useEffect(() => {
@@ -100,11 +105,16 @@ function DashboardHome() {
     }
   };
 
-  // Fetch complete staff list for dropdown filter
+  // Fetch staff list for the currently selected salon only
   const fetchStaffList = async () => {
     try {
       const token = localStorage.getItem('token');
-      const param = isAdmin ? '?allSalons=true' : (selectedSalonId ? `?salonId=${selectedSalonId}` : '');
+      // Always filter by selectedSalonId so only the active salon's staff appears
+      const param = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      if (!param) {
+        setAllStaffList([]);
+        return;
+      }
       const res = await axios.get(`/api/staff/all${param}`, {
         withCredentials: true,
         headers: { Authorization: `Bearer ${token}` }
@@ -125,6 +135,8 @@ function DashboardHome() {
   };
 
   useEffect(() => {
+    // Reset staff filter when salon changes to avoid stale selection
+    setSelectedStaffIdFilter('all');
     if (selectedSalonId || !isAdmin) {
       fetchDashboardData();
       fetchStaffActivities();
@@ -135,6 +147,7 @@ function DashboardHome() {
   }, [filter, selectedSalonId, salons.length, isAdmin]);
 
   useEffect(() => {
+    setActivityPage(1);
     if (selectedSalonId || !isAdmin) {
       fetchStaffActivities();
     }
@@ -145,73 +158,51 @@ function DashboardHome() {
     try {
       const token = localStorage.getItem('token');
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      
-      // Fetch billing logs directly to populate Staff Service Activity cleanly without 404 errors
-      const res = await axios.get(`/api/billing${salonParam}`, {
+      const filterParam = salonParam ? `&filter=${activityFilter}` : `?filter=${activityFilter}`;
+      const dateParam = customDate ? `&selectedDate=${customDate}` : '';
+      const staffParam = selectedStaffIdFilter !== 'all' ? `&staffId=${selectedStaffIdFilter}` : '';
+
+      const res = await axios.get(`/api/dashboard/staff-activity${salonParam}${filterParam}${dateParam}${staffParam}`, {
         withCredentials: true,
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (res.data.success || Array.isArray(res.data.data)) {
-        const rawBills = res.data.data || [];
-
-        // Apply filters locally (Date / Staff filter)
-        const filteredBills = rawBills.filter(bill => {
-          // Staff filter
-          if (selectedStaffIdFilter !== 'all') {
-            const billStaffId = bill.staffId?._id || bill.staffId;
-            if (billStaffId !== selectedStaffIdFilter) return false;
-          }
-
-          // Date filter
-          const billDate = new Date(bill.createdAt);
-          if (customDate) {
-            const selected = new Date(customDate);
-            return (
-              billDate.getFullYear() === selected.getFullYear() &&
-              billDate.getMonth() === selected.getMonth() &&
-              billDate.getDate() === selected.getDate()
-            );
-          } else if (activityFilter === 'daily') {
-            const today = new Date();
-            return (
-              billDate.getFullYear() === today.getFullYear() &&
-              billDate.getMonth() === today.getMonth() &&
-              billDate.getDate() === today.getDate()
-            );
-          } else if (activityFilter === 'weekly') {
-            const diffDays = (new Date() - billDate) / (1000 * 3600 * 24);
-            return diffDays <= 7;
-          } else if (activityFilter === 'monthly') {
-            const today = new Date();
-            return (
-              billDate.getFullYear() === today.getFullYear() &&
-              billDate.getMonth() === today.getMonth()
-            );
-          }
-          return true; // activityFilter === 'all'
+      if (res.data.success && Array.isArray(res.data.data)) {
+        setStaffActivities(res.data.data);
+      } else {
+        // Fallback to billing logs if staff-activity returns empty or isn't available
+        const billRes = await axios.get(`/api/billing${salonParam}`, {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }
         });
 
-        const formattedActivities = filteredBills.map(bill => ({
-          billId: bill._id,
-          staffId: bill.staffId?._id || bill.staffId || null,
-          staffName: bill.staffId?.name || bill.staffName || 'Staff Member',
-          staffRole: bill.staffId?.role || 'Staff',
-          customerId: bill.customerId?._id || bill.customerId || null,
-          customerName: bill.customerId?.name || 'Walk-in Customer',
-          customerPhone: bill.customerId?.phone || 'N/A',
-          services: (bill.services || []).map(s => ({
-            serviceId: s.serviceId?._id || s.serviceId,
-            serviceName: s.serviceName || s.serviceId?.serviceName || 'Service',
-            price: s.price || s.serviceId?.price || 0
-          })),
-          totalAmount: bill.totalAmount || bill.subTotal || bill.paidAmount || 0,
-          paymentMethod: bill.paymentMethod || 'Cash',
-          paymentStatus: bill.paymentStatus || 'Paid',
-          date: bill.createdAt
-        }));
+        if (billRes.data.success || Array.isArray(billRes.data.data)) {
+          const rawBills = billRes.data.data || [];
+          const formattedActivities = rawBills.map(bill => {
+            const staffObj = typeof bill.staffId === 'object' ? bill.staffId : bill.staffDetails;
+            const custObj = typeof bill.customerId === 'object' ? bill.customerId : bill.customerDetails;
 
-        setStaffActivities(formattedActivities);
+            return {
+              billId: bill._id,
+              staffId: staffObj?._id || bill.staffId || null,
+              staffName: staffObj?.name || bill.staffName || 'Staff Member',
+              staffRole: staffObj?.role || 'Staff',
+              customerId: custObj?._id || bill.customerId || null,
+              customerName: custObj?.name || bill.customerName || 'Customer',
+              customerPhone: custObj?.phone || bill.customerPhone || 'N/A',
+              services: (bill.services || []).map(s => ({
+                serviceId: s.serviceId?._id || s.serviceId,
+                serviceName: s.serviceName || s.serviceId?.serviceName || 'Service',
+                price: s.price || s.serviceId?.price || 0
+              })),
+              totalAmount: bill.totalAmount || bill.subTotal || bill.paidAmount || 0,
+              paymentMethod: bill.paymentMethod || 'Cash',
+              paymentStatus: bill.paymentStatus || 'Paid',
+              date: bill.createdAt
+            };
+          });
+          setStaffActivities(formattedActivities);
+        }
       }
     } catch (err) {
       console.error('Error loading staff activity:', err);
@@ -419,7 +410,7 @@ function DashboardHome() {
           <div className="metric-icon services"><Scissors size={24} /></div>
           <div className="metric-info">
             <p>Services Rendered</p>
-            <h3>{businessData?.serviceBreakdown?.reduce((acc, curr) => acc + curr.totalBookings, 0) || 0}</h3>
+            <h3>{businessData?.serviceBreakdown?.reduce((acc, curr) => acc + curr.totalBookings, 0) || totalBills || 0}</h3>
             <span className="trend neutral">Top: {serviceBreakdown[0]?._id || 'N/A'}</span>
           </div>
         </div>
@@ -556,137 +547,110 @@ function DashboardHome() {
           </div>
         </div>
 
-        {/* Staff Overview Summary Cards */}
-        {Object.values(
-          staffActivities.reduce((acc, act) => {
-            const key = act.staffName || 'Unassigned';
-            if (!acc[key]) {
-              acc[key] = {
-                name: act.staffName,
-                role: act.staffRole,
-                totalServices: 0,
-                totalRevenue: 0
-              };
-            }
-            acc[key].totalServices += act.services.length;
-            acc[key].totalRevenue += act.totalAmount;
-            return acc;
-          }, {})
-        ).length > 0 && (
-          <div className="staff-summary-grid">
-            {Object.values(
-              staffActivities.reduce((acc, act) => {
-                const key = act.staffName || 'Unassigned';
-                if (!acc[key]) {
-                  acc[key] = {
-                    name: act.staffName,
-                    role: act.staffRole,
-                    totalServices: 0,
-                    totalRevenue: 0
-                  };
-                }
-                acc[key].totalServices += act.services.length;
-                acc[key].totalRevenue += act.totalAmount;
-                return acc;
-              }, {})
-            ).map((summary, idx) => (
-              <div key={idx} className="staff-summary-card">
-                <div className="summary-card-top">
-                  <div className="summary-avatar">
-                    {summary.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h4 className="summary-staff-name">{summary.name}</h4>
-                    <span className="summary-staff-role">{summary.role}</span>
-                  </div>
-                </div>
-                <div className="summary-card-stats">
-                  <div className="summary-stat-box">
-                    <span className="stat-label">Services Delivered</span>
-                    <span className="stat-value">{summary.totalServices}</span>
-                  </div>
-                  <div className="summary-stat-box">
-                    <span className="stat-label">Total Amount</span>
-                    <span className="stat-value rupee">₹{summary.totalRevenue.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+
 
         {/* Detailed Service Activity Table */}
         <div className="activity-table-card">
           {activityLoading ? (
             <div className="activity-loading">Loading staff service logs...</div>
           ) : staffActivities.length > 0 ? (
-            <div className="activity-table-wrapper">
-              <table className="activity-table">
-                <thead>
-                  <tr>
-                    <th>Date & Time</th>
-                    <th>Staff Member</th>
-                    <th>Customer Name</th>
-                    <th>Services Provided</th>
-                    <th>Total Amount</th>
-                    <th>Payment Mode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staffActivities.map((act) => (
-                    <tr key={act.billId}>
-                      <td className="activity-date-cell">
-                        <span className="date-main">
-                          {new Date(act.date).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </span>
-                        <span className="time-sub">
-                          {new Date(act.date).toLocaleTimeString('en-IN', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="activity-staff-pill">
-                          <span className="mini-avatar">{act.staffName.charAt(0).toUpperCase()}</span>
-                          <div>
-                            <span className="staff-name-bold">{act.staffName}</span>
-                            <span className="staff-role-sub">{act.staffRole}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="activity-customer-info">
-                          <span className="customer-name-bold">{act.customerName}</span>
-                          <span className="customer-phone-sub">{act.customerPhone}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="activity-services-list">
-                          {act.services.map((srv, i) => (
-                            <span key={i} className="activity-service-tag">
-                              {srv.serviceName} {srv.price > 0 && `(₹${srv.price})`}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="activity-amount-cell">
-                        ₹{act.totalAmount.toLocaleString()}
-                      </td>
-                      <td>
-                        <span className="activity-payment-badge">
-                          {act.paymentMethod}
-                        </span>
-                      </td>
+            <>
+              <div className="activity-table-wrapper">
+                <table className="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Date & Time</th>
+                      <th>Staff Member</th>
+                      <th>Customer Name</th>
+                      <th>Services Provided</th>
+                      <th>Total Amount</th>
+                      <th>Payment Mode</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedStaffActivities.map((act) => (
+                      <tr key={act.billId}>
+                        <td className="activity-date-cell">
+                          <span className="date-main">
+                            {new Date(act.date).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                          <span className="time-sub">
+                            {new Date(act.date).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="activity-staff-pill">
+                            <span className="mini-avatar">{act.staffName.charAt(0).toUpperCase()}</span>
+                            <div>
+                              <span className="staff-name-bold">{act.staffName}</span>
+                              <span className="staff-role-sub">{act.staffRole}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="activity-customer-info">
+                            <span className="customer-name-bold">{act.customerName}</span>
+                            <span className="customer-phone-sub">{act.customerPhone}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="activity-services-list">
+                            {act.services.map((srv, i) => (
+                              <span key={i} className="activity-service-tag">
+                                {srv.serviceName} {srv.price > 0 && `(₹${srv.price})`}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="activity-amount-cell">
+                          ₹{act.totalAmount.toLocaleString()}
+                        </td>
+                        <td>
+                          <span className="activity-payment-badge">
+                            {act.paymentMethod}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalActivityPages > 1 && (
+                <div className="activity-pagination">
+                  <div className="pagination-info">
+                    Showing {((activityPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(activityPage * ITEMS_PER_PAGE, staffActivities.length)} of {staffActivities.length} entries
+                  </div>
+                  <div className="pagination-controls">
+                    <button
+                      className="pagination-btn"
+                      disabled={activityPage === 1}
+                      onClick={() => setActivityPage((prev) => Math.max(prev - 1, 1))}
+                    >
+                      <ChevronLeft size={16} /> Previous
+                    </button>
+                    <span className="pagination-page-indicator">
+                      Page {activityPage} of {totalActivityPages}
+                    </span>
+                    <button
+                      className="pagination-btn"
+                      disabled={activityPage === totalActivityPages}
+                      onClick={() => setActivityPage((prev) => Math.min(prev + 1, totalActivityPages))}
+                    >
+                      Next <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="activity-empty">
               No services recorded for the selected date/filter.

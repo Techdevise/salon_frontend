@@ -66,7 +66,13 @@ function Staff() {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    if (name === 'phone') {
+      value = value.replace(/[^\d+]/g, '');
+    } else if (name === 'name') {
+      value = value.replace(/[0-9]/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleServiceToggle = (serviceId) => {
@@ -105,8 +111,28 @@ function Staff() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormLoading(true);
     setErrorMsg('');
+
+    // Mandatory Checks
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setErrorMsg('Full Name and Phone Number are required mandatory fields.');
+      return;
+    }
+
+    // Name Validation
+    if (/\d/.test(formData.name)) {
+      setErrorMsg('Staff Name cannot contain numbers.');
+      return;
+    }
+
+    // Phone Boundary Validation (7 to 15 digits)
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setErrorMsg('Phone number must be between 7 and 15 digits.');
+      return;
+    }
+
+    setFormLoading(true);
 
     try {
       if (editingStaff) {
@@ -202,7 +228,7 @@ function Staff() {
       serviceId: defaultService?._id || '',
       totalAmount: defaultService?.price || '',
       date: new Date().toISOString().split('T')[0],
-      startTime: '10:30 AM',
+      startTime: '',
       notes: ''
     });
     setShowCustomOrderModal(true);
@@ -241,7 +267,7 @@ function Staff() {
         staffId: customOrderData.staffId,
         services: customOrderData.serviceId ? [customOrderData.serviceId] : [],
         date: customOrderData.date,
-        timeSlot: { start: customOrderData.startTime || '10:30 AM', end: 'TBD' },
+        timeSlot: { start: customOrderData.startTime || '10:30', end: 'TBD' },
         totalAmount: Number(customOrderData.totalAmount) || 0,
         notes: customOrderData.notes || '',
         ...(selectedSalonId && { salonId: selectedSalonId })
@@ -483,7 +509,7 @@ function Staff() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Phone Number *</label>
-                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="10-digit number" />
+                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="e.g. +1 555-0199" />
                 </div>
                 <div className="form-group">
                   <label>Email Address</label>
