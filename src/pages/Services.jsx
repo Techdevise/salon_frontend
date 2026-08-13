@@ -29,7 +29,7 @@ function Services() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (selectedSalonId) fetchServices();
+    fetchServices();
   }, [selectedSalonId]);
 
   const fetchServices = async () => {

@@ -31,12 +31,10 @@ function Billing() {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    if (selectedSalonId || user?.role !== 'Admin') {
-      fetchCustomers();
-      fetchServices();
-      fetchPackages();
-      fetchStaff();
-    }
+    fetchCustomers();
+    fetchServices();
+    fetchPackages();
+    fetchStaff();
   }, [selectedSalonId]);
 
   const fetchCustomers = async () => {
@@ -53,7 +51,8 @@ function Billing() {
 
   const fetchServices = async () => {
     try {
-      const res = await axios.get('/api/service/all', { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/service/all${salonParam}`, { withCredentials: true });
       if (res.data?.data) {
         setServices(res.data.data);
       }
@@ -138,7 +137,7 @@ function Billing() {
           id: pkgObj._id,
           packageId: pkgObj._id,
           name: `📦 ${pkgObj.packageName}`,
-          price: pkgObj.price,
+          price: pkgObj.packagePrice || pkgObj.price || 0,
           quantity: 1,
           type: 'package'
         }]);
@@ -332,7 +331,7 @@ function Billing() {
           {/* Service & Package Selection */}
           <div className="billing-card">
             <h3>2. Add Services & Packages</h3>
-            
+
             {/* Mode selection tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <button
@@ -424,7 +423,7 @@ function Billing() {
                   <option value="">-- Select a Service Package --</option>
                   {packages.map(p => (
                     <option key={p._id} value={p._id}>
-                      📦 {p.packageName} - ₹{p.price}
+                      📦 {p.packageName} - ₹{p.packagePrice || p.price}
                     </option>
                   ))}
                 </select>

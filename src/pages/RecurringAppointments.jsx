@@ -36,10 +36,8 @@ function RecurringAppointments() {
   });
 
   useEffect(() => {
-    if (selectedSalonId || user?.role !== 'Admin') {
-      fetchRecurring();
-      fetchOptions();
-    }
+    fetchRecurring();
+    fetchOptions();
   }, [selectedSalonId]);
 
   const fetchRecurring = async () => {
@@ -61,7 +59,7 @@ function RecurringAppointments() {
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
       const [custRes, servRes, staffRes] = await Promise.all([
         axios.get(`/api/customer${salonParam}`, { withCredentials: true }),
-        axios.get('/api/service/all', { withCredentials: true }),
+        axios.get(`/api/service/all${salonParam}`, { withCredentials: true }),
         axios.get(`/api/staff/all${salonParam}`, { withCredentials: true })
       ]);
       setCustomers(custRes.data?.data || []);

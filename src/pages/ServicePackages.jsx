@@ -27,9 +27,14 @@ function ServicePackages() {
   });
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [removedServices, setRemovedServices] = useState([]);
+  const [addServiceTab, setAddServiceTab] = useState('dropdown'); // 'dropdown' | 'manual'
+  const [manualService, setManualService] = useState({ name: '', price: '' });
+  // Manually added services (not from DB) stored locally for display in chips
+  const [manualServicesList, setManualServicesList] = useState([]);
 
   useEffect(() => {
-    if (selectedSalonId) fetchData();
+    fetchData();
   }, [selectedSalonId]);
 
   const fetchData = async () => {
@@ -66,36 +71,79 @@ function ServicePackages() {
   };
 
   const toggleServiceSelection = (serviceId) => {
+    if (!serviceId) return;
+    const sId = String(serviceId);
     setFormData(prev => {
-      const isSelected = prev.selectedServices.includes(serviceId);
+      const isSelected = prev.selectedServices.some(id => id && String(id) === sId);
       if (isSelected) {
-        return { ...prev, selectedServices: prev.selectedServices.filter(id => id !== serviceId) };
+        return { ...prev, selectedServices: prev.selectedServices.filter(id => id && String(id) !== sId) };
       } else {
-        return { ...prev, selectedServices: [...prev.selectedServices, serviceId] };
+        return { ...prev, selectedServices: [...prev.selectedServices.filter(Boolean), sId] };
       }
     });
   };
 
+  const removeSelectedService = (e, serviceId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!serviceId) return;
+    const sId = String(serviceId);
+    // Remove from selected AND hide from available
+    setFormData(prev => ({
+      ...prev,
+      selectedServices: prev.selectedServices.filter(id => id && String(id) !== sId)
+    }));
+    setRemovedServices(prev => [...prev, sId]);
+  };
+
   const openModal = (pkg = null) => {
     setErrorMsg('');
-    if (pkg) {
+    if (pkg && pkg._id) {
       setEditingPackage(pkg);
+      const extractedServiceIds = pkg.services
+        ? pkg.services
+            .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
+            .filter(Boolean)
+            .map(id => String(id))
+        : [];
       setFormData({
-        packageName: pkg.packageName,
+        packageName: pkg.packageName || '',
         description: pkg.description || '',
-        packagePrice: pkg.packagePrice,
-        selectedServices: pkg.services.map(s => s.serviceId) // Extract IDs back to array
+        packagePrice: pkg.packagePrice || '',
+        selectedServices: extractedServiceIds
       });
     } else {
       setEditingPackage(null);
-      setFormData({ packageName: '', description: '', packagePrice: '', selectedServices: [] });
+      setFormData({
+        packageName: '',
+        description: '',
+        packagePrice: '',
+        selectedServices: []
+      });
     }
+    setRemovedServices([]);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingPackage(null);
+    setFormData({ packageName: '', description: '', packagePrice: '', selectedServices: [] });
+    setRemovedServices([]);
+    setManualServicesList([]);
+    setManualService({ name: '', price: '' });
+    setAddServiceTab('dropdown');
+    setErrorMsg('');
+  };
+
+  const handleAddManualService = (e) => {
+    e.preventDefault();
+    if (!manualService.name.trim()) return;
+    const tempId = `manual_${Date.now()}`;
+    const newSvc = { _id: tempId, serviceName: manualService.name.trim(), price: Number(manualService.price) || 0, isManual: true };
+    setManualServicesList(prev => [...prev, newSvc]);
+    setFormData(prev => ({ ...prev, selectedServices: [...prev.selectedServices, tempId] }));
+    setManualService({ name: '', price: '' });
   };
 
   const handleSubmit = async (e) => {
@@ -106,10 +154,6 @@ function ServicePackages() {
       return;
     }
 
-    if (formData.selectedServices.length < 2) {
-      setErrorMsg('Please select at least 2 services to form a package.');
-      return;
-    }
 
     setFormLoading(true);
     setErrorMsg('');
@@ -170,8 +214,9 @@ function ServicePackages() {
   // Calculate dynamic savings in the form based on selected services
   const calculateFormSavings = () => {
     let originalTotal = 0;
-    formData.selectedServices.forEach(id => {
-      const d = availableServices.find(s => s._id === id);
+    (formData.selectedServices || []).filter(Boolean).forEach(id => {
+      const targetId = String(id);
+      const d = availableServices.find(s => s._id && String(s._id) === targetId);
       if (d) originalTotal += Number(d.price || 0);
     });
     return { originalTotal, savings: originalTotal - Number(formData.packagePrice || 0) };
@@ -308,25 +353,133 @@ function ServicePackages() {
               </div>
 
               <div className="form-group">
-                <label>Select Included Services (Select minimum 2) *</label>
-                <div className="services-selection-list">
-                  {availableServices.length > 0 ? (
-                    availableServices.map(svc => (
-                      <div
-                        key={svc._id}
-                        className={`service-picker-card ${formData.selectedServices.includes(svc._id) ? 'selected' : ''}`}
-                        onClick={() => toggleServiceSelection(svc._id)}
-                      >
-                        <div className="sp-header">
-                          <Scissors size={14} /> <span>{svc.serviceName}</span>
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', display: 'block' }}>
+                  Selected Included Services ({formData.selectedServices.length}) *
+                </label>
+
+                {/* Selected Services Chips */}
+                {formData.selectedServices.length > 0 ? (
+                  <div className="selected-services-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px', background: 'rgba(168, 85, 247, 0.08)', borderRadius: '10px', border: '1px solid rgba(168, 85, 247, 0.25)', marginBottom: '1rem' }}>
+                    {formData.selectedServices.map(id => {
+                      // resolve from DB services OR manual list
+                      const svc = availableServices.find(s => s._id && String(s._id) === String(id))
+                             || manualServicesList.find(s => s._id && String(s._id) === String(id));
+                      if (!svc) return null;
+                      return (
+                        <div
+                          key={svc._id}
+                          className="selected-chip"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: svc.isManual ? '#1a2e1a' : '#1e1b4b', border: `1px solid ${svc.isManual ? '#22c55e' : '#6366f1'}`, color: '#fff', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}
+                        >
+                          <span><Scissors size={13} style={{ display: 'inline', marginRight: '4px' }} />{svc.serviceName} (₹{svc.price}){svc.isManual && <span style={{ fontSize: '0.7rem', color: '#86efac', marginLeft: '4px' }}>[custom]</span>}</span>
+                          <button
+                            type="button"
+                            title="Remove from package"
+                            onClick={(e) => removeSelectedService(e, svc._id)}
+                            style={{ background: 'rgba(239, 68, 68, 0.3)', border: '1px solid rgba(239, 68, 68, 0.6)', color: '#f87171', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+                          >
+                            <X size={12} />
+                          </button>
                         </div>
-                        <div className="sp-price">₹{svc.price}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-muted">No services found. Add standalone services first.</div>
-                  )}
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.82rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '1rem' }}>
+                    No services selected yet. Add from dropdown or enter manually below.
+                  </div>
+                )}
+
+                {/* Tabs: Dropdown vs Manual */}
+                <div style={{ display: 'flex', gap: '0', marginBottom: '0.6rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(99,102,241,0.3)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAddServiceTab('dropdown')}
+                    style={{ flex: 1, padding: '7px 0', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: 'none', background: addServiceTab === 'dropdown' ? 'rgba(99,102,241,0.25)' : 'transparent', color: addServiceTab === 'dropdown' ? '#a5b4fc' : '#71717a', transition: 'all 0.2s' }}
+                  >
+                    📋 From Dropdown
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddServiceTab('manual')}
+                    style={{ flex: 1, padding: '7px 0', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', border: 'none', borderLeft: '1px solid rgba(99,102,241,0.3)', background: addServiceTab === 'manual' ? 'rgba(34,197,94,0.15)' : 'transparent', color: addServiceTab === 'manual' ? '#86efac' : '#71717a', transition: 'all 0.2s' }}
+                  >
+                    ✏️ Add Manually
+                  </button>
                 </div>
+
+                {/* Dropdown Tab */}
+                {addServiceTab === 'dropdown' && (
+                  <div className="services-selection-list">
+                    {availableServices.filter(svc =>
+                      svc._id &&
+                      !formData.selectedServices.some(id => String(id) === String(svc._id)) &&
+                      !removedServices.includes(String(svc._id))
+                    ).length > 0 ? (
+                      availableServices
+                        .filter(svc =>
+                          svc._id &&
+                          !formData.selectedServices.some(id => String(id) === String(svc._id)) &&
+                          !removedServices.includes(String(svc._id))
+                        )
+                        .map(svc => (
+                          <div
+                            key={svc._id}
+                            className="service-picker-card"
+                            onClick={() => toggleServiceSelection(svc._id)}
+                            style={{ position: 'relative', cursor: 'pointer' }}
+                          >
+                            <div className="sp-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Scissors size={14} /> <span>{svc.serviceName}</span>
+                              </div>
+                              <Plus size={14} style={{ color: '#a855f7' }} />
+                            </div>
+                            <div className="sp-price">₹{svc.price}</div>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-muted" style={{ fontSize: '0.82rem' }}>
+                        {availableServices.length === 0 ? 'No services found in database.' : 'All available services have been added!'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual Entry Tab */}
+                {addServiceTab === 'manual' && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', padding: '10px', background: 'rgba(34,197,94,0.06)', borderRadius: '10px', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    <div style={{ flex: 2 }}>
+                      <label style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px', display: 'block' }}>Service Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Deep Conditioning"
+                        value={manualService.name}
+                        onChange={e => setManualService(prev => ({ ...prev, name: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(34,197,94,0.3)', background: '#0f1a0f', color: '#fff', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.75rem', color: '#86efac', marginBottom: '4px', display: 'block' }}>Price (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        value={manualService.price}
+                        onChange={e => setManualService(prev => ({ ...prev, price: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(34,197,94,0.3)', background: '#0f1a0f', color: '#fff', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddManualService}
+                      disabled={!manualService.name.trim()}
+                      style={{ padding: '8px 16px', borderRadius: '8px', background: manualService.name.trim() ? '#22c55e' : '#374151', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.85rem', cursor: manualService.name.trim() ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', transition: 'background 0.2s' }}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="form-row">

@@ -34,7 +34,7 @@ function Discounts() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (selectedSalonId) fetchDiscounts();
+    fetchDiscounts();
   }, [selectedSalonId]);
 
   const fetchDiscounts = async () => {
@@ -97,15 +97,41 @@ function Discounts() {
     setFormLoading(true);
     setErrorMsg('');
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+
+    if (formData.startDate) {
+      const selectedStartYear = new Date(formData.startDate).getFullYear();
+      if (selectedStartYear < currentYear || formData.startDate < todayStr) {
+        setErrorMsg('Valid From date cannot be a past date or year.');
+        setFormLoading(false);
+        return;
+      }
+    }
+
+    if (formData.endDate) {
+      const selectedEndYear = new Date(formData.endDate).getFullYear();
+      if (selectedEndYear < currentYear || formData.endDate < todayStr) {
+        setErrorMsg('Valid Until date cannot be a past date or year.');
+        setFormLoading(false);
+        return;
+      }
+      if (formData.startDate && formData.endDate < formData.startDate) {
+        setErrorMsg('Valid Until date cannot be before Valid From date.');
+        setFormLoading(false);
+        return;
+      }
+    }
+
     try {
-      const payload = { 
+      const payload = {
         ...formData,
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
-      
+
       // Auto-fill title if missing
       if (!payload.title) payload.title = `${payload.discountValue}${payload.discountType === 'Percentage' ? '%' : ' Rs'} off`;
-      
+
       // Clean up empty strings to undefined/null for backend numbers
       if (!payload.minOrderAmount) delete payload.minOrderAmount;
       if (!payload.maxDiscountAmount) delete payload.maxDiscountAmount;
@@ -150,11 +176,11 @@ function Discounts() {
       await axios.patch(`/api/discount/toggle/${id}`, {}, { withCredentials: true });
       fetchDiscounts();
     } catch (error) {
-        alert(error.response?.data?.message || 'Failed to toggle status');
+      alert(error.response?.data?.message || 'Failed to toggle status');
     }
   };
 
-  const filteredDiscounts = discounts.filter(d => 
+  const filteredDiscounts = discounts.filter(d =>
     d.promoCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -182,9 +208,9 @@ function Discounts() {
       <div className="table-controls">
         <div className="search-bar">
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search promo codes..." 
+          <input
+            type="text"
+            placeholder="Search promo codes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -236,18 +262,18 @@ function Discounts() {
                       </div>
                     </td>
                     <td>
-                      <button 
-                         className={`status-badge border-0 cursor-pointer ${discount.isActive ? 'active' : 'inactive'}`}
-                         onClick={() => handleToggleStatus(discount._id)}
-                         title="Click to toggle status"
+                      <button
+                        className={`status-badge border-0 cursor-pointer ${discount.isActive ? 'active' : 'inactive'}`}
+                        onClick={() => handleToggleStatus(discount._id)}
+                        title="Click to toggle status"
                       >
                         {discount.isActive ? 'Active' : 'Expired'}
                       </button>
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="icon-btn edit" onClick={() => openModal(discount)}><Edit2 size={16}/></button>
-                        <button className="icon-btn delete" onClick={() => handleDelete(discount._id)}><Trash2 size={16}/></button>
+                        <button className="icon-btn edit" onClick={() => openModal(discount)}><Edit2 size={16} /></button>
+                        <button className="icon-btn delete" onClick={() => handleDelete(discount._id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -268,13 +294,13 @@ function Discounts() {
           <div className="modal-content large-modal">
             <div className="modal-header">
               <h2>{editingDiscount ? 'Edit Promo Code' : 'Create Promo Code'}</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Promo Code (e.g. SUMMER20) *</label>
@@ -287,43 +313,57 @@ function Discounts() {
               </div>
 
               <div className="form-row">
-                  <div className="form-group">
-                    <label>Discount Type *</label>
-                    <select name="discountType" value={formData.discountType} onChange={handleInputChange}>
-                      <option value="Percentage">Percentage (%)</option>
-                      <option value="Flat">Flat Amount (₹)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Discount Value *</label>
-                    <input type="number" name="discountValue" required min="1" value={formData.discountValue} onChange={handleInputChange} />
-                  </div>
+                <div className="form-group">
+                  <label>Discount Type *</label>
+                  <select name="discountType" value={formData.discountType} onChange={handleInputChange}>
+                    <option value="Percentage">Percentage (%)</option>
+                    <option value="Flat">Flat Amount (₹)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Discount Value *</label>
+                  <input type="number" name="discountValue" required min="1" value={formData.discountValue} onChange={handleInputChange} />
+                </div>
               </div>
 
               <div className="form-row">
-                  <div className="form-group">
-                    <label>Valid From *</label>
-                    <input type="date" name="startDate" required value={formData.startDate} onChange={handleInputChange} />
-                  </div>
-                  <div className="form-group">
-                    <label>Valid Until *</label>
-                    <input type="date" name="endDate" required value={formData.endDate} onChange={handleInputChange} />
-                  </div>
+                <div className="form-group">
+                  <label>Valid From *</label>
+                  <input 
+                    type="date" 
+                    name="startDate" 
+                    required 
+                    value={formData.startDate} 
+                    onChange={handleInputChange} 
+                    min={new Date().toISOString().split('T')[0]} 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valid Until *</label>
+                  <input 
+                    type="date" 
+                    name="endDate" 
+                    required 
+                    value={formData.endDate} 
+                    onChange={handleInputChange} 
+                    min={formData.startDate || new Date().toISOString().split('T')[0]} 
+                  />
+                </div>
               </div>
 
               <h4 className="section-divider">Usage Limits Optional</h4>
 
               <div className="form-row">
+                <div className="form-group">
+                  <label>Min Order Value (₹)</label>
+                  <input type="number" name="minOrderAmount" min="0" value={formData.minOrderAmount} onChange={handleInputChange} placeholder="e.g. 1000" />
+                </div>
+                {formData.discountType === 'Percentage' && (
                   <div className="form-group">
-                    <label>Min Order Value (₹)</label>
-                    <input type="number" name="minOrderAmount" min="0" value={formData.minOrderAmount} onChange={handleInputChange} placeholder="e.g. 1000" />
+                    <label>Max Discount Amount (₹)</label>
+                    <input type="number" name="maxDiscountAmount" min="0" value={formData.maxDiscountAmount} onChange={handleInputChange} placeholder="e.g. 500" />
                   </div>
-                  {formData.discountType === 'Percentage' && (
-                    <div className="form-group">
-                      <label>Max Discount Amount (₹)</label>
-                      <input type="number" name="maxDiscountAmount" min="0" value={formData.maxDiscountAmount} onChange={handleInputChange} placeholder="e.g. 500" />
-                    </div>
-                  )}
+                )}
               </div>
 
               <div className="form-group">
