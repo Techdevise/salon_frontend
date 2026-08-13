@@ -54,8 +54,8 @@ function Customers() {
   const handleInputChange = (e) => {
     let { name, value } = e.target;
     if (name === 'phone') {
-      // Restrict phone to digits and leading plus sign only
-      value = value.replace(/[^\d+]/g, '');
+      // Restrict phone to digits only, max 10 digits
+      value = value.replace(/\D/g, '').slice(0, 10);
     } else if (name === 'name') {
       // Block numerical characters in Name field
       value = value.replace(/[0-9]/g, '');
@@ -104,10 +104,10 @@ function Customers() {
       return;
     }
 
-    // Phone Boundary Validation (7 to 15 digits)
+    // Phone Boundary Validation (Exactly 10 digits)
     const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      setErrorMsg('Phone number must be between 7 and 15 digits.');
+    if (phoneDigits.length !== 10) {
+      setErrorMsg('Phone number must be exactly 10 digits.');
       return;
     }
 
@@ -300,7 +300,7 @@ function Customers() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Phone Number *</label>
-                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="e.g. +1 555-0199" />
+                  <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="e.g. 9876543210" maxLength={10} />
                 </div>
                 <div className="form-group">
                   <label>Email Address</label>

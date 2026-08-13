@@ -58,7 +58,11 @@ function ServicePackages() {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    if (name === 'packageName') {
+      value = value.replace(/[0-9]/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const toggleServiceSelection = (serviceId) => {
@@ -96,6 +100,11 @@ function ServicePackages() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (/\d/.test(formData.packageName)) {
+      setErrorMsg('Package Name cannot contain numbers.');
+      return;
+    }
 
     if (formData.selectedServices.length < 2) {
       setErrorMsg('Please select at least 2 services to form a package.');

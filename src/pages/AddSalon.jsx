@@ -48,9 +48,11 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
   const handleChange = (e) => {
     let { name, value } = e.target;
     if (name === 'phone') {
-      value = value.replace(/[^\d+]/g, '');
+      value = value.replace(/\D/g, '').slice(0, 10);
     } else if (name === 'pincode') {
-      value = value.replace(/[^a-zA-Z0-9-]/g, '');
+      value = value.replace(/\D/g, '').slice(0, 6);
+    } else if (['salonName', 'ownerName', 'city', 'state'].includes(name)) {
+      value = value.replace(/[0-9]/g, '');
     }
     setForm(prev => ({ ...prev, [name]: value }));
     setError('');
@@ -81,18 +83,33 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
       return;
     }
 
-    // Phone Boundary Validation (7 to 15 digits)
-    const phoneDigits = form.phone.replace(/\D/g, '');
-    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      setError('Phone number must be between 7 and 15 digits.');
+    if (/\d/.test(form.salonName) || /\d/.test(form.ownerName)) {
+      setError('Salon Name and Owner Name cannot contain numbers.');
       return;
     }
 
-    // Pincode Boundary Validation (3 to 10 characters)
+    if (form.city && /\d/.test(form.city)) {
+      setError('City name cannot contain numbers.');
+      return;
+    }
+
+    if (form.state && /\d/.test(form.state)) {
+      setError('State name cannot contain numbers.');
+      return;
+    }
+
+    // Phone Boundary Validation (Exactly 10 digits)
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    // Pincode Boundary Validation (Exactly 6 digits)
     if (form.pincode.trim()) {
-      const cleanPincode = form.pincode.trim();
-      if (cleanPincode.length < 3 || cleanPincode.length > 10) {
-        setError('Pincode / Postal Code must be between 3 and 10 characters.');
+      const cleanPincode = form.pincode.replace(/\D/g, '');
+      if (cleanPincode.length !== 6) {
+        setError('Pincode / Postal Code must be exactly 6 digits.');
         return;
       }
     }
@@ -231,7 +248,8 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
-                    placeholder="e.g. +1 555-0199"
+                    placeholder="e.g. 9876543210"
+                    maxLength={10}
                     required
                   />
                 </div>
@@ -262,7 +280,7 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                 </div>
                 <div className="form-field">
                   <label>Pincode / Postal Code</label>
-                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="90210" />
+                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 110001" maxLength={6} />
                 </div>
               </div>
             </div>

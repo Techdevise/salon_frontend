@@ -12,9 +12,20 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://127.0.0.1:4000',
         changeOrigin: true,
         secure: false,
+        configure: (proxy, _options) => {
+          process.nextTick(() => {
+            proxy.removeAllListeners('error');
+            proxy.on('error', (err, _req, res) => {
+              if (res && !res.headersSent) {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Backend server offline (127.0.0.1:4000)' }));
+              }
+            });
+          });
+        }
       }
     }
   }

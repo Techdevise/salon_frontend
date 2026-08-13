@@ -256,7 +256,7 @@ function Appointments() {
     if (name === 'customerName') {
       value = value.replace(/[0-9]/g, '');
     } else if (name === 'customerPhone') {
-      value = value.replace(/[^\d+]/g, '');
+      value = value.replace(/\D/g, '').slice(0, 10);
     }
     const updatedWalkIn = { ...walkInFormData, [name]: value };
     if (name === 'serviceName') {
@@ -283,8 +283,8 @@ function Appointments() {
     }
 
     const phoneDigits = walkInFormData.customerPhone.replace(/\D/g, '');
-    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-      setWalkInError('Phone number must be between 7 and 15 digits.');
+    if (phoneDigits.length !== 10) {
+      setWalkInError('Phone number must be exactly 10 digits.');
       return;
     }
 
@@ -682,6 +682,7 @@ function Appointments() {
                     value={walkInFormData.customerPhone}
                     onChange={handleWalkInChange}
                     placeholder="10-digit mobile number"
+                    maxLength={10}
                   />
                 </div>
               </div>

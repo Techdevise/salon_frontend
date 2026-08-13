@@ -51,7 +51,11 @@ function Services() {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    if (name === 'serviceName') {
+      value = value.replace(/[0-9]/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const openModal = (service = null) => {
@@ -81,6 +85,12 @@ function Services() {
     e.preventDefault();
     setFormLoading(true);
     setErrorMsg('');
+
+    if (/\d/.test(formData.serviceName)) {
+      setErrorMsg('Service Name cannot contain numbers.');
+      setFormLoading(false);
+      return;
+    }
 
     try {
       if (editingService) {

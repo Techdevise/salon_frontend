@@ -23,13 +23,21 @@ function Register() {
   const [success, setSuccess] = useState("");
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let { name, value } = e.target;
+    if (name === 'name' || name === 'salonName') {
+      value = value.replace(/[0-9]/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
     setError("");
     setSuccess("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (/\d/.test(formData.name) || (formData.salonName && /\d/.test(formData.salonName))) {
+      setError("Full Name and Salon Name cannot contain numbers.");
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
       return;
