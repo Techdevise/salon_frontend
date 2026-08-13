@@ -48,13 +48,49 @@ function DashboardHome() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityPage, setActivityPage] = useState(1);
 
+  const filteredStaffActivities = useMemo(() => {
+    if (!staffActivities || staffActivities.length === 0) return [];
+
+    return staffActivities.filter(act => {
+      const actDate = new Date(act.date);
+      const now = new Date();
+
+      // 1. Staff Filter
+      if (selectedStaffIdFilter !== 'all') {
+        const actStaffId = act.staffId?.toString() || act.staffId;
+        if (actStaffId !== selectedStaffIdFilter) return false;
+      }
+
+      // 2. Custom Date Filter
+      if (customDate) {
+        const actDateStr = actDate.toISOString().split('T')[0];
+        return actDateStr === customDate;
+      }
+
+      // 3. Time Period Filter
+      if (activityFilter === 'daily') {
+        return actDate.toDateString() === now.toDateString();
+      } else if (activityFilter === 'weekly') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        return actDate >= sevenDaysAgo;
+      } else if (activityFilter === 'monthly') {
+        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return actDate >= firstOfMonth;
+      }
+
+      return true; // 'all'
+    });
+  }, [staffActivities, activityFilter, customDate, selectedStaffIdFilter]);
+
   const ITEMS_PER_PAGE = 10;
-  const totalActivityPages = Math.ceil(staffActivities.length / ITEMS_PER_PAGE) || 1;
+  const totalActivityPages = Math.ceil(filteredStaffActivities.length / ITEMS_PER_PAGE) || 1;
 
   const paginatedStaffActivities = useMemo(() => {
     const start = (activityPage - 1) * ITEMS_PER_PAGE;
-    return staffActivities.slice(start, start + ITEMS_PER_PAGE);
-  }, [staffActivities, activityPage]);
+    return filteredStaffActivities.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredStaffActivities, activityPage]);
 
   // Staff list for dropdown — only from selected salon
   const combinedStaffList = useMemo(() => {
@@ -553,7 +589,7 @@ function DashboardHome() {
         <div className="activity-table-card">
           {activityLoading ? (
             <div className="activity-loading">Loading staff service logs...</div>
-          ) : staffActivities.length > 0 ? (
+          ) : filteredStaffActivities.length > 0 ? (
             <>
               <div className="activity-table-wrapper">
                 <table className="activity-table">
@@ -627,7 +663,7 @@ function DashboardHome() {
               {totalActivityPages > 1 && (
                 <div className="activity-pagination">
                   <div className="pagination-info">
-                    Showing {((activityPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(activityPage * ITEMS_PER_PAGE, staffActivities.length)} of {staffActivities.length} entries
+                    Showing {((activityPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(activityPage * ITEMS_PER_PAGE, filteredStaffActivities.length)} of {filteredStaffActivities.length} entries
                   </div>
                   <div className="pagination-controls">
                     <button

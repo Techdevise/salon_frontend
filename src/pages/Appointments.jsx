@@ -609,9 +609,11 @@ function Appointments() {
                     </td>
                     <td>
                       <select
-                        className={`status-badge border-0 cursor-pointer ${getStatusColor(apt.status)}`}
+                        className={`status-badge border-0 ${apt.status?.toLowerCase() === 'cancelled' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${getStatusColor(apt.status)}`}
                         value={apt.status}
                         onChange={(e) => handleStatusChange(apt._id, e.target.value)}
+                        disabled={apt.status?.toLowerCase() === 'cancelled'}
+                        style={apt.status?.toLowerCase() === 'cancelled' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                       >
                         <option value="Pending">Pending</option>
                         <option value="Confirmed">Confirmed</option>

@@ -94,12 +94,13 @@ function Staff() {
         name: staff.name,
         email: staff.email || '',
         phone: staff.phone || '',
+        password: '',
         role: staff.role || 'Staff',
         services: staff.services?.map(s => s._id) || []
       });
     } else {
       setEditingStaff(null);
-      setFormData({ name: '', email: '', phone: '', role: 'Staff', services: [] });
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'Staff', services: [] });
     }
     setShowModal(true);
   };
@@ -525,6 +526,17 @@ function Staff() {
                       <option value="Receptionist">Receptionist</option>
                       <option value="Admin">Admin</option>
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Password {editingStaff ? '(Leave blank to keep unchanged)' : '*'}</label>
+                    <input
+                      type="password"
+                      name="password"
+                      required={!editingStaff}
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder={editingStaff ? "••••••••" : "Set login password"}
+                    />
                   </div>
               </div>
 
