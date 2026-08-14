@@ -521,7 +521,7 @@ function Staff() {
                     <label>Role</label>
                     <select name="role" value={formData.role} onChange={handleInputChange}>
                       <option value="Staff">Staff</option>
-                      <option value="Receptionist">Receptionist</option>
+                      <option value="Manager">Manager</option>
                       <option value="Admin">Admin</option>
                     </select>
                   </div>

@@ -78,8 +78,17 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.salonName.trim() || !form.email.trim() || !form.phone.trim()) {
-      setError('Salon Name, Email, and Phone are required.');
+    if (
+      !form.salonName.trim() ||
+      !form.ownerName.trim() ||
+      !form.email.trim() ||
+      !form.phone.trim() ||
+      !form.street.trim() ||
+      !form.city.trim() ||
+      !form.state.trim() ||
+      !form.pincode.trim()
+    ) {
+      setError('All mandatory fields (Salon Name, Owner Name, Email, Phone, Street, City, State, Pincode) are required.');
       return;
     }
 
@@ -105,11 +114,11 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
       return;
     }
 
-    // Pincode Boundary Validation (Exactly 6 digits)
+    // Pincode Boundary Validation (Min 4, Max 6 digits)
     if (form.pincode.trim()) {
       const cleanPincode = form.pincode.replace(/\D/g, '');
-      if (cleanPincode.length !== 6) {
-        setError('Pincode / Postal Code must be exactly 6 digits.');
+      if (cleanPincode.length < 4 || cleanPincode.length > 6) {
+        setError('Pincode / Postal Code must be between 4 and 6 digits.');
         return;
       }
     }
@@ -221,13 +230,14 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                   />
                 </div>
                 <div className="form-field">
-                  <label><User size={14} /> Owner Name</label>
+                  <label><User size={14} /> Owner Name *</label>
                   <input
                     type="text"
                     name="ownerName"
                     value={form.ownerName}
                     onChange={handleChange}
                     placeholder="e.g. John Smith"
+                    required
                   />
                 </div>
                 <div className="form-field">
@@ -258,29 +268,30 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
 
             {/* Address */}
             <div className="form-section">
-              <h4 className="section-label"><MapPin size={14} /> Address</h4>
+              <h4 className="section-label"><MapPin size={14} /> Address *</h4>
               <div className="form-grid-2">
                 <div className="form-field full-span">
-                  <label>Street</label>
+                  <label>Street *</label>
                   <input
                     type="text"
                     name="street"
                     value={form.street}
                     onChange={handleChange}
                     placeholder="Street / Area"
+                    required
                   />
                 </div>
                 <div className="form-field">
-                  <label>City</label>
-                  <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="New York" />
+                  <label>City *</label>
+                  <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="New York" required />
                 </div>
                 <div className="form-field">
-                  <label>State</label>
-                  <input type="text" name="state" value={form.state} onChange={handleChange} placeholder="NY" />
+                  <label>State *</label>
+                  <input type="text" name="state" value={form.state} onChange={handleChange} placeholder="NY" required />
                 </div>
                 <div className="form-field">
-                  <label>Pincode / Postal Code</label>
-                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 110001" maxLength={6} />
+                  <label>Pincode / Postal Code *</label>
+                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 110001" minLength={4} maxLength={6} required />
                 </div>
               </div>
             </div>

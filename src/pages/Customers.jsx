@@ -111,13 +111,19 @@ function Customers() {
       return;
     }
 
-    // DOB Validation (Cannot be in the future)
+    // DOB Validation (Between 1960 and Today)
     if (formData.dob) {
       const selectedDob = new Date(formData.dob);
       const today = new Date();
       today.setHours(23, 59, 59, 999);
+      const minDate = new Date('1960-01-01T00:00:00');
+      
       if (selectedDob > today) {
         setErrorMsg('Date of birth cannot be in the future.');
+        return;
+      }
+      if (selectedDob < minDate) {
+        setErrorMsg('Date of birth cannot be earlier than 1960.');
         return;
       }
     }
@@ -325,6 +331,7 @@ function Customers() {
                     className="date-picker-input" 
                     value={formData.dob} 
                     onChange={handleInputChange} 
+                    min="1960-01-01"
                     max={new Date().toISOString().split('T')[0]}
                   />
                 </div>

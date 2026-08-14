@@ -69,8 +69,8 @@ function App() {
               <Route path="discounts" element={<Discounts />} />
             </Route>
 
-            {/* Accessible to Admin, Receptionist, and Staff */}
-            <Route element={<RoleRoute allowedRoles={['Admin', 'Receptionist', 'Staff']} />}>
+            {/* Accessible to Admin, Manager, Receptionist, and Staff */}
+            <Route element={<RoleRoute allowedRoles={['Admin', 'Manager', 'Receptionist', 'Staff']} />}>
               <Route path="calendar" element={<BookingCalendar />} />
               <Route path="customers" element={<Customers />} />
               <Route path="appointments" element={<Appointments />} />

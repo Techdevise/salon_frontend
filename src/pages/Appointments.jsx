@@ -38,12 +38,14 @@ function Appointments() {
   const [staffList, setStaffList] = useState([]);
   const [customerList, setCustomerList] = useState([]);
   const [serviceList, setServiceList] = useState([]);
+  const [packagesList, setPackagesList] = useState([]);
 
   // Form states
   const [formData, setFormData] = useState({
     customerId: '',
     staffId: '',
     serviceId: '',
+    packageId: '',
     date: new Date().toISOString().split('T')[0],
     startTime: '',
     totalAmount: '',
@@ -65,16 +67,18 @@ function Appointments() {
   const fetchOptions = async () => {
     try {
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const [staffRes, custRes, servRes] = await Promise.all([
+      const [staffRes, custRes, servRes, pkgRes] = await Promise.all([
         axios.get(`/api/staff/all${salonParam}`, { withCredentials: true }),
         axios.get(`/api/customer${salonParam}`, { withCredentials: true }),
-        axios.get(`/api/service/all${salonParam}`, { withCredentials: true })
+        axios.get(`/api/service/all${salonParam}`, { withCredentials: true }),
+        axios.get(`/api/package${salonParam}`, { withCredentials: true })
       ]);
       setStaffList(staffRes.data.data || []);
       setCustomerList(custRes.data.data || []);
       setServiceList(servRes.data.data || []);
+      setPackagesList(pkgRes.data.data || []);
     } catch (err) {
-      console.error("Failed to load select options");
+      console.error("Failed to load select options", err);
     }
   };
 
@@ -94,13 +98,27 @@ function Appointments() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    // Auto populate price logic
     let updatedData = { ...formData, [name]: value };
+
     if (name === 'serviceId') {
-      const selectedService = serviceList.find(s => s._id === value);
-      if (selectedService) {
-        updatedData.totalAmount = selectedService.price;
+      if (value) {
+        updatedData.packageId = '';
+        const selectedService = serviceList.find(s => s._id === value);
+        if (selectedService) {
+          updatedData.totalAmount = selectedService.price;
+        }
+      } else if (!updatedData.packageId) {
+        updatedData.totalAmount = '';
+      }
+    } else if (name === 'packageId') {
+      if (value) {
+        updatedData.serviceId = '';
+        const selectedPkg = packagesList.find(p => p._id === value);
+        if (selectedPkg) {
+          updatedData.totalAmount = selectedPkg.packagePrice || selectedPkg.price || 0;
+        }
+      } else if (!updatedData.serviceId) {
+        updatedData.totalAmount = '';
       }
     }
     setFormData(updatedData);
@@ -111,7 +129,8 @@ function Appointments() {
   const [walkInFormData, setWalkInFormData] = useState({
     customerName: '',
     customerPhone: '',
-    serviceName: '',
+    serviceId: '',
+    packageId: '',
     staffName: '',
     startTime: '',
     totalAmount: '',
@@ -242,7 +261,8 @@ function Appointments() {
     setWalkInFormData({
       customerName: '',
       customerPhone: '',
-      serviceName: '',
+      serviceId: '',
+      packageId: '',
       staffName: '',
       startTime: '',
       totalAmount: '',
@@ -259,10 +279,26 @@ function Appointments() {
       value = value.replace(/\D/g, '').slice(0, 10);
     }
     const updatedWalkIn = { ...walkInFormData, [name]: value };
-    if (name === 'serviceName') {
-      const selectedService = serviceList.find(s => s.serviceName === value);
-      if (selectedService) {
-        updatedWalkIn.totalAmount = selectedService.price;
+
+    if (name === 'serviceId') {
+      if (value) {
+        updatedWalkIn.packageId = '';
+        const selectedService = serviceList.find(s => s._id === value);
+        if (selectedService) {
+          updatedWalkIn.totalAmount = selectedService.price;
+        }
+      } else if (!updatedWalkIn.packageId) {
+        updatedWalkIn.totalAmount = '';
+      }
+    } else if (name === 'packageId') {
+      if (value) {
+        updatedWalkIn.serviceId = '';
+        const selectedPkg = packagesList.find(p => p._id === value);
+        if (selectedPkg) {
+          updatedWalkIn.totalAmount = selectedPkg.packagePrice || selectedPkg.price || 0;
+        }
+      } else if (!updatedWalkIn.serviceId) {
+        updatedWalkIn.totalAmount = '';
       }
     }
     setWalkInFormData(updatedWalkIn);
@@ -313,22 +349,45 @@ function Appointments() {
       const matchedStaff = staffList.find(s => s.name.toLowerCase().includes(walkInFormData.staffName.toLowerCase()));
       const targetStaffId = matchedStaff?._id || staffList[0]?._id;
 
-      // 3. Resolve Service ID
-      const matchedService = serviceList.find(s => s.serviceName.toLowerCase().includes(walkInFormData.serviceName.toLowerCase()));
-      const targetServiceId = matchedService?._id || serviceList[0]?._id;
+      if (!walkInFormData.serviceId && !walkInFormData.packageId) {
+        setWalkInError('Please select either a Service or a Package.');
+        setWalkInLoading(false);
+        return;
+      }
 
-      if (!targetStaffId || !targetServiceId) {
-        throw new Error("Salon requires at least one staff and service record in database.");
+      // 3. Resolve Services / Package
+      let targetServiceIds = [];
+      let serviceNoteText = '';
+
+      if (walkInFormData.packageId) {
+        const pkg = packagesList.find(p => p._id === walkInFormData.packageId);
+        if (pkg) {
+          serviceNoteText = `[Package: ${pkg.packageName}]`;
+          const pkgServices = (pkg.services || [])
+            .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
+            .filter(Boolean);
+          targetServiceIds = pkgServices.length > 0 ? pkgServices : [serviceList[0]?._id].filter(Boolean);
+        }
+      } else if (walkInFormData.serviceId) {
+        const s = serviceList.find(item => item._id === walkInFormData.serviceId);
+        if (s) {
+          serviceNoteText = `[Service: ${s.serviceName}]`;
+        }
+        targetServiceIds = [walkInFormData.serviceId];
+      }
+
+      if (!targetStaffId || targetServiceIds.length === 0) {
+        throw new Error("Salon requires at least one staff and service/package record in database.");
       }
 
       const payload = {
         customerId: targetCustomerId,
         staffId: targetStaffId,
-        services: [targetServiceId],
+        services: targetServiceIds,
         date: walkInDate || new Date().toISOString().split('T')[0],
         timeSlot: { start: walkInFormData.startTime || 'TBD', end: "TBD" },
         totalAmount: Number(walkInFormData.totalAmount) || 0,
-        notes: walkInFormData.notes ? `[${walkInFormData.serviceName || 'Custom Service'}] ${walkInFormData.notes}` : `[${walkInFormData.serviceName || 'Custom Service'}]`,
+        notes: walkInFormData.notes ? `${serviceNoteText} ${walkInFormData.notes}` : serviceNoteText,
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
@@ -359,7 +418,7 @@ function Appointments() {
     } else {
       setEditingAppointment(null);
       setFormData({
-        customerId: '', staffId: '', serviceId: '',
+        customerId: '', staffId: '', serviceId: '', packageId: '',
         date: filterDate, startTime: '', totalAmount: '', notes: ''
       });
     }
@@ -376,15 +435,41 @@ function Appointments() {
     setFormLoading(true);
     setErrorMsg('');
 
+    if (!formData.serviceId && !formData.packageId) {
+      setErrorMsg('Please select either a Service or a Package.');
+      setFormLoading(false);
+      return;
+    }
+
     try {
+      let targetServiceIds = [];
+      let serviceNoteText = '';
+
+      if (formData.packageId) {
+        const pkg = packagesList.find(p => p._id === formData.packageId);
+        if (pkg) {
+          serviceNoteText = `[Package: ${pkg.packageName}]`;
+          const pkgServices = (pkg.services || [])
+            .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
+            .filter(Boolean);
+          targetServiceIds = pkgServices.length > 0 ? pkgServices : [serviceList[0]?._id].filter(Boolean);
+        }
+      } else if (formData.serviceId) {
+        const s = serviceList.find(item => item._id === formData.serviceId);
+        if (s) {
+          serviceNoteText = `[Service: ${s.serviceName}]`;
+        }
+        targetServiceIds = [formData.serviceId];
+      }
+
       const payload = {
         customerId: formData.customerId,
         staffId: formData.staffId,
-        services: [formData.serviceId],
+        services: targetServiceIds,
         date: formData.date,
         timeSlot: { start: formData.startTime, end: "TBD" },
-        totalAmount: formData.totalAmount,
-        notes: formData.notes,
+        totalAmount: Number(formData.totalAmount) || 0,
+        notes: formData.notes ? `${serviceNoteText} ${formData.notes}` : serviceNoteText,
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
@@ -596,7 +681,11 @@ function Appointments() {
                     </td>
                     <td>
                       <div className="service-combo">
-                        <Scissors size={14} /> {apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}
+                        {apt.notes && apt.notes.includes('[Package:') ? (
+                          <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
+                        ) : (
+                          <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -691,37 +780,52 @@ function Appointments() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Service Name *</label>
+                  <label>Select Service</label>
                   <select
-                    name="serviceName"
-                    required
-                    value={walkInFormData.serviceName}
+                    name="serviceId"
+                    value={walkInFormData.serviceId}
                     onChange={handleWalkInChange}
                   >
                     <option value="">-- Select Service --</option>
                     {serviceList.map((s) => (
-                      <option key={s._id} value={s.serviceName}>
+                      <option key={s._id} value={s._id}>
                         {s.serviceName} - ₹{s.price}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Staff Assigned *</label>
+                  <label>Select Package</label>
                   <select
-                    name="staffName"
-                    required
-                    value={walkInFormData.staffName}
+                    name="packageId"
+                    value={walkInFormData.packageId}
                     onChange={handleWalkInChange}
                   >
-                    <option value="">-- Select Staff --</option>
-                    {staffList.map((s) => (
-                      <option key={s._id} value={s.name}>
-                        {s.name} ({s.role || 'Staff'})
+                    <option value="">-- Select Package --</option>
+                    {packagesList.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        📦 {p.packageName} - ₹{p.packagePrice || p.price}
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Staff Assigned *</label>
+                <select
+                  name="staffName"
+                  required
+                  value={walkInFormData.staffName}
+                  onChange={handleWalkInChange}
+                >
+                  <option value="">-- Select Staff --</option>
+                  {staffList.map((s) => (
+                    <option key={s._id} value={s.name}>
+                      {s.name} ({s.role || 'Staff'})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="form-row">
@@ -823,14 +927,26 @@ function Appointments() {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>Select Service *</label>
-                <select name="serviceId" required value={formData.serviceId} onChange={handleInputChange}>
-                  <option value="">-- Choose Service --</option>
-                  {serviceList.map(s => (
-                    <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
-                  ))}
-                </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Select Service</label>
+                  <select name="serviceId" value={formData.serviceId} onChange={handleInputChange}>
+                    <option value="">-- Choose Service --</option>
+                    {serviceList.map(s => (
+                      <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Select Package</label>
+                  <select name="packageId" value={formData.packageId} onChange={handleInputChange}>
+                    <option value="">-- Choose Package --</option>
+                    {packagesList.map(p => (
+                      <option key={p._id} value={p._id}>📦 {p.packageName} - ₹{p.packagePrice || p.price}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="form-group">

@@ -12,16 +12,16 @@ import '../../styles/DashboardLayout.css';
 
 // Admin Routes vs Staff Routes definition
 const SIDEBAR_ROUTES = [
-  // { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist',"staff"] },
-  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Receptionist'] },
-  { path: '/dashboard/calendar', name: 'Booking Calendar', icon: <CalendarDays size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
-  { path: '/dashboard/appointments', name: 'Appointments & Bookings', icon: <Calendar size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
-  { path: '/dashboard/recurring', name: 'Recurring Bookings', icon: <Repeat size={20} />, roles: ['Admin', 'Receptionist'] },
-  { path: '/dashboard/customers', name: 'Customer Management', icon: <Users size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
+  // { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Manager', 'Receptionist', "staff"] },
+  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Manager', 'Receptionist'] },
+  { path: '/dashboard/calendar', name: 'Booking Calendar', icon: <CalendarDays size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
+  { path: '/dashboard/appointments', name: 'Appointments & Bookings', icon: <Calendar size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
+  { path: '/dashboard/recurring', name: 'Recurring Bookings', icon: <Repeat size={20} />, roles: ['Admin', 'Manager', 'Receptionist'] },
+  { path: '/dashboard/customers', name: 'Customer Management', icon: <Users size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
   { path: '/dashboard/staff', name: 'Staff Management', icon: <UserCircle size={20} />, roles: ['Admin'] },
   { path: '/dashboard/services', name: 'Services & Pricing', icon: <Scissors size={20} />, roles: ['Admin'] },
   { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Receptionist', 'Staff'] },
+  { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
   { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] },
   { path: '/dashboard/subscription', name: 'Subscription Plan', icon: <Sparkles size={20} />, roles: ['Admin'] }
 ];
@@ -43,7 +43,7 @@ function DashboardLayout() {
       // Admin: fetch all branches and auto-select first if needed
       initAdminSalon();
     }
-    // For Staff/Receptionist: their salonId is already in the JWT (user.salonId)
+    // For Staff/Manager: their salonId is already in the JWT (user.salonId)
     // The individual pages use req.user.salonId on the backend when no salonId param is sent
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
@@ -124,11 +124,15 @@ function DashboardLayout() {
           allAlerts = [...allAlerts, ...group.notifications];
         });
       }
+      // Filter to only include notifications created within the last 24 hours
+      const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+      allAlerts = allAlerts.filter(n => new Date(n.createdAt).getTime() >= twentyFourHoursAgo);
+
       // Sort by latest
       allAlerts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       setNotifications(allAlerts);
-      setUnreadCount(count);
+      setUnreadCount(allAlerts.filter(n => !n.isRead).length);
     } catch (err) {
       console.error("Failed to load notifications", err);
     }
