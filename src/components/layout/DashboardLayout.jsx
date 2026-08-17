@@ -12,17 +12,16 @@ import '../../styles/DashboardLayout.css';
 
 // Admin Routes vs Staff Routes definition
 const SIDEBAR_ROUTES = [
-  // { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Manager', 'Receptionist', "staff"] },
-  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Manager', 'Receptionist'] },
+  { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['Admin', 'Manager'] },
   { path: '/dashboard/calendar', name: 'Booking Calendar', icon: <CalendarDays size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
   { path: '/dashboard/appointments', name: 'Appointments & Bookings', icon: <Calendar size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
   { path: '/dashboard/recurring', name: 'Recurring Bookings', icon: <Repeat size={20} />, roles: ['Admin', 'Manager', 'Receptionist'] },
   { path: '/dashboard/customers', name: 'Customer Management', icon: <Users size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
-  { path: '/dashboard/staff', name: 'Staff Management', icon: <UserCircle size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/services', name: 'Services & Pricing', icon: <Scissors size={20} />, roles: ['Admin'] },
-  { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin'] },
+  { path: '/dashboard/staff', name: 'Staff Management', icon: <UserCircle size={20} />, roles: ['Admin', 'Manager'] },
+  { path: '/dashboard/services', name: 'Services & Pricing', icon: <Scissors size={20} />, roles: ['Admin', 'Manager'] },
+  { path: '/dashboard/service-packages', name: 'Service Packages', icon: <Tag size={20} />, roles: ['Admin', 'Manager'] },
   { path: '/dashboard/billing', name: 'Billing & Payments', icon: <CreditCard size={20} />, roles: ['Admin', 'Manager', 'Receptionist', 'Staff'] },
-  { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin'] },
+  { path: '/dashboard/discounts', name: 'Discounts & Offers', icon: <Tag size={20} />, roles: ['Admin', 'Manager'] },
   { path: '/dashboard/subscription', name: 'Subscription Plan', icon: <Sparkles size={20} />, roles: ['Admin'] }
 ];
 
@@ -109,11 +108,12 @@ function DashboardLayout() {
       clearInterval(interval);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [selectedSalonId]);
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get('/api/notification', { withCredentials: true });
+      const params = selectedSalonId ? { salonId: selectedSalonId } : {};
+      const res = await axios.get('/api/notification', { params, withCredentials: true });
 
       // Flattening the grouped aggregate from the controller
       let allAlerts = [];

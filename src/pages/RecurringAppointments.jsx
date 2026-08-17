@@ -6,6 +6,18 @@ import '../styles/RecurringAppointments.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
 
+export const formatDisplayDate = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  
+  return `${day}/${month}/${year}`;
+};
+
 function RecurringAppointments() {
   const confirm = useConfirm();
   const { selectedSalonId } = useSelector((state) => state.salon);
@@ -62,11 +74,11 @@ function RecurringAppointments() {
         axios.get(`/api/service/all${salonParam}`, { withCredentials: true }),
         axios.get(`/api/staff/all${salonParam}`, { withCredentials: true })
       ]);
-      setCustomers(custRes.data?.data || []);
-      setServices(servRes.data?.data || []);
-      setStaffList(staffRes.data?.data || []);
+      setCustomers(Array.isArray(custRes.data?.data) ? custRes.data.data : (Array.isArray(custRes.data) ? custRes.data : []));
+      setServices(Array.isArray(servRes.data?.data) ? servRes.data.data : (Array.isArray(servRes.data) ? servRes.data : []));
+      setStaffList(Array.isArray(staffRes.data?.data) ? staffRes.data.data : (Array.isArray(staffRes.data) ? staffRes.data : []));
     } catch (err) {
-      console.error("Failed to fetch dropdown options");
+      console.error("Failed to fetch dropdown options", err);
     }
   };
 
@@ -75,10 +87,12 @@ function RecurringAppointments() {
   };
 
   const openModal = () => {
+    fetchOptions();
     setErrorMsg('');
+    const today = new Date().toISOString().split('T')[0];
     setFormData({
       customerId: '', serviceId: '', staffId: '', frequency: 'Weekly',
-      firstAppointmentDate: '', appointmentTime: '', endDate: '', notes: ''
+      firstAppointmentDate: today, appointmentTime: '', endDate: '', notes: ''
     });
     setShowModal(true);
   };
@@ -89,6 +103,29 @@ function RecurringAppointments() {
     e.preventDefault();
     setFormLoading(true);
     setErrorMsg('');
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (formData.firstAppointmentDate < todayStr) {
+      setErrorMsg('Starting date cannot be in the past. Please select today or a future date.');
+      setFormLoading(false);
+      return;
+    }
+
+    const startYr = new Date(formData.firstAppointmentDate).getFullYear();
+    if (isNaN(startYr) || startYr > 2099) {
+      setErrorMsg('Invalid year. Please enter a valid 4-digit year (max 2099).');
+      setFormLoading(false);
+      return;
+    }
+
+    if (formData.endDate) {
+      const endYr = new Date(formData.endDate).getFullYear();
+      if (isNaN(endYr) || endYr > 2099) {
+        setErrorMsg('Invalid year in end date. Please enter a valid 4-digit year (max 2099).');
+        setFormLoading(false);
+        return;
+      }
+    }
 
     try {
       // Create recurring booking in the selected salon
@@ -195,8 +232,8 @@ function RecurringAppointments() {
                     </td>
                     <td>
                       <div className="date-cell">
-                        <span className="date-block text-white">Starts: {new Date(item.startDate).toLocaleDateString()}</span>
-                        <span className="date-block text-gray">Ends: {item.endDate ? new Date(item.endDate).toLocaleDateString() : 'No end date'}</span>
+                        <span className="date-block text-white">Starts: {formatDisplayDate(item.startDate)}</span>
+                        <span className="date-block text-gray">Ends: {item.endDate ? formatDisplayDate(item.endDate) : 'No end date'}</span>
                       </div>
                     </td>
                     <td>
@@ -207,7 +244,7 @@ function RecurringAppointments() {
                     <td>
                       <div className="action-buttons">
                         {item.status === 'Active' && (
-                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series"><X size={16} /></button>
+                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Delete Series"><Trash2 size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -246,7 +283,7 @@ function RecurringAppointments() {
                   <label>Service *</label>
                   <select name="serviceId" required value={formData.serviceId} onChange={handleInputChange}>
                     <option value="">-- Select Service --</option>
-                    {services.filter(s => s.isActive).map(s => <option key={s._id} value={s._id}>{s.serviceName}</option>)}
+                    {services.map(s => <option key={s._id} value={s._id}>{s.serviceName || s.name} - ₹{s.price}</option>)}
                   </select>
                 </div>
               </div>
@@ -256,7 +293,7 @@ function RecurringAppointments() {
                   <label>Staff Assigned *</label>
                   <select name="staffId" required value={formData.staffId} onChange={handleInputChange}>
                     <option value="">-- Select Staff --</option>
-                    {staffList.filter(s => s.isActive).map(s => <option key={s._id} value={s._id}>{s.name} ({s.role})</option>)}
+                    {staffList.map(s => <option key={s._id} value={s._id}>{s.name} ({s.role || 'Staff'})</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -272,7 +309,7 @@ function RecurringAppointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Starting Date *</label>
-                  <input type="date" name="firstAppointmentDate" required value={formData.firstAppointmentDate} onChange={handleInputChange} />
+                  <input type="date" name="firstAppointmentDate" required min={new Date().toISOString().split('T')[0]} max="2099-12-31" value={formData.firstAppointmentDate} onChange={handleInputChange} />
                 </div>
                 <div className="form-group">
                   <label>Starting Time *</label>
@@ -282,7 +319,7 @@ function RecurringAppointments() {
 
               <div className="form-group">
                 <label>End Date (Optional)</label>
-                <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={formData.firstAppointmentDate} />
+                <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={formData.firstAppointmentDate} max="2099-12-31" />
                 <small className="form-text-muted">If left blank, it stays active until cancelled manually.</small>
               </div>
 

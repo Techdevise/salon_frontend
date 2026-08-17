@@ -60,8 +60,8 @@ function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<DashboardLayout />}>
             
-            {/* Accessible to Admin Only */}
-            <Route element={<RoleRoute allowedRoles={['Admin']} />}>
+            {/* Accessible to Admin & Manager */}
+            <Route element={<RoleRoute allowedRoles={['Admin', 'Manager']} />}>
               <Route index element={<DashboardHome />} />
               <Route path="staff" element={<Staff />} />
               <Route path="services" element={<Services />} />
@@ -99,7 +99,7 @@ function FallbackRoute() {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role === 'Staff') return <Navigate to="/dashboard/appointments" replace />;
+  if (user?.role === 'Staff' || user?.role === 'Receptionist') return <Navigate to="/dashboard/calendar" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 

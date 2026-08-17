@@ -52,8 +52,11 @@ function DashboardHome() {
     if (!staffActivities || staffActivities.length === 0) return [];
 
     return staffActivities.filter(act => {
-      const actDate = new Date(act.date);
-      const now = new Date();
+      // 0. Exclude Cancelled appointments/orders
+      const statusStr = String(act.paymentStatus || act.status || '').toLowerCase();
+      if (statusStr === 'cancelled' || statusStr === 'canceled' || statusStr === 'refunded') {
+        return false;
+      }
 
       // 1. Staff Filter
       if (selectedStaffIdFilter !== 'all') {
@@ -61,28 +64,19 @@ function DashboardHome() {
         if (actStaffId !== selectedStaffIdFilter) return false;
       }
 
-      // 2. Custom Date Filter
+      // 2. Custom Date Filter (if specific date selected)
       if (customDate) {
-        const actDateStr = actDate.toISOString().split('T')[0];
+        const actDate = new Date(act.date);
+        const year = actDate.getFullYear();
+        const month = String(actDate.getMonth() + 1).padStart(2, '0');
+        const day = String(actDate.getDate()).padStart(2, '0');
+        const actDateStr = `${year}-${month}-${day}`;
         return actDateStr === customDate;
       }
 
-      // 3. Time Period Filter
-      if (activityFilter === 'daily') {
-        return actDate.toDateString() === now.toDateString();
-      } else if (activityFilter === 'weekly') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
-        return actDate >= sevenDaysAgo;
-      } else if (activityFilter === 'monthly') {
-        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        return actDate >= firstOfMonth;
-      }
-
-      return true; // 'all'
+      return true;
     });
-  }, [staffActivities, activityFilter, customDate, selectedStaffIdFilter]);
+  }, [staffActivities, customDate, selectedStaffIdFilter]);
 
   const ITEMS_PER_PAGE = 10;
   const totalActivityPages = Math.ceil(filteredStaffActivities.length / ITEMS_PER_PAGE) || 1;
@@ -328,6 +322,43 @@ function DashboardHome() {
     }
   };
 
+  const formattedStaffData = useMemo(() => {
+    if (Array.isArray(staffData) && staffData.length > 0) {
+      return staffData.map(s => ({
+        name: s.staffName || 'Unknown',
+        revenue: s.totalRevenue || 0,
+        customers: s.totalCustomers || 0
+      }));
+    }
+
+    if (filteredStaffActivities && filteredStaffActivities.length > 0) {
+      const map = new Map();
+      filteredStaffActivities.forEach(act => {
+        const name = act.staffName || 'Staff';
+        const current = map.get(name) || { revenue: 0, customers: 0 };
+        map.set(name, {
+          revenue: current.revenue + (Number(act.totalAmount) || 0),
+          customers: current.customers + 1
+        });
+      });
+      return Array.from(map.entries()).map(([name, data]) => ({
+        name,
+        revenue: data.revenue,
+        customers: data.customers
+      })).sort((a, b) => b.revenue - a.revenue);
+    }
+
+    if (allStaffList && allStaffList.length > 0) {
+      return allStaffList.map(s => ({
+        name: s.name || 'Staff',
+        revenue: 0,
+        customers: 0
+      }));
+    }
+
+    return [];
+  }, [staffData, filteredStaffActivities, allStaffList]);
+
   if (loading) return <div className="dashboard-loading">Loading Analytics...</div>;
 
   // Safe fallbacks
@@ -337,12 +368,6 @@ function DashboardHome() {
   const totalCust = customerData?.totalCustomers || 0;
   const revenueTrend = businessData?.revenueTrend || [];
   const serviceBreakdown = businessData?.serviceBreakdown || [];
-
-  const formattedStaffData = staffData.map(s => ({
-    name: s.staffName || 'Unknown',
-    revenue: s.totalRevenue || 0,
-    customers: s.totalCustomers || 0
-  }));
 
   return (
     <div className="dashboard-home">
@@ -464,15 +489,15 @@ function DashboardHome() {
               </div>
             </div>
             <div className="salon-detail-actions">
-              <button 
-                className="salon-action-btn edit" 
+              <button
+                className="salon-action-btn edit"
                 onClick={() => setEditingSalonData(selectedSalonInfo)}
                 title="Edit Salon"
               >
                 <Pencil size={16} />
               </button>
-              <button 
-                className="salon-action-btn delete" 
+              <button
+                className="salon-action-btn delete"
                 onClick={() => handleDeleteSalon(selectedSalonInfo)}
                 title="Delete Salon"
               >
@@ -543,12 +568,6 @@ function DashboardHome() {
               >
                 This Month
               </button>
-              <button
-                className={`filter-btn ${activityFilter === 'all' && !customDate ? 'active' : ''}`}
-                onClick={() => { setActivityFilter('all'); setCustomDate(''); }}
-              >
-                All
-              </button>
             </div>
 
             {/* Custom Date Input */}
@@ -601,6 +620,7 @@ function DashboardHome() {
                       <th>Services Provided</th>
                       <th>Total Amount</th>
                       <th>Payment Mode</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -651,6 +671,11 @@ function DashboardHome() {
                         <td>
                           <span className="activity-payment-badge">
                             {act.paymentMethod}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`activity-status-badge ${String(act.status || act.paymentStatus || 'Confirmed').toLowerCase()}`}>
+                            {act.status || act.paymentStatus || 'Confirmed'}
                           </span>
                         </td>
                       </tr>

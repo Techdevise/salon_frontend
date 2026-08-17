@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
@@ -31,6 +31,15 @@ function Appointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterDate, selectedStatusFilter, selectedSalonId]);
 
   // Modal & Option States
   const [showModal, setShowModal] = useState(false);
@@ -53,8 +62,6 @@ function Appointments() {
   });
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
 
   useEffect(() => {
     fetchAppointments();
@@ -404,13 +411,14 @@ function Appointments() {
   const openModal = (appointment = null) => {
     fetchOptions();
     setErrorMsg('');
+    const today = new Date().toISOString().split('T')[0];
     if (appointment) {
       setEditingAppointment(appointment);
       setFormData({
         customerId: appointment.customerId || '',
         staffId: appointment.staffId || '',
         serviceId: appointment.services?.[0] || '',
-        date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : filterDate,
+        date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : (filterDate >= today ? filterDate : today),
         startTime: appointment.timeSlot?.start ? format24Hour(appointment.timeSlot.start) : '',
         totalAmount: appointment.totalAmount || '',
         notes: appointment.notes || ''
@@ -419,7 +427,7 @@ function Appointments() {
       setEditingAppointment(null);
       setFormData({
         customerId: '', staffId: '', serviceId: '', packageId: '',
-        date: filterDate, startTime: '', totalAmount: '', notes: ''
+        date: filterDate >= today ? filterDate : today, startTime: '', totalAmount: '', notes: ''
       });
     }
     setShowModal(true);
@@ -434,6 +442,20 @@ function Appointments() {
     e.preventDefault();
     setFormLoading(true);
     setErrorMsg('');
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (formData.date < todayStr) {
+      setErrorMsg('Booking date cannot be in the past. Please select today or a future date.');
+      setFormLoading(false);
+      return;
+    }
+
+    const apptYr = new Date(formData.date).getFullYear();
+    if (isNaN(apptYr) || apptYr > 2099) {
+      setErrorMsg('Invalid year. Please enter a valid 4-digit year (max 2099).');
+      setFormLoading(false);
+      return;
+    }
 
     if (!formData.serviceId && !formData.packageId) {
       setErrorMsg('Please select either a Service or a Package.');
@@ -567,6 +589,10 @@ function Appointments() {
 
   const handleStatusChange = async (id, newStatus) => {
     const apt = appointments.find(a => a._id === id);
+    if (apt?.status === 'Completed' && newStatus === 'Cancelled') {
+      alert('A completed service appointment cannot be cancelled.');
+      return;
+    }
     if (newStatus === 'Cancelled' && apt) {
       openCancelModal(apt);
       return;
@@ -586,6 +612,10 @@ function Appointments() {
   const handleCancel = (id) => {
     const apt = appointments.find(a => a._id === id);
     if (apt) {
+      if (apt.status === 'Completed') {
+        alert('A completed service appointment cannot be cancelled.');
+        return;
+      }
       openCancelModal(apt);
     }
   };
@@ -599,6 +629,17 @@ function Appointments() {
       default: return 'inactive';
     }
   };
+
+  const filteredAppointments = appointments.filter((apt) => {
+    if (selectedStatusFilter === 'All') return true;
+    return (apt.status || 'Pending').toLowerCase() === selectedStatusFilter.toLowerCase();
+  });
+
+  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage) || 1;
+  const paginatedAppointments = filteredAppointments.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="page-container">
@@ -623,6 +664,7 @@ function Appointments() {
           <input
             type="date"
             value={filterDate}
+            max="2099-12-31"
             onChange={(e) => setFilterDate(e.target.value)}
             className="date-picker-input"
           />
@@ -644,99 +686,129 @@ function Appointments() {
         {loading ? (
           <div className="loading-state">Loading appointments...</div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Customer</th>
-                <th>Service Details</th>
-                <th>Staff Assigned</th>
-                <th>Amount (₹)</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.filter((apt) => {
-                if (selectedStatusFilter === 'All') return true;
-                return (apt.status || 'Pending').toLowerCase() === selectedStatusFilter.toLowerCase();
-              }).length > 0 ? (
-                appointments
-                  .filter((apt) => {
-                    if (selectedStatusFilter === 'All') return true;
-                    return (apt.status || 'Pending').toLowerCase() === selectedStatusFilter.toLowerCase();
-                  })
-                  .map((apt) => (
-                  <tr key={apt._id}>
-                    <td>
-                      <div className="time-cell">
-                        <Clock size={16} /> {format24Hour(apt.timeSlot?.start)}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="user-combo">
-                        <User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}
-                        {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', borderLeft: '1px solid #333', paddingLeft: '5px', marginLeft: '5px' }}>{apt.customerDetails?.phone}</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="service-combo">
-                        {apt.notes && apt.notes.includes('[Package:') ? (
-                          <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
-                        ) : (
-                          <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
-                    </td>
-                    <td>
-                      <div className="price-cell" style={{ fontWeight: 600 }}>
-                        <IndianRupee size={12} /> {apt.totalAmount}
-                      </div>
-                    </td>
-                    <td>
-                      <select
-                        className={`status-badge border-0 ${apt.status?.toLowerCase() === 'cancelled' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${getStatusColor(apt.status)}`}
-                        value={apt.status}
-                        onChange={(e) => handleStatusChange(apt._id, e.target.value)}
-                        disabled={apt.status?.toLowerCase() === 'cancelled'}
-                        style={apt.status?.toLowerCase() === 'cancelled' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Reschedule">Reschedule</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        {apt.status !== 'Cancelled' && (
-                          <>
-                            <button
-                              className="icon-btn edit"
-                              style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#a78bfa' }}
-                              onClick={() => openRescheduleModal(apt)}
-                              title="Reschedule Appointment"
-                            >
-                              <CalendarIcon size={16} />
-                            </button>
-                            <button className="icon-btn delete" onClick={() => handleCancel(apt._id)} title="Cancel Booking"><Trash2 size={16} /></button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+          <>
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan="7" className="empty-state">No appointments found for this date.</td>
+                  <th>Time</th>
+                  <th>Customer</th>
+                  <th>Service Details</th>
+                  <th>Staff Assigned</th>
+                  <th>Amount (₹)</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedAppointments.length > 0 ? (
+                  paginatedAppointments.map((apt) => (
+                    <tr key={apt._id}>
+                      <td>
+                        <div className="time-cell">
+                          <Clock size={16} /> {format24Hour(apt.timeSlot?.start)}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="user-combo">
+                          <User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}
+                          {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', borderLeft: '1px solid #333', paddingLeft: '5px', marginLeft: '5px' }}>{apt.customerDetails?.phone}</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="service-combo">
+                          {apt.notes && apt.notes.includes('[Package:') ? (
+                            <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
+                          ) : (
+                            <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
+                      </td>
+                      <td>
+                        <div className="price-cell" style={{ fontWeight: 600 }}>
+                          <IndianRupee size={12} /> {apt.totalAmount}
+                        </div>
+                      </td>
+                      <td>
+                        <select
+                          className={`status-badge border-0 ${apt.status?.toLowerCase() === 'cancelled' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${getStatusColor(apt.status)}`}
+                          value={apt.status}
+                          onChange={(e) => handleStatusChange(apt._id, e.target.value)}
+                          disabled={apt.status?.toLowerCase() === 'cancelled'}
+                          style={apt.status?.toLowerCase() === 'cancelled' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Reschedule">Reschedule</option>
+                          <option value="Cancelled" disabled={apt.status === 'Completed'}>Cancelled</option>
+                        </select>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          {apt.status !== 'Cancelled' && (
+                            <>
+                              <button
+                                className="icon-btn edit"
+                                style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#a78bfa' }}
+                                onClick={() => openRescheduleModal(apt)}
+                                title="Reschedule Appointment"
+                              >
+                                <CalendarIcon size={16} />
+                              </button>
+                              <button
+                                className="icon-btn delete"
+                                onClick={() => handleCancel(apt._id)}
+                                disabled={apt.status === 'Completed'}
+                                style={apt.status === 'Completed' ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                                title={apt.status === 'Completed' ? "Completed service cannot be cancelled" : "Cancel Booking"}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="empty-state">No appointments found for this date.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {/* Pagination Controls */}
+            {filteredAppointments.length > 0 && (
+              <div className="table-pagination">
+                <div className="pagination-info">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} entries
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  <span className="pagination-page-indicator">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -835,6 +907,7 @@ function Appointments() {
                     type="date"
                     required
                     min={new Date().toISOString().split('T')[0]}
+                    max="2099-12-31"
                     value={walkInDate}
                     onChange={(e) => setWalkInDate(e.target.value)}
                     className="date-picker-input"
@@ -962,7 +1035,7 @@ function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Date *</label>
-                  <input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="date-picker-input" />
+                  <input type="date" name="date" required min={new Date().toISOString().split('T')[0]} max="2099-12-31" value={formData.date} onChange={handleInputChange} className="date-picker-input" />
                 </div>
                 <div className="form-group">
                   <label>Time Slot *</label>
@@ -1070,6 +1143,7 @@ function Appointments() {
                       type="date"
                       required
                       min={new Date().toISOString().split('T')[0]}
+                      max="2099-12-31"
                       value={cancelModalData.rescheduleDate}
                       onChange={(e) => setCancelModalData(prev => ({ ...prev, rescheduleDate: e.target.value }))}
                       className="date-picker-input"
