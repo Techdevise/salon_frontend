@@ -266,7 +266,7 @@ function Billing() {
         price: s.price || 0
       })),
       subtotal: bill.subTotal || bill.totalAmount || 0,
-      tax: (bill.subTotal || bill.totalAmount || 0) * 0.18,
+      tax: bill.tax !== undefined ? bill.tax : ((bill.subTotal || bill.totalAmount || 0) * 0.18),
       discount: bill.discountAmount || 0,
       grandTotal: bill.totalAmount || bill.paidAmount || 0,
       paymentMethod: bill.paymentMethod || 'Cash'
@@ -310,13 +310,14 @@ function Billing() {
       const selectedPkgId = packageItem ? packageItem.packageId : null;
 
       const payload = {
+        salonId: selectedSalonId || user?.salonId,
         customerId: selectedCustomer._id,
         staffId: selectedStaffId,
         services: billItems.map(i => ({
-          serviceId: i.serviceId || null,
+          serviceId: i.serviceId && !String(i.serviceId).startsWith('custom_') ? i.serviceId : null,
           serviceName: i.name,
-          price: i.price * i.quantity,
-          quantity: i.quantity
+          price: Number(i.price) || 0,
+          quantity: Number(i.quantity) || 1
         })),
         packageId: selectedPkgId,
         promoCode: selectedPromoCode || null,
