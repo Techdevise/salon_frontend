@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
@@ -22,6 +22,186 @@ export const format24Hour = (timeStr) => {
     return `${h.toString().padStart(2, '0')}:${m}`;
   }
   return timeStr;
+};
+
+const SearchableSelect = ({
+  options = [],
+  value = '',
+  onChange,
+  placeholder = '-- Select --',
+  required = false,
+  name,
+  disabled = false,
+  className = ''
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt) => String(opt.value) === String(value));
+
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const q = searchQuery.trim().toLowerCase();
+    return options.filter((opt) => {
+      const label = (opt.label || '').toLowerCase();
+      const sublabel = (opt.sublabel || '').toLowerCase();
+      const searchTerms = (opt.searchTerms || '').toLowerCase();
+      return label.includes(q) || sublabel.includes(q) || searchTerms.includes(q);
+    });
+  }, [options, searchQuery]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+      {required && (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={() => {}}
+          required={required}
+          tabIndex={-1}
+          style={{ opacity: 0, position: 'absolute', width: '100%', height: 0, bottom: 0, pointerEvents: 'none' }}
+        />
+      )}
+
+      <div
+        className={`searchable-select-trigger ${className}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'rgba(255, 255, 255, 0.04)',
+          border: isOpen ? '1px solid #c59d5f' : '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          padding: '0.75rem 0.9rem',
+          color: selectedOption ? '#fff' : '#a1a1aa',
+          fontSize: '0.92rem',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          userSelect: 'none',
+          boxSizing: 'border-box'
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown size={16} style={{ color: '#a1a1aa', marginLeft: '8px', flexShrink: 0 }} />
+      </div>
+
+      {isOpen && (
+        <div
+          className="searchable-select-menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: '#1c1c21',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+            overflow: 'hidden',
+            maxHeight: '260px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ padding: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: '#18181b' }}>
+            <input
+              type="text"
+              placeholder="🔍 Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                padding: '0.45rem 0.75rem',
+                fontSize: '0.85rem',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '6px',
+                color: '#fff',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ overflowY: 'auto', flex: 1, maxHeight: '200px' }}>
+            <div
+              onClick={() => {
+                onChange({ target: { name, value: '' } });
+                setIsOpen(false);
+                setSearchQuery('');
+              }}
+              style={{
+                padding: '0.6rem 0.9rem',
+                cursor: 'pointer',
+                color: '#a1a1aa',
+                fontSize: '0.88rem',
+                borderBottom: '1px solid rgba(255,255,255,0.05)'
+              }}
+            >
+              {placeholder}
+            </div>
+
+            {filteredOptions.length === 0 ? (
+              <div style={{ padding: '0.75rem 0.9rem', color: '#71717a', fontSize: '0.85rem', textAlign: 'center' }}>
+                No matching results
+              </div>
+            ) : (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  onClick={() => {
+                    onChange({ target: { name, value: opt.value } });
+                    setIsOpen(false);
+                    setSearchQuery('');
+                  }}
+                  style={{
+                    padding: '0.65rem 0.9rem',
+                    cursor: 'pointer',
+                    color: String(value) === String(opt.value) ? '#c59d5f' : '#fff',
+                    background: String(value) === String(opt.value) ? 'rgba(197, 157, 95, 0.15)' : 'transparent',
+                    fontSize: '0.88rem',
+                    transition: 'background 0.15s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (String(value) !== String(opt.value)) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (String(value) !== String(opt.value)) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <span style={{ fontWeight: 500 }}>{opt.label}</span>
+                  {opt.sublabel && <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>{opt.sublabel}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 function Appointments() {
@@ -97,7 +277,8 @@ function Appointments() {
       ]);
       setStaffList(staffRes.data.data || []);
       setCustomerList(custRes.data.data || []);
-      setServiceList(servRes.data.data || []);
+      const activeServices = (servRes.data.data || []).filter(s => s.isActive !== false && s.status !== 'Unavailable' && s.isAvailable !== false);
+      setServiceList(activeServices);
       setPackagesList(pkgRes.data.data || []);
       setDiscountsList((discRes.data?.data || []).filter(d => d.isActive));
     } catch (err) {
@@ -937,59 +1118,31 @@ function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Select Service</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search service..."
-                    value={walkInServiceSearch}
-                    onChange={(e) => setWalkInServiceSearch(e.target.value)}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
-                  />
-                  <select
+                  <SearchableSelect
                     name="serviceId"
                     value={walkInFormData.serviceId}
                     onChange={handleWalkInChange}
-                  >
-                    <option value="">-- Select Service --</option>
-                    {serviceList
-                      .filter((s) => {
-                        if (s._id === walkInFormData.serviceId || !walkInServiceSearch.trim()) return true;
-                        const q = walkInServiceSearch.trim().toLowerCase();
-                        return (s.serviceName || '').toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q);
-                      })
-                      .map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.serviceName} - ₹{s.price}
-                        </option>
-                      ))}
-                  </select>
+                    placeholder="-- Select Service --"
+                    options={serviceList.map(s => ({
+                      value: s._id,
+                      label: `${s.serviceName} - ₹${s.price}`,
+                      searchTerms: `${s.serviceName} ${s.category || ''}`
+                    }))}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Select Package</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search package..."
-                    value={walkInPackageSearch}
-                    onChange={(e) => setWalkInPackageSearch(e.target.value)}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
-                  />
-                  <select
+                  <SearchableSelect
                     name="packageId"
                     value={walkInFormData.packageId}
                     onChange={handleWalkInChange}
-                  >
-                    <option value="">-- Select Package --</option>
-                    {packagesList
-                      .filter((p) => {
-                        if (p._id === walkInFormData.packageId || !walkInPackageSearch.trim()) return true;
-                        const q = walkInPackageSearch.trim().toLowerCase();
-                        return (p.packageName || '').toLowerCase().includes(q);
-                      })
-                      .map((p) => (
-                        <option key={p._id} value={p._id}>
-                          📦 {p.packageName} - ₹{p.packagePrice || p.price}
-                        </option>
-                      ))}
-                  </select>
+                    placeholder="-- Select Package --"
+                    options={packagesList.map(p => ({
+                      value: p._id,
+                      label: `📦 ${p.packageName} - ₹${p.packagePrice || p.price}`,
+                      searchTerms: p.packageName
+                    }))}
+                  />
                 </div>
               </div>
 
@@ -1027,32 +1180,18 @@ function Appointments() {
 
               <div className="form-group">
                 <label>Staff Assigned *</label>
-                <input
-                  type="text"
-                  placeholder="🔍 Search staff..."
-                  value={walkInStaffSearch}
-                  onChange={(e) => setWalkInStaffSearch(e.target.value)}
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
-                />
-                <select
+                <SearchableSelect
                   name="staffName"
                   required
                   value={walkInFormData.staffName}
                   onChange={handleWalkInChange}
-                >
-                  <option value="">-- Select Staff --</option>
-                  {staffList
-                    .filter((s) => {
-                      if (s.name === walkInFormData.staffName || !walkInStaffSearch.trim()) return true;
-                      const q = walkInStaffSearch.trim().toLowerCase();
-                      return (s.name || '').toLowerCase().includes(q) || (s.role || '').toLowerCase().includes(q);
-                    })
-                    .map((s) => (
-                      <option key={s._id} value={s.name}>
-                        {s.name} ({s.role || 'Staff'})
-                      </option>
-                    ))}
-                </select>
+                  placeholder="-- Select Staff --"
+                  options={staffList.map(s => ({
+                    value: s.name,
+                    label: `${s.name} (${s.role || 'Staff'})`,
+                    searchTerms: `${s.name} ${s.role || ''}`
+                  }))}
+                />
               </div>
 
               <div className="form-row">
@@ -1147,72 +1286,49 @@ function Appointments() {
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Select Customer *</label>
-                <input
-                  type="text"
-                  placeholder="🔍 Search customer by name or phone..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                <SearchableSelect
+                  name="customerId"
+                  required
+                  value={formData.customerId}
+                  onChange={handleInputChange}
+                  placeholder="-- Choose Customer --"
+                  options={customerList.map(c => ({
+                    value: c._id,
+                    label: `${c.name} (${c.phone})`,
+                    searchTerms: `${c.name} ${c.phone}`
+                  }))}
                 />
-                <select name="customerId" required value={formData.customerId} onChange={handleInputChange}>
-                  <option value="">-- Choose Customer --</option>
-                  {customerList
-                    .filter((c) => {
-                      if (c._id === formData.customerId || !customerSearch.trim()) return true;
-                      const q = customerSearch.trim().toLowerCase();
-                      return (c.name || '').toLowerCase().includes(q) || String(c.phone || '').toLowerCase().includes(q);
-                    })
-                    .map((c) => (
-                      <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
-                    ))}
-                </select>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Select Service</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search service..."
-                    value={serviceSearch}
-                    onChange={(e) => setServiceSearch(e.target.value)}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  <SearchableSelect
+                    name="serviceId"
+                    value={formData.serviceId}
+                    onChange={handleInputChange}
+                    placeholder="-- Choose Service --"
+                    options={serviceList.map(s => ({
+                      value: s._id,
+                      label: `${s.serviceName} - ₹${s.price}`,
+                      searchTerms: `${s.serviceName} ${s.category || ''}`
+                    }))}
                   />
-                  <select name="serviceId" value={formData.serviceId} onChange={handleInputChange}>
-                    <option value="">-- Choose Service --</option>
-                    {serviceList
-                      .filter((s) => {
-                        if (s._id === formData.serviceId || !serviceSearch.trim()) return true;
-                        const q = serviceSearch.trim().toLowerCase();
-                        return (s.serviceName || '').toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q);
-                      })
-                      .map((s) => (
-                        <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
-                      ))}
-                  </select>
                 </div>
 
                 <div className="form-group">
                   <label>Select Package</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search package..."
-                    value={packageSearch}
-                    onChange={(e) => setPackageSearch(e.target.value)}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  <SearchableSelect
+                    name="packageId"
+                    value={formData.packageId}
+                    onChange={handleInputChange}
+                    placeholder="-- Choose Package --"
+                    options={packagesList.map(p => ({
+                      value: p._id,
+                      label: `📦 ${p.packageName} - ₹${p.packagePrice || p.price}`,
+                      searchTerms: p.packageName
+                    }))}
                   />
-                  <select name="packageId" value={formData.packageId} onChange={handleInputChange}>
-                    <option value="">-- Choose Package --</option>
-                    {packagesList
-                      .filter((p) => {
-                        if (p._id === formData.packageId || !packageSearch.trim()) return true;
-                        const q = packageSearch.trim().toLowerCase();
-                        return (p.packageName || '').toLowerCase().includes(q);
-                      })
-                      .map((p) => (
-                        <option key={p._id} value={p._id}>📦 {p.packageName} - ₹{p.packagePrice || p.price}</option>
-                      ))}
-                  </select>
                 </div>
               </div>
 
@@ -1250,25 +1366,18 @@ function Appointments() {
 
               <div className="form-group">
                 <label>Assigned Staff *</label>
-                <input
-                  type="text"
-                  placeholder="🔍 Search staff..."
-                  value={staffSearch}
-                  onChange={(e) => setStaffSearch(e.target.value)}
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                <SearchableSelect
+                  name="staffId"
+                  required
+                  value={formData.staffId}
+                  onChange={handleInputChange}
+                  placeholder="-- Assign To Staff --"
+                  options={staffList.map(s => ({
+                    value: s._id,
+                    label: `${s.name} (${s.role || 'Staff'})`,
+                    searchTerms: `${s.name} ${s.role || ''}`
+                  }))}
                 />
-                <select name="staffId" required value={formData.staffId} onChange={handleInputChange}>
-                  <option value="">-- Assign To Staff --</option>
-                  {staffList
-                    .filter((s) => {
-                      if (s._id === formData.staffId || !staffSearch.trim()) return true;
-                      const q = staffSearch.trim().toLowerCase();
-                      return (s.name || '').toLowerCase().includes(q) || (s.role || '').toLowerCase().includes(q);
-                    })
-                    .map((s) => (
-                      <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
-                    ))}
-                </select>
               </div>
 
               <div className="form-row">

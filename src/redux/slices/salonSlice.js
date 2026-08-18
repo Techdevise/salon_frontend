@@ -1,9 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const initialSelectedSalonId = typeof window !== 'undefined' ? localStorage.getItem('selectedSalonId') : null;
+
 const salonSlice = createSlice({
   name: 'salon',
   initialState: {
-    selectedSalonId: null,
+    selectedSalonId: initialSelectedSalonId,
     selectedSalonInfo: null,
     salons: [],
     salonsLoaded: false, // tracks if salon list has been fetched
@@ -17,9 +19,15 @@ const salonSlice = createSlice({
       if (action.payload) {
         state.selectedSalonId = action.payload._id;
         state.selectedSalonInfo = action.payload;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('selectedSalonId', action.payload._id);
+        }
       } else {
         state.selectedSalonId = null;
         state.selectedSalonInfo = null;
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('selectedSalonId');
+        }
       }
     },
     clearSalon: (state) => {
@@ -27,6 +35,9 @@ const salonSlice = createSlice({
       state.selectedSalonInfo = null;
       state.salons = [];
       state.salonsLoaded = false;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('selectedSalonId');
+      }
     }
   }
 });

@@ -121,12 +121,13 @@ function DashboardHome() {
       if (res.data.success) {
         const fetchedSalons = res.data.data;
         dispatch(setSalonsList(fetchedSalons));
-        // Check if currently persisted selectedSalonId still exists in the fresh list
-        const stillExists = fetchedSalons.some(s => s._id === selectedSalonId);
-        if (!stillExists && fetchedSalons.length > 0) {
-          // Auto-select first salon if selection is stale or missing
+        const savedSalonId = localStorage.getItem('selectedSalonId') || selectedSalonId;
+        const savedSalon = fetchedSalons.find(s => s._id === savedSalonId);
+        if (savedSalon) {
+          dispatch(setSelectedSalon(savedSalon));
+        } else if (fetchedSalons.length > 0) {
           dispatch(setSelectedSalon(fetchedSalons[0]));
-        } else if (fetchedSalons.length === 0) {
+        } else {
           setLoading(false);
         }
       } else {
@@ -407,6 +408,7 @@ function DashboardHome() {
           <div className="filter-group">
             <button className={`filter-btn ${filter === 'daily' ? 'active' : ''}`} onClick={() => setFilter('daily')}>Today</button>
             <button className={`filter-btn ${filter === 'monthly' ? 'active' : ''}`} onClick={() => setFilter('monthly')}>This Month</button>
+            <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
           </div>
         </div>
       </div>
@@ -546,6 +548,12 @@ function DashboardHome() {
                 onClick={() => { setActivityFilter('monthly'); setFromDate(''); setToDate(''); }}
               >
                 This Month
+              </button>
+              <button
+                className={`filter-btn ${activityFilter === 'all' && !fromDate && !toDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('all'); setFromDate(''); setToDate(''); }}
+              >
+                All
               </button>
             </div>
 

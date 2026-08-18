@@ -68,10 +68,16 @@ function DashboardLayout() {
       if (res.data.success && res.data.data.length > 0) {
         const fetchedSalons = res.data.data;
         dispatch(setSalons(fetchedSalons));
-        const stillValid = fetchedSalons.some(s => s._id === selectedSalonId);
-        if (!stillValid) {
-          const userSalon = fetchedSalons.find(s => s._id === user?.salonId);
-          dispatch(setSelectedSalon(userSalon || fetchedSalons[0]));
+        const savedSalonId = localStorage.getItem('selectedSalonId') || selectedSalonId;
+        const savedSalon = fetchedSalons.find(s => s._id === savedSalonId);
+        const userSalon = fetchedSalons.find(s => s._id === user?.salonId);
+
+        if (savedSalon) {
+          dispatch(setSelectedSalon(savedSalon));
+        } else if (userSalon) {
+          dispatch(setSelectedSalon(userSalon));
+        } else {
+          dispatch(setSelectedSalon(fetchedSalons[0]));
         }
       }
     } catch (err) {
