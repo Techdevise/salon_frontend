@@ -282,43 +282,7 @@ function DashboardLayout() {
 
           <div className="header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
 
-            {/* Notification Bell */}
-            <div className="notification-wrapper" ref={notifRef}>
-              <button
-                className="notification-btn"
-                onClick={() => setShowNotifications(!showNotifications)}
-                title="Alerts & Reminders"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-              </button>
 
-              {/* Popover */}
-              {showNotifications && (
-                <div className="notification-dropdown">
-                  <div className="notification-header">
-                    <h3>Notifications</h3>
-                  </div>
-                  <div className="notification-list">
-                    {notifications.length > 0 ? (
-                      notifications.map(n => (
-                        <div
-                          key={n._id}
-                          className={`notification-item ${n.isRead ? 'read' : 'unread'}`}
-                          onClick={() => !n.isRead && markAsRead(n._id)}
-                        >
-                          <h4>{n.title}</h4>
-                          <p>{n.message}</p>
-                          <span className="notif-time">{new Date(n.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="no-notifications">No alerts for now.</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div className="user-header-profile">
               <UserCircle size={18} />

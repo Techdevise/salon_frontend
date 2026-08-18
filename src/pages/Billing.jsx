@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Plus, Trash2, IndianRupee, Printer } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } from 'lucide-react';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
 
@@ -31,6 +31,11 @@ function Billing() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyList, setHistoryList] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
 
   useEffect(() => {
     fetchCustomers();
@@ -228,6 +233,61 @@ function Billing() {
 
   const selectedStaff = staffList.find(s => s._id === selectedStaffId);
 
+  const fetchBillingHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      setShowHistoryModal(true);
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/billing${salonParam}`, { withCredentials: true });
+      if (res.data?.data) {
+        setHistoryList(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch billing history", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handlePrintHistoryBill = (bill) => {
+    const snapshot = {
+      invoiceNo: bill.invoiceNumber || bill._id?.substring(0, 8) || 'INV',
+      date: new Date(bill.createdAt).toLocaleString(),
+      customer: {
+        name: bill.customerDetails?.name || 'Walk-in Customer',
+        phone: bill.customerDetails?.phone || 'N/A'
+      },
+      staff: {
+        name: bill.staffDetails?.name || 'Assigned Staff'
+      },
+      items: (bill.services || []).map(s => ({
+        name: s.serviceName || s.serviceId?.serviceName || 'Service',
+        quantity: s.quantity || 1,
+        price: s.price || 0
+      })),
+      subtotal: bill.subTotal || bill.totalAmount || 0,
+      tax: (bill.subTotal || bill.totalAmount || 0) * 0.18,
+      discount: bill.discountAmount || 0,
+      grandTotal: bill.totalAmount || bill.paidAmount || 0,
+      paymentMethod: bill.paymentMethod || 'Cash'
+    };
+    setLastBill(snapshot);
+    setTimeout(() => {
+      window.print();
+    }, 300);
+  };
+
+  const filteredHistory = historyList.filter(bill => {
+    const query = historySearch.toLowerCase().trim();
+    if (!query) return true;
+    const custName = (bill.customerDetails?.name || '').toLowerCase();
+    const custPhone = (bill.customerDetails?.phone || '').toLowerCase();
+    const staffName = (bill.staffDetails?.name || '').toLowerCase();
+    const payMethod = (bill.paymentMethod || '').toLowerCase();
+    const invNo = (bill.invoiceNumber || bill._id || '').toLowerCase();
+    return custName.includes(query) || custPhone.includes(query) || staffName.includes(query) || payMethod.includes(query) || invNo.includes(query);
+  });
+
   const handleGenerateBill = async () => {
     if (!selectedCustomer) {
       setMessage({ text: 'Please select a customer', type: 'error' });
@@ -313,13 +373,21 @@ function Billing() {
     <div className="billing-container">
       <div className="billing-header">
         <h1>Billing & Payment</h1>
-        <button
-          className="btn-secondary"
-          disabled={!lastBill && billItems.length === 0}
-          onClick={() => window.print()}
-        >
-          <Printer size={18} /> Print Last Bill
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="btn-secondary"
+            onClick={fetchBillingHistory}
+          >
+            <Clock size={18} /> All History
+          </button>
+          <button
+            className="btn-secondary"
+            disabled={!lastBill && billItems.length === 0}
+            onClick={() => window.print()}
+          >
+            <Printer size={18} /> Print Last Bill
+          </button>
+        </div>
       </div>
 
       {message.text && (
@@ -740,6 +808,204 @@ function Billing() {
           <p>Have a wonderful day ahead.</p>
         </div>
       </div>
+      {/* All Billing & Payments History Modal */}
+      {showHistoryModal && (
+        <div
+          className="history-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowHistoryModal(false)}
+        >
+          <div
+            className="history-modal-content"
+            style={{
+              background: '#181825',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '1050px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#12121c'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    background: 'rgba(192, 132, 252, 0.15)',
+                    color: '#c084fc'
+                  }}
+                >
+                  <FileText size={22} />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '18px', color: '#fff', fontWeight: 600 }}>
+                    Billing & Payments History
+                  </h2>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                    Showing all past bills and payment transactions ({filteredHistory.length} total)
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#a1a1aa',
+                  borderRadius: '8px',
+                  padding: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Search Bar */}
+            <div style={{ padding: '16px 24px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search size={18} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search history by Customer, Staff, Phone, Invoice No, or Payment Method..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 40px',
+                    background: '#0f0f17',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* History Table Body */}
+            <div style={{ padding: '0 24px 24px', overflowY: 'auto', flex: 1 }}>
+              {loadingHistory ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                  Loading billing history...
+                </div>
+              ) : filteredHistory.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                  No billing history found matching your search.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Invoice #</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Served By</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Items</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Total Amount</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Method</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHistory.map((b) => (
+                      <tr key={b._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
+                        <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
+                          {new Date(b.createdAt).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px 8px', fontWeight: 500, color: '#c084fc' }}>
+                          {b.invoiceNumber || b._id?.substring(0, 8) || 'INV'}
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <div style={{ fontWeight: 500, color: '#fff' }}>{b.customerDetails?.name || 'Walk-in Customer'}</div>
+                          {b.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{b.customerDetails.phone}</div>}
+                        </td>
+                        <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
+                          {b.staffDetails?.name || 'Staff'}
+                        </td>
+                        <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(b.services || []).map(s => s.serviceName || s.serviceId?.serviceName || 'Service').join(', ') || 'Service'}
+                        </td>
+                        <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                          ₹{b.totalAmount || b.paidAmount || 0}
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: '#cbd5e1'
+                            }}
+                          >
+                            {b.paymentMethod || 'Cash'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => handlePrintHistoryBill(b)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              background: 'rgba(192, 132, 252, 0.15)',
+                              border: '1px solid rgba(192, 132, 252, 0.3)',
+                              color: '#c084fc',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              fontWeight: 500
+                            }}
+                          >
+                            <Printer size={14} /> Receipt
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
