@@ -48,6 +48,20 @@ function Appointments() {
   const [customerList, setCustomerList] = useState([]);
   const [serviceList, setServiceList] = useState([]);
   const [packagesList, setPackagesList] = useState([]);
+  const [discountsList, setDiscountsList] = useState([]);
+  const [selectedPromoCode, setSelectedPromoCode] = useState('');
+  const [walkInSelectedPromoCode, setWalkInSelectedPromoCode] = useState('');
+
+  // Search filter states for modals
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [packageSearch, setPackageSearch] = useState('');
+  const [staffSearch, setStaffSearch] = useState('');
+
+  const [walkInCustomerSearch, setWalkInCustomerSearch] = useState('');
+  const [walkInServiceSearch, setWalkInServiceSearch] = useState('');
+  const [walkInPackageSearch, setWalkInPackageSearch] = useState('');
+  const [walkInStaffSearch, setWalkInStaffSearch] = useState('');
 
   // Form states
   const [formData, setFormData] = useState({
@@ -74,19 +88,38 @@ function Appointments() {
   const fetchOptions = async () => {
     try {
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const [staffRes, custRes, servRes, pkgRes] = await Promise.all([
+      const [staffRes, custRes, servRes, pkgRes, discRes] = await Promise.all([
         axios.get(`/api/staff/all${salonParam}`, { withCredentials: true }),
         axios.get(`/api/customer${salonParam}`, { withCredentials: true }),
         axios.get(`/api/service/all${salonParam}`, { withCredentials: true }),
-        axios.get(`/api/package${salonParam}`, { withCredentials: true })
+        axios.get(`/api/package${salonParam}`, { withCredentials: true }),
+        axios.get(`/api/discount${salonParam}`, { withCredentials: true })
       ]);
       setStaffList(staffRes.data.data || []);
       setCustomerList(custRes.data.data || []);
       setServiceList(servRes.data.data || []);
       setPackagesList(pkgRes.data.data || []);
+      setDiscountsList((discRes.data?.data || []).filter(d => d.isActive));
     } catch (err) {
       console.error("Failed to load select options", err);
     }
+  };
+
+  const applyPromoToAmount = (baseAmount, promoCode) => {
+    if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
+    const disc = discountsList.find(d => d.promoCode === promoCode);
+    if (!disc) return baseAmount;
+    if (disc.minOrderAmount && baseAmount < disc.minOrderAmount) return baseAmount;
+    let discAmt = 0;
+    if (disc.discountType === 'Percentage') {
+      discAmt = (baseAmount * disc.discountValue) / 100;
+      if (disc.maxDiscountAmount && discAmt > disc.maxDiscountAmount) {
+        discAmt = disc.maxDiscountAmount;
+      }
+    } else {
+      discAmt = disc.discountValue;
+    }
+    return Math.max(0, baseAmount - discAmt);
   };
 
   const fetchAppointments = async () => {
@@ -112,7 +145,7 @@ function Appointments() {
         updatedData.packageId = '';
         const selectedService = serviceList.find(s => s._id === value);
         if (selectedService) {
-          updatedData.totalAmount = selectedService.price;
+          updatedData.totalAmount = applyPromoToAmount(selectedService.price, selectedPromoCode);
         }
       } else if (!updatedData.packageId) {
         updatedData.totalAmount = '';
@@ -122,7 +155,8 @@ function Appointments() {
         updatedData.serviceId = '';
         const selectedPkg = packagesList.find(p => p._id === value);
         if (selectedPkg) {
-          updatedData.totalAmount = selectedPkg.packagePrice || selectedPkg.price || 0;
+          const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
+          updatedData.totalAmount = applyPromoToAmount(pkgPrice, selectedPromoCode);
         }
       } else if (!updatedData.serviceId) {
         updatedData.totalAmount = '';
@@ -199,9 +233,9 @@ function Appointments() {
       const matchedStaff = staffList.find(s => s.name === staffName);
       const filteredApts = matchedStaff
         ? bookedApts.filter(a => {
-            const aptStaffId = a.staffDetails?._id || a.staffId;
-            return aptStaffId?.toString() === matchedStaff._id?.toString();
-          })
+          const aptStaffId = a.staffDetails?._id || a.staffId;
+          return aptStaffId?.toString() === matchedStaff._id?.toString();
+        })
         : [];
 
       const bookedTimes = filteredApts
@@ -262,6 +296,11 @@ function Appointments() {
   const openWalkInModal = () => {
     fetchOptions();
     setWalkInError('');
+    setWalkInCustomerSearch('');
+    setWalkInServiceSearch('');
+    setWalkInPackageSearch('');
+    setWalkInStaffSearch('');
+    setWalkInSelectedPromoCode('');
     const today = new Date().toISOString().split('T')[0];
     setWalkInDate(today);
     setAvailableSlots([]);
@@ -292,7 +331,7 @@ function Appointments() {
         updatedWalkIn.packageId = '';
         const selectedService = serviceList.find(s => s._id === value);
         if (selectedService) {
-          updatedWalkIn.totalAmount = selectedService.price;
+          updatedWalkIn.totalAmount = applyPromoToAmount(selectedService.price, walkInSelectedPromoCode);
         }
       } else if (!updatedWalkIn.packageId) {
         updatedWalkIn.totalAmount = '';
@@ -302,7 +341,8 @@ function Appointments() {
         updatedWalkIn.serviceId = '';
         const selectedPkg = packagesList.find(p => p._id === value);
         if (selectedPkg) {
-          updatedWalkIn.totalAmount = selectedPkg.packagePrice || selectedPkg.price || 0;
+          const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
+          updatedWalkIn.totalAmount = applyPromoToAmount(pkgPrice, walkInSelectedPromoCode);
         }
       } else if (!updatedWalkIn.serviceId) {
         updatedWalkIn.totalAmount = '';
@@ -338,7 +378,7 @@ function Appointments() {
       let targetCustomerId = '';
       const existingCust = customerList.find(
         c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) ||
-             (c.name.toLowerCase() === walkInFormData.customerName.toLowerCase())
+          (c.name.toLowerCase() === walkInFormData.customerName.toLowerCase())
       );
 
       if (existingCust) {
@@ -411,6 +451,11 @@ function Appointments() {
   const openModal = (appointment = null) => {
     fetchOptions();
     setErrorMsg('');
+    setCustomerSearch('');
+    setServiceSearch('');
+    setPackageSearch('');
+    setStaffSearch('');
+    setSelectedPromoCode('');
     const today = new Date().toISOString().split('T')[0];
     if (appointment) {
       setEditingAppointment(appointment);
@@ -824,6 +869,45 @@ function Appointments() {
             {walkInError && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{walkInError}</div>}
 
             <form onSubmit={handleWalkInSubmit} className="modal-form">
+              <div className="form-group" style={{ marginBottom: '0.2rem' }}>
+                <label>Search Existing Customer (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="🔍 Search existing customer by name or phone..."
+                  value={walkInCustomerSearch}
+                  onChange={(e) => setWalkInCustomerSearch(e.target.value)}
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                />
+                {walkInCustomerSearch && (
+                  <select
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (selectedId) {
+                        const found = customerList.find(c => c._id === selectedId);
+                        if (found) {
+                          setWalkInFormData(prev => ({
+                            ...prev,
+                            customerName: found.name || '',
+                            customerPhone: found.phone || ''
+                          }));
+                        }
+                      }
+                    }}
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+                  >
+                    <option value="">-- Choose matching customer --</option>
+                    {customerList
+                      .filter(c => {
+                        const q = walkInCustomerSearch.toLowerCase();
+                        return (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q);
+                      })
+                      .map(c => (
+                        <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
+                      ))}
+                  </select>
+                )}
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Customer Name *</label>
@@ -853,38 +937,103 @@ function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Select Service</label>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search service..."
+                    value={walkInServiceSearch}
+                    onChange={(e) => setWalkInServiceSearch(e.target.value)}
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  />
                   <select
                     name="serviceId"
                     value={walkInFormData.serviceId}
                     onChange={handleWalkInChange}
                   >
                     <option value="">-- Select Service --</option>
-                    {serviceList.map((s) => (
-                      <option key={s._id} value={s._id}>
-                        {s.serviceName} - ₹{s.price}
-                      </option>
-                    ))}
+                    {serviceList
+                      .filter((s) => {
+                        if (s._id === walkInFormData.serviceId || !walkInServiceSearch.trim()) return true;
+                        const q = walkInServiceSearch.trim().toLowerCase();
+                        return (s.serviceName || '').toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q);
+                      })
+                      .map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.serviceName} - ₹{s.price}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Select Package</label>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search package..."
+                    value={walkInPackageSearch}
+                    onChange={(e) => setWalkInPackageSearch(e.target.value)}
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  />
                   <select
                     name="packageId"
                     value={walkInFormData.packageId}
                     onChange={handleWalkInChange}
                   >
                     <option value="">-- Select Package --</option>
-                    {packagesList.map((p) => (
-                      <option key={p._id} value={p._id}>
-                        📦 {p.packageName} - ₹{p.packagePrice || p.price}
-                      </option>
-                    ))}
+                    {packagesList
+                      .filter((p) => {
+                        if (p._id === walkInFormData.packageId || !walkInPackageSearch.trim()) return true;
+                        const q = walkInPackageSearch.trim().toLowerCase();
+                        return (p.packageName || '').toLowerCase().includes(q);
+                      })
+                      .map((p) => (
+                        <option key={p._id} value={p._id}>
+                          📦 {p.packageName} - ₹{p.packagePrice || p.price}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
 
               <div className="form-group">
+                <label>Apply Offer / Promo Code (Optional)</label>
+                <select
+                  value={walkInSelectedPromoCode}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setWalkInSelectedPromoCode(code);
+                    let basePrice = 0;
+                    if (walkInFormData.serviceId) {
+                      const s = serviceList.find(item => item._id === walkInFormData.serviceId);
+                      if (s) basePrice = s.price;
+                    } else if (walkInFormData.packageId) {
+                      const p = packagesList.find(item => item._id === walkInFormData.packageId);
+                      if (p) basePrice = p.packagePrice || p.price || 0;
+                    }
+                    if (basePrice > 0) {
+                      setWalkInFormData(prev => ({
+                        ...prev,
+                        totalAmount: applyPromoToAmount(basePrice, code)
+                      }));
+                    }
+                  }}
+                >
+                  <option value="">-- No Discount / Promo Code --</option>
+                  {discountsList.map(d => (
+                    <option key={d._id} value={d.promoCode}>
+                      🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Staff Assigned *</label>
+                <input
+                  type="text"
+                  placeholder="🔍 Search staff..."
+                  value={walkInStaffSearch}
+                  onChange={(e) => setWalkInStaffSearch(e.target.value)}
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                />
                 <select
                   name="staffName"
                   required
@@ -892,11 +1041,17 @@ function Appointments() {
                   onChange={handleWalkInChange}
                 >
                   <option value="">-- Select Staff --</option>
-                  {staffList.map((s) => (
-                    <option key={s._id} value={s.name}>
-                      {s.name} ({s.role || 'Staff'})
-                    </option>
-                  ))}
+                  {staffList
+                    .filter((s) => {
+                      if (s.name === walkInFormData.staffName || !walkInStaffSearch.trim()) return true;
+                      const q = walkInStaffSearch.trim().toLowerCase();
+                      return (s.name || '').toLowerCase().includes(q) || (s.role || '').toLowerCase().includes(q);
+                    })
+                    .map((s) => (
+                      <option key={s._id} value={s.name}>
+                        {s.name} ({s.role || 'Staff'})
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -992,43 +1147,127 @@ function Appointments() {
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Select Customer *</label>
+                <input
+                  type="text"
+                  placeholder="🔍 Search customer by name or phone..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                />
                 <select name="customerId" required value={formData.customerId} onChange={handleInputChange}>
                   <option value="">-- Choose Customer --</option>
-                  {customerList.map(c => (
-                    <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
-                  ))}
+                  {customerList
+                    .filter((c) => {
+                      if (c._id === formData.customerId || !customerSearch.trim()) return true;
+                      const q = customerSearch.trim().toLowerCase();
+                      return (c.name || '').toLowerCase().includes(q) || String(c.phone || '').toLowerCase().includes(q);
+                    })
+                    .map((c) => (
+                      <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
+                    ))}
                 </select>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Select Service</label>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search service..."
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  />
                   <select name="serviceId" value={formData.serviceId} onChange={handleInputChange}>
                     <option value="">-- Choose Service --</option>
-                    {serviceList.map(s => (
-                      <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
-                    ))}
+                    {serviceList
+                      .filter((s) => {
+                        if (s._id === formData.serviceId || !serviceSearch.trim()) return true;
+                        const q = serviceSearch.trim().toLowerCase();
+                        return (s.serviceName || '').toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q);
+                      })
+                      .map((s) => (
+                        <option key={s._id} value={s._id}>{s.serviceName} - ₹{s.price}</option>
+                      ))}
                   </select>
                 </div>
 
                 <div className="form-group">
                   <label>Select Package</label>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search package..."
+                    value={packageSearch}
+                    onChange={(e) => setPackageSearch(e.target.value)}
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                  />
                   <select name="packageId" value={formData.packageId} onChange={handleInputChange}>
                     <option value="">-- Choose Package --</option>
-                    {packagesList.map(p => (
-                      <option key={p._id} value={p._id}>📦 {p.packageName} - ₹{p.packagePrice || p.price}</option>
-                    ))}
+                    {packagesList
+                      .filter((p) => {
+                        if (p._id === formData.packageId || !packageSearch.trim()) return true;
+                        const q = packageSearch.trim().toLowerCase();
+                        return (p.packageName || '').toLowerCase().includes(q);
+                      })
+                      .map((p) => (
+                        <option key={p._id} value={p._id}>📦 {p.packageName} - ₹{p.packagePrice || p.price}</option>
+                      ))}
                   </select>
                 </div>
               </div>
 
               <div className="form-group">
+                <label>Apply Offer / Promo Code (Optional)</label>
+                <select
+                  value={selectedPromoCode}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setSelectedPromoCode(code);
+                    let basePrice = 0;
+                    if (formData.serviceId) {
+                      const s = serviceList.find(item => item._id === formData.serviceId);
+                      if (s) basePrice = s.price;
+                    } else if (formData.packageId) {
+                      const p = packagesList.find(item => item._id === formData.packageId);
+                      if (p) basePrice = p.packagePrice || p.price || 0;
+                    }
+                    if (basePrice > 0) {
+                      setFormData(prev => ({
+                        ...prev,
+                        totalAmount: applyPromoToAmount(basePrice, code)
+                      }));
+                    }
+                  }}
+                >
+                  <option value="">-- No Discount / Promo Code --</option>
+                  {discountsList.map(d => (
+                    <option key={d._id} value={d.promoCode}>
+                      🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Assigned Staff *</label>
+                <input
+                  type="text"
+                  placeholder="🔍 Search staff..."
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
+                />
                 <select name="staffId" required value={formData.staffId} onChange={handleInputChange}>
                   <option value="">-- Assign To Staff --</option>
-                  {staffList.map(s => (
-                    <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
-                  ))}
+                  {staffList
+                    .filter((s) => {
+                      if (s._id === formData.staffId || !staffSearch.trim()) return true;
+                      const q = staffSearch.trim().toLowerCase();
+                      return (s.name || '').toLowerCase().includes(q) || (s.role || '').toLowerCase().includes(q);
+                    })
+                    .map((s) => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
+                    ))}
                 </select>
               </div>
 

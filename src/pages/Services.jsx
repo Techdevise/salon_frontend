@@ -221,11 +221,11 @@ function Services() {
                     </td>
                     <td>
                       <button 
-                         className={`status-badge border-0 cursor-pointer ${service.isActive ? 'active' : 'inactive'}`}
+                         className={`status-badge border-0 cursor-pointer ${service.isActive !== false ? 'active' : 'inactive'}`}
                          onClick={() => handleToggleStatus(service._id)}
                          title="Click to toggle status"
                       >
-                        {service.isActive ? 'Available' : 'Unavailable'}
+                        {service.isActive !== false ? 'Available' : 'Unavailable'}
                       </button>
                     </td>
                     <td>

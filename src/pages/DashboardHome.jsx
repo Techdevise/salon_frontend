@@ -43,7 +43,8 @@ function DashboardHome() {
   const [allStaffList, setAllStaffList] = useState([]);
   const [staffActivities, setStaffActivities] = useState([]);
   const [activityFilter, setActivityFilter] = useState('daily');
-  const [customDate, setCustomDate] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [selectedStaffIdFilter, setSelectedStaffIdFilter] = useState('all');
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityPage, setActivityPage] = useState(1);
@@ -64,19 +65,21 @@ function DashboardHome() {
         if (actStaffId !== selectedStaffIdFilter) return false;
       }
 
-      // 2. Custom Date Filter (if specific date selected)
-      if (customDate) {
+      // 2. From Date / To Date Filter
+      if (fromDate || toDate) {
         const actDate = new Date(act.date);
         const year = actDate.getFullYear();
         const month = String(actDate.getMonth() + 1).padStart(2, '0');
         const day = String(actDate.getDate()).padStart(2, '0');
         const actDateStr = `${year}-${month}-${day}`;
-        return actDateStr === customDate;
+
+        if (fromDate && actDateStr < fromDate) return false;
+        if (toDate && actDateStr > toDate) return false;
       }
 
       return true;
     });
-  }, [staffActivities, customDate, selectedStaffIdFilter]);
+  }, [staffActivities, fromDate, toDate, selectedStaffIdFilter]);
 
   const ITEMS_PER_PAGE = 10;
   const totalActivityPages = Math.ceil(filteredStaffActivities.length / ITEMS_PER_PAGE) || 1;
@@ -181,7 +184,7 @@ function DashboardHome() {
     if (selectedSalonId || !isAdmin) {
       fetchStaffActivities();
     }
-  }, [activityFilter, customDate, selectedStaffIdFilter, selectedSalonId]);
+  }, [activityFilter, fromDate, toDate, selectedStaffIdFilter, selectedSalonId]);
 
   const fetchStaffActivities = async () => {
     setActivityLoading(true);
@@ -189,10 +192,11 @@ function DashboardHome() {
       const token = localStorage.getItem('token');
       const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
       const filterParam = salonParam ? `&filter=${activityFilter}` : `?filter=${activityFilter}`;
-      const dateParam = customDate ? `&selectedDate=${customDate}` : '';
+      const fromParam = fromDate ? `&fromDate=${fromDate}` : '';
+      const toParam = toDate ? `&toDate=${toDate}` : '';
       const staffParam = selectedStaffIdFilter !== 'all' ? `&staffId=${selectedStaffIdFilter}` : '';
 
-      const res = await axios.get(`/api/dashboard/staff-activity${salonParam}${filterParam}${dateParam}${staffParam}`, {
+      const res = await axios.get(`/api/dashboard/staff-activity${salonParam}${filterParam}${fromParam}${toParam}${staffParam}`, {
         withCredentials: true,
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -387,24 +391,6 @@ function DashboardHome() {
         </div>
 
         <div className="controls-right">
-          {/* Salon Selector - Only for Admin */}
-          {isAdmin && salons.length > 0 && (
-            <div className="salon-selector-wrap">
-              <Store size={16} className="selector-icon" />
-              <select
-                value={selectedSalonId}
-                onChange={handleSalonChange}
-                id="salon-selector"
-              >
-                {salons.map(s => (
-                  <option key={s._id} value={s._id}>
-                    {s.salonName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="selector-chevron" />
-            </div>
-          )}
 
           {/* Add Salon Button - Only for Admin */}
           {isAdmin && (
@@ -420,7 +406,6 @@ function DashboardHome() {
 
           <div className="filter-group">
             <button className={`filter-btn ${filter === 'daily' ? 'active' : ''}`} onClick={() => setFilter('daily')}>Today</button>
-            <button className={`filter-btn ${filter === 'weekly' ? 'active' : ''}`} onClick={() => setFilter('weekly')}>This Week</button>
             <button className={`filter-btn ${filter === 'monthly' ? 'active' : ''}`} onClick={() => setFilter('monthly')}>This Month</button>
           </div>
         </div>
@@ -551,37 +536,47 @@ function DashboardHome() {
             {/* Filter Pills */}
             <div className="filter-group">
               <button
-                className={`filter-btn ${activityFilter === 'daily' && !customDate ? 'active' : ''}`}
-                onClick={() => { setActivityFilter('daily'); setCustomDate(''); }}
+                className={`filter-btn ${activityFilter === 'daily' && !fromDate && !toDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('daily'); setFromDate(''); setToDate(''); }}
               >
                 Today
               </button>
               <button
-                className={`filter-btn ${activityFilter === 'weekly' && !customDate ? 'active' : ''}`}
-                onClick={() => { setActivityFilter('weekly'); setCustomDate(''); }}
-              >
-                This Week
-              </button>
-              <button
-                className={`filter-btn ${activityFilter === 'monthly' && !customDate ? 'active' : ''}`}
-                onClick={() => { setActivityFilter('monthly'); setCustomDate(''); }}
+                className={`filter-btn ${activityFilter === 'monthly' && !fromDate && !toDate ? 'active' : ''}`}
+                onClick={() => { setActivityFilter('monthly'); setFromDate(''); setToDate(''); }}
               >
                 This Month
               </button>
             </div>
 
-            {/* Custom Date Input */}
-            <div className="date-input-wrap">
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => {
-                  setCustomDate(e.target.value);
-                  setActivityFilter('custom');
-                }}
-                className="activity-date-input"
-                title="Select specific date"
-              />
+            {/* From Date to To Date Range Selection */}
+            <div className="date-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#a1a1aa', fontWeight: 500 }}>From:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setActivityFilter('custom');
+                  }}
+                  className="activity-date-input"
+                  title="From Date"
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#a1a1aa', fontWeight: 500 }}>To:</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setActivityFilter('custom');
+                  }}
+                  className="activity-date-input"
+                  title="To Date"
+                />
+              </div>
             </div>
 
             {/* Staff Dropdown Filter */}
@@ -685,7 +680,7 @@ function DashboardHome() {
               </div>
 
               {/* Pagination Controls */}
-              {totalActivityPages > 1 && (
+              {filteredStaffActivities.length > 0 && (
                 <div className="activity-pagination">
                   <div className="pagination-info">
                     Showing {((activityPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(activityPage * ITEMS_PER_PAGE, filteredStaffActivities.length)} of {filteredStaffActivities.length} entries

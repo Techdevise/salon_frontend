@@ -38,14 +38,9 @@ function DashboardLayout() {
   // Initialize salon selection on every mount/refresh
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'Admin') {
-      // Admin: fetch all branches and auto-select first if needed
-      initAdminSalon();
-    }
-    // For Staff/Manager: their salonId is already in the JWT (user.salonId)
-    // The individual pages use req.user.salonId on the backend when no salonId param is sent
+    initAdminSalon();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
+  }, [user]);
 
   // Global subscription error interceptor
   useEffect(() => {
@@ -73,10 +68,10 @@ function DashboardLayout() {
       if (res.data.success && res.data.data.length > 0) {
         const fetchedSalons = res.data.data;
         dispatch(setSalons(fetchedSalons));
-        // Only auto-select if no valid salon is already selected
         const stillValid = fetchedSalons.some(s => s._id === selectedSalonId);
         if (!stillValid) {
-          dispatch(setSelectedSalon(fetchedSalons[0]));
+          const userSalon = fetchedSalons.find(s => s._id === user?.salonId);
+          dispatch(setSelectedSalon(userSalon || fetchedSalons[0]));
         }
       }
     } catch (err) {
@@ -246,23 +241,25 @@ function DashboardLayout() {
       {/* Main Content Area */}
       <div className="main-content">
         <header className="top-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.5rem' }}>
-          {user?.role === 'Admin' && salons.length > 0 && (
-            <div className="salon-header-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Store size={18} style={{ color: '#a855f7' }} />
+          {salons.length > 0 && (
+            <div className="header-salon-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Store size={18} style={{ color: '#c084fc' }} />
               <select
                 value={selectedSalonId || ''}
                 onChange={(e) => {
-                  const s = salons.find(item => item._id === e.target.value);
-                  if (s) dispatch(setSelectedSalon(s));
+                  const targetSalon = salons.find(s => s._id === e.target.value);
+                  if (targetSalon) {
+                    dispatch(setSelectedSalon(targetSalon));
+                  }
                 }}
-                className="salon-dropdown-select"
+                className="header-salon-select"
                 style={{
                   background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(192, 132, 252, 0.4)',
                   color: '#ffffff',
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   borderRadius: '8px',
-                  fontSize: '0.875rem',
+                  fontSize: '0.85rem',
                   fontWeight: 500,
                   outline: 'none',
                   cursor: 'pointer'

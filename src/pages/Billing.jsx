@@ -12,6 +12,7 @@ function Billing() {
   const [services, setServices] = useState([]);
   const [packages, setPackages] = useState([]);
   const [staffList, setStaffList] = useState([]);
+  const [discounts, setDiscounts] = useState([]);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedStaffId, setSelectedStaffId] = useState('');
@@ -26,6 +27,7 @@ function Billing() {
   const [customServicePrice, setCustomServicePrice] = useState('');
 
   const [discount, setDiscount] = useState(0);
+  const [selectedPromoCode, setSelectedPromoCode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -35,7 +37,20 @@ function Billing() {
     fetchServices();
     fetchPackages();
     fetchStaff();
+    fetchDiscounts();
   }, [selectedSalonId]);
+
+  const fetchDiscounts = async () => {
+    try {
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/discount${salonParam}`, { withCredentials: true });
+      if (res.data?.data) {
+        setDiscounts(res.data.data.filter(d => d.isActive));
+      }
+    } catch (err) {
+      console.error("Failed to load discounts", err);
+    }
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -176,6 +191,41 @@ function Billing() {
   const tax = subtotal * 0.18; // 18% GST example
   const grandTotal = Math.max(0, subtotal + tax - discount);
 
+  const handlePromoCodeChange = (code) => {
+    setSelectedPromoCode(code);
+    if (!code) {
+      setDiscount(0);
+      return;
+    }
+    const foundDisc = discounts.find(d => d.promoCode === code);
+    if (foundDisc) {
+      if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
+        setMessage({ text: `Minimum bill amount ₹${foundDisc.minOrderAmount} required for ${foundDisc.promoCode}`, type: 'error' });
+        setDiscount(0);
+        return;
+      }
+      let discAmt = 0;
+      if (foundDisc.discountType === 'Percentage') {
+        discAmt = (subtotal * foundDisc.discountValue) / 100;
+        if (foundDisc.maxDiscountAmount && discAmt > foundDisc.maxDiscountAmount) {
+          discAmt = foundDisc.maxDiscountAmount;
+        }
+      } else {
+        discAmt = foundDisc.discountValue;
+      }
+      discAmt = Math.min(discAmt, subtotal);
+      setDiscount(discAmt);
+      setMessage({ text: `Applied ${foundDisc.promoCode} (-₹${discAmt})`, type: 'success' });
+    }
+  };
+
+  // Re-evaluate discount if subtotal changes and promo code is selected
+  useEffect(() => {
+    if (selectedPromoCode) {
+      handlePromoCodeChange(selectedPromoCode);
+    }
+  }, [subtotal]);
+
   const selectedStaff = staffList.find(s => s._id === selectedStaffId);
 
   const handleGenerateBill = async () => {
@@ -209,6 +259,7 @@ function Billing() {
           quantity: i.quantity
         })),
         packageId: selectedPkgId,
+        promoCode: selectedPromoCode || null,
         tax: 18,
         discountAmount: Number(discount),
         paidAmount: grandTotal,
@@ -239,6 +290,7 @@ function Billing() {
       setSelectedCustomer(null);
       setSearchCustomer('');
       setDiscount(0);
+      setSelectedPromoCode('');
       setPaymentMethod('Cash');
 
       // Auto trigger print dialog after small delay so DOM updates
@@ -567,6 +619,25 @@ function Billing() {
                 <span>Tax (18%)</span>
                 <span>₹{tax.toFixed(2)}</span>
               </div>
+
+              <div className="payment-method-row" style={{ marginBottom: '8px' }}>
+                <span>Apply Offer / Discount</span>
+                <div>
+                  <select
+                    value={selectedPromoCode}
+                    onChange={(e) => handlePromoCodeChange(e.target.value)}
+                    className="payment-select"
+                  >
+                    <option value="">-- Select Offer --</option>
+                    {discounts.map(d => (
+                      <option key={d._id} value={d.promoCode}>
+                        🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="summary-row discount-row">
                 <span>Discount (₹)</span>
                 <div>
@@ -574,7 +645,10 @@ function Billing() {
                     type="number"
                     min="0"
                     value={discount}
-                    onChange={(e) => setDiscount(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedPromoCode('');
+                      setDiscount(Number(e.target.value) || 0);
+                    }}
                     className="discount-input"
                   />
                   <span className="print-only" style={{ display: 'none' }}>₹{discount}</span>

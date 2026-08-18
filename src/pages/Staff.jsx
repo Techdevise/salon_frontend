@@ -113,8 +113,8 @@ function Staff() {
     setErrorMsg('');
 
     // Mandatory Checks
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      setErrorMsg('Full Name and Phone Number are required mandatory fields.');
+    if (!formData.name.trim() || !formData.phone.trim() || !formData.email.trim()) {
+      setErrorMsg('Full Name, Phone Number, and Email Address are required fields.');
       return;
     }
 
@@ -511,8 +511,8 @@ function Staff() {
                   <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="e.g. 9876543210" maxLength={10} />
                 </div>
                 <div className="form-group">
-                  <label>Email Address</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="jane@example.com" />
+                  <label>Email Address *</label>
+                  <input type="email" name="email" required value={formData.email} onChange={handleInputChange} placeholder="jane@example.com" />
                 </div>
               </div>
 

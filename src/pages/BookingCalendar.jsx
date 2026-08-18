@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User, Scissors, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User, Scissors, AlertCircle, Store } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import '../styles/BookingCalendar.css';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { setSelectedSalon } from '../redux/slices/salonSlice';
 import { format24Hour } from './Appointments';
 
 function BookingCalendar() {
-  const { selectedSalonId } = useSelector((state) => state.salon);
+  const { user } = useSelector((state) => state.auth);
+  const { selectedSalonId, salons } = useSelector((state) => state.salon);
+  const dispatch = useDispatch();
 
   const [viewMode, setViewMode] = useState('daily'); // daily | weekly | monthly
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -365,6 +368,7 @@ function BookingCalendar() {
         </div>
 
         <div className="calendar-controls">
+
           <div className="view-toggles">
             {['daily', 'weekly', 'monthly'].map((m) => (
               <button

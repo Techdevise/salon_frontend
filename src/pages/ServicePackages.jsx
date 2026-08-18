@@ -158,12 +158,25 @@ function ServicePackages() {
     setFormLoading(true);
     setErrorMsg('');
 
-    // Transform `selectedServices` array of IDs back into the array of objects the backend expects
+    // Transform `selectedServices` array of IDs into array of objects with serviceId, name & price
+    const servicesPayload = formData.selectedServices.map(id => {
+      const targetId = String(id);
+      const dbSvc = availableServices.find(s => s._id && String(s._id) === targetId);
+      if (dbSvc) {
+        return { serviceId: dbSvc._id, serviceName: dbSvc.serviceName, price: Number(dbSvc.price) || 0 };
+      }
+      const manualSvc = manualServicesList.find(s => s._id && String(s._id) === targetId);
+      if (manualSvc) {
+        return { serviceId: manualSvc._id, serviceName: manualSvc.serviceName, price: Number(manualSvc.price) || 0 };
+      }
+      return { serviceId: id };
+    });
+
     const payload = {
       packageName: formData.packageName,
       description: formData.description,
       packagePrice: Number(formData.packagePrice),
-      services: formData.selectedServices.map(id => ({ serviceId: id })),
+      services: servicesPayload,
       ...(selectedSalonId && { salonId: selectedSalonId })
     };
 
@@ -216,7 +229,8 @@ function ServicePackages() {
     let originalTotal = 0;
     (formData.selectedServices || []).filter(Boolean).forEach(id => {
       const targetId = String(id);
-      const d = availableServices.find(s => s._id && String(s._id) === targetId);
+      const d = availableServices.find(s => s._id && String(s._id) === targetId)
+             || manualServicesList.find(s => s._id && String(s._id) === targetId);
       if (d) originalTotal += Number(d.price || 0);
     });
     return { originalTotal, savings: originalTotal - Number(formData.packagePrice || 0) };
@@ -310,11 +324,11 @@ function ServicePackages() {
                     </td>
                     <td>
                       <button
-                        className={`status-badge border-0 cursor-pointer ${pkg.isActive ? 'active' : 'inactive'}`}
+                        className={`status-badge border-0 cursor-pointer ${pkg.isActive !== false ? 'active' : 'inactive'}`}
                         onClick={() => handleToggleStatus(pkg._id)}
                         title="Click to toggle status"
                       >
-                        {pkg.isActive ? 'Active' : 'Inactive'}
+                        {pkg.isActive !== false ? 'Active' : 'Inactive'}
                       </button>
                     </td>
                     <td>

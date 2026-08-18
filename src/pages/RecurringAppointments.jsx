@@ -99,6 +99,14 @@ function RecurringAppointments() {
 
   const closeModal = () => setShowModal(false);
 
+  const getMinEndDate = () => {
+    if (!formData.firstAppointmentDate) return '';
+    const d = new Date(formData.firstAppointmentDate);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormLoading(true);
@@ -119,6 +127,11 @@ function RecurringAppointments() {
     }
 
     if (formData.endDate) {
+      if (formData.endDate <= formData.firstAppointmentDate) {
+        setErrorMsg('End date cannot be the same as or before the starting date.');
+        setFormLoading(false);
+        return;
+      }
       const endYr = new Date(formData.endDate).getFullYear();
       if (isNaN(endYr) || endYr > 2099) {
         setErrorMsg('Invalid year in end date. Please enter a valid 4-digit year (max 2099).');
@@ -319,7 +332,7 @@ function RecurringAppointments() {
 
               <div className="form-group">
                 <label>End Date (Optional)</label>
-                <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={formData.firstAppointmentDate} max="2099-12-31" />
+                <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={getMinEndDate()} max="2099-12-31" />
                 <small className="form-text-muted">If left blank, it stays active until cancelled manually.</small>
               </div>
 
