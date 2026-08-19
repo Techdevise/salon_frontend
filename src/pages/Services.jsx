@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { Scissors, Plus, Search, Edit2, Trash2, Clock, IndianRupee, X } from 'lucide-react';
@@ -14,18 +14,16 @@ function Services() {
 
   // Synchronize categories dynamically whenever selected salon or salon info changes
   useEffect(() => {
+    let cats = DEFAULT_CATEGORIES;
     if (selectedSalonInfo?.category && selectedSalonInfo.category.length > 0) {
-      setSalonCategories(selectedSalonInfo.category);
-      return;
-    }
-
-    if (selectedSalonId) {
+      cats = selectedSalonInfo.category;
+    } else if (selectedSalonId) {
       const fetchSalonCategories = async () => {
         try {
           const res = await axios.get(`/api/salon/${selectedSalonId}`, { withCredentials: true });
           const fetched = res.data?.data?.category;
           if (fetched && fetched.length > 0) {
-            setSalonCategories(fetched);
+            setSalonCategories(fetched.filter(c => c && String(c).trim() !== ''));
           } else {
             setSalonCategories(DEFAULT_CATEGORIES);
           }
@@ -34,15 +32,20 @@ function Services() {
         }
       };
       fetchSalonCategories();
-    } else {
-      setSalonCategories(DEFAULT_CATEGORIES);
+      return;
     }
+    setSalonCategories(cats.filter(c => c && String(c).trim() !== ''));
   }, [selectedSalonId, selectedSalonInfo]);
 
+  const validCategories = useMemo(() => {
+    const list = salonCategories.filter(c => c && String(c).trim() !== '');
+    return list.length > 0 ? list : DEFAULT_CATEGORIES;
+  }, [salonCategories]);
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
   const [fetchError, setFetchError] = useState('');
   
   // Modal states
@@ -55,7 +58,7 @@ function Services() {
     description: '',
     price: '',
     duration: '',
-    category: ''
+    category: 'Hair'
   });
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -174,10 +177,17 @@ function Services() {
     }
   };
 
-  const filteredServices = services.filter(s => 
-    s.serviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredServices = services.filter(s => {
+    const matchesSearch = !searchTerm || 
+      s.serviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = selectedCategoryFilter === 'All' || 
+      (s.category && s.category.toLowerCase() === selectedCategoryFilter.toLowerCase());
+
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="page-container">
@@ -200,16 +210,36 @@ function Services() {
         </div>
       )}
 
-      <div className="table-controls">
-        <div className="search-bar">
+      <div className="table-controls" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="search-bar" style={{ flex: 1, minWidth: '220px' }}>
           <Search size={18} className="search-icon" />
           <input 
             type="text" 
-            placeholder="Search services or categories..." 
+            placeholder="Search services..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        <select 
+          className="filter-select"
+          style={{
+            padding: '0.65rem 1rem',
+            borderRadius: '0.75rem',
+            background: 'var(--bg-card, #1e1e2d)',
+            border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+            color: 'var(--text-primary, #fff)',
+            fontSize: '0.875rem',
+            cursor: 'pointer'
+          }}
+          value={selectedCategoryFilter}
+          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+        >
+          <option value="All">All Categories</option>
+          {validCategories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
       </div>
 
       <div className="table-container">
@@ -308,9 +338,8 @@ function Services() {
 
               <div className="form-group">
                 <label>Category</label>
-                <select name="category" value={formData.category} onChange={handleInputChange}>
-                  <option value="">Select Category...</option>
-                  {salonCategories.map(cat => (
+                <select name="category" value={formData.category || validCategories[0] || 'Hair'} onChange={handleInputChange}>
+                  {validCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>

@@ -676,7 +676,7 @@ function DashboardHome() {
                 <table className="activity-table">
                   <thead>
                     <tr>
-                      <th>Date & Time</th>
+                      <th>Date</th>
                       <th>Staff Member</th>
                       <th>Customer Name</th>
                       <th>Services Provided</th>
@@ -694,12 +694,6 @@ function DashboardHome() {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric'
-                            })}
-                          </span>
-                          <span className="time-sub">
-                            {new Date(act.date).toLocaleTimeString('en-IN', {
-                              hour: '2-digit',
-                              minute: '2-digit'
                             })}
                           </span>
                         </td>
