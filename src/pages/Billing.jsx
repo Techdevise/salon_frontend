@@ -383,6 +383,8 @@ function Billing() {
       setSelectedPromoCode('');
       setPaymentMethod('Cash');
 
+      fetchDiscounts();
+
       // Auto trigger print dialog after small delay so DOM updates
       setTimeout(() => {
         window.print();

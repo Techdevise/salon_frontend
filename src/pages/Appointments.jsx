@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
 
 // Helper: generate bill after appointment creation
-const generateBillForAppointment = async ({ customerId, appointmentId, staffId, services, totalAmount, salonId, paymentMethod = 'Cash' }) => {
+const generateBillForAppointment = async ({ customerId, appointmentId, staffId, services, totalAmount, salonId, paymentMethod = 'Cash', promoCode = null }) => {
   try {
     const billServices = (services || []).map(s => ({
       serviceId: s.serviceId || null,
@@ -27,7 +27,8 @@ const generateBillForAppointment = async ({ customerId, appointmentId, staffId, 
       tax: 18,
       discountAmount: 0,
       paidAmount: Number(totalAmount) || 0,
-      paymentMethod
+      paymentMethod,
+      ...(promoCode && { promoCode })
     };
     const res = await axios.post('/api/billing/generate', payload, { withCredentials: true });
     return res.data?.data;
@@ -682,7 +683,8 @@ function Appointments() {
             services: billServiceDetails,
             totalAmount: payload.totalAmount,
             salonId: selectedSalonId || user?.salonId,
-            paymentMethod: 'Cash'
+            paymentMethod: 'Cash',
+            promoCode: walkInSelectedPromoCode
           });
           if (billRes) {
             await confirm({
@@ -825,7 +827,8 @@ function Appointments() {
               services: billServiceDetails,
               totalAmount: payload.totalAmount,
               salonId: selectedSalonId || user?.salonId,
-              paymentMethod: 'Cash'
+              paymentMethod: 'Cash',
+              promoCode: selectedPromoCode
             });
             if (billRes) {
               await confirm({
