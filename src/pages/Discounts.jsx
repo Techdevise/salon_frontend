@@ -262,13 +262,20 @@ function Discounts() {
                       </div>
                     </td>
                     <td>
-                      <button
-                        className={`status-badge border-0 cursor-pointer ${discount.isActive ? 'active' : 'inactive'}`}
-                        onClick={() => handleToggleStatus(discount._id)}
-                        title="Click to toggle status"
-                      >
-                        {discount.isActive ? 'Active' : 'Expired'}
-                      </button>
+                      {(() => {
+                        const isLimitReached = discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit);
+                        const isDateExpired = discount.endDate && new Date(discount.endDate) < new Date();
+                        const isExpired = !discount.isActive || isLimitReached || isDateExpired;
+                        return (
+                          <button
+                            className={`status-badge border-0 cursor-pointer ${!isExpired ? 'active' : 'inactive'}`}
+                            onClick={() => handleToggleStatus(discount._id)}
+                            title="Click to toggle status"
+                          >
+                            {!isExpired ? 'Active' : 'Expired'}
+                          </button>
+                        );
+                      })()}
                     </td>
                     <td>
                       <div className="action-buttons">
