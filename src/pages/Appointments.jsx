@@ -663,7 +663,36 @@ function Appointments() {
 
       fetchAppointments();
       setShowWalkInModal(false);
-      alert('Walk-in appointment booked successfully!');
+
+      if (createdApt?._id) {
+        const generateNow = await confirm({
+          title: 'Booking Confirmed!',
+          message: `Walk-in appointment booked successfully for ₹${payload.totalAmount}. Would you like to generate the bill now?`,
+          confirmText: 'Generate Bill Now',
+          cancelText: 'Later',
+          type: 'info'
+        });
+        if (generateNow) {
+          const billRes = await generateBillForAppointment({
+            customerId: targetCustomerId,
+            appointmentId: createdApt._id,
+            staffId: targetStaffId,
+            services: billServiceDetails,
+            totalAmount: payload.totalAmount,
+            salonId: selectedSalonId || user?.salonId,
+            paymentMethod: 'Cash'
+          });
+          if (billRes) {
+            await confirm({
+              title: 'Bill Generated',
+              message: 'Your bill is generated!',
+              confirmText: 'OK',
+              type: 'info'
+            });
+          }
+          fetchAppointments();
+        }
+      }
     } catch (error) {
       setWalkInError(error.response?.data?.message || error.message || 'Failed to create walk-in booking');
     } finally {
@@ -777,7 +806,36 @@ function Appointments() {
 
         fetchAppointments();
         closeModal();
-        alert('Appointment booked successfully!');
+
+        if (createdApt?._id) {
+          const generateNow = await confirm({
+            title: 'Appointment Confirmed!',
+            message: `Appointment booked successfully for ₹${payload.totalAmount}. Would you like to generate the bill now?`,
+            confirmText: 'Generate Bill Now',
+            cancelText: 'Later',
+            type: 'info'
+          });
+          if (generateNow) {
+            const billRes = await generateBillForAppointment({
+              customerId: formData.customerId,
+              appointmentId: createdApt._id,
+              staffId: formData.staffId,
+              services: billServiceDetails,
+              totalAmount: payload.totalAmount,
+              salonId: selectedSalonId || user?.salonId,
+              paymentMethod: 'Cash'
+            });
+            if (billRes) {
+              await confirm({
+                title: 'Bill Generated',
+                message: 'Your bill is generated!',
+                confirmText: 'OK',
+                type: 'info'
+              });
+            }
+            fetchAppointments();
+          }
+        }
       }
     } catch (error) {
       setErrorMsg(error.response?.data?.message || 'Failed to create booking');
