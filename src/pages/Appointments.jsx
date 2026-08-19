@@ -1281,7 +1281,6 @@ function Appointments() {
                   value={walkInSelectedPromoCode}
                   onChange={(e) => {
                     const code = e.target.value;
-                    setWalkInSelectedPromoCode(code);
                     let basePrice = 0;
                     if (walkInFormData.serviceId) {
                       const s = serviceList.find(item => item._id === walkInFormData.serviceId);
@@ -1290,6 +1289,19 @@ function Appointments() {
                       const p = packagesList.find(item => item._id === walkInFormData.packageId);
                       if (p) basePrice = p.packagePrice || p.price || 0;
                     }
+
+                    const disc = discountsList.find(d => d.promoCode === code);
+                    if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
+                      setWalkInError(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
+                      setWalkInSelectedPromoCode('');
+                      if (basePrice > 0) {
+                        setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      }
+                      return;
+                    }
+
+                    setWalkInError('');
+                    setWalkInSelectedPromoCode(code);
                     if (basePrice > 0) {
                       setWalkInFormData(prev => ({
                         ...prev,
@@ -1469,7 +1481,6 @@ function Appointments() {
                   value={selectedPromoCode}
                   onChange={(e) => {
                     const code = e.target.value;
-                    setSelectedPromoCode(code);
                     let basePrice = 0;
                     if (formData.serviceId) {
                       const s = serviceList.find(item => item._id === formData.serviceId);
@@ -1478,6 +1489,19 @@ function Appointments() {
                       const p = packagesList.find(item => item._id === formData.packageId);
                       if (p) basePrice = p.packagePrice || p.price || 0;
                     }
+
+                    const disc = discountsList.find(d => d.promoCode === code);
+                    if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
+                      setErrorMsg(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
+                      setSelectedPromoCode('');
+                      if (basePrice > 0) {
+                        setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      }
+                      return;
+                    }
+
+                    setErrorMsg('');
+                    setSelectedPromoCode(code);
                     if (basePrice > 0) {
                       setFormData(prev => ({
                         ...prev,

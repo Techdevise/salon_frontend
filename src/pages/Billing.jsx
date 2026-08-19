@@ -217,8 +217,9 @@ function Billing() {
         return;
       }
       if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
-        setMessage({ text: `Minimum bill amount ₹${foundDisc.minOrderAmount} required for ${foundDisc.promoCode}`, type: 'error' });
+        setMessage({ text: `This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required.`, type: 'error' });
         setDiscount(0);
+        setSelectedPromoCode('');
         return;
       }
       let discAmt = 0;
