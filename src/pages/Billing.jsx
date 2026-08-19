@@ -208,8 +208,10 @@ function Billing() {
     }
     const foundDisc = discounts.find(d => d.promoCode === code);
     if (foundDisc) {
-      if (foundDisc.usageLimit && (foundDisc.usedCount || 0) >= foundDisc.usageLimit) {
-        setMessage({ text: `Promo code ${foundDisc.promoCode} usage limit reached (${foundDisc.usageLimit} users max)`, type: 'error' });
+      const limit = foundDisc.usageLimit;
+      const used = Number(foundDisc.usedCount || 0);
+      if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) {
+        setMessage({ text: `Promo code ${foundDisc.promoCode} usage limit reached (${limit} max limit)`, type: 'error' });
         setDiscount(0);
         setSelectedPromoCode('');
         return;
@@ -724,11 +726,14 @@ function Billing() {
                     className="payment-select"
                   >
                     <option value="">-- Select Offer --</option>
-                    {discounts.map(d => (
-                      <option key={d._id} value={d.promoCode}>
-                        🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
-                      </option>
-                    ))}
+                    {discounts.map(d => {
+                      const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                      return (
+                        <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
+                          🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>

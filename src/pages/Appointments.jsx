@@ -323,7 +323,9 @@ function Appointments() {
     if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
     const disc = discountsList.find(d => d.promoCode === promoCode);
     if (!disc) return baseAmount;
-    if (disc.usageLimit && (disc.usedCount || 0) >= disc.usageLimit) return baseAmount;
+    const limit = disc.usageLimit;
+    const used = Number(disc.usedCount || 0);
+    if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) return baseAmount;
     if (disc.minOrderAmount && baseAmount < disc.minOrderAmount) return baseAmount;
     let discAmt = 0;
     if (disc.discountType === 'Percentage') {
@@ -1297,11 +1299,14 @@ function Appointments() {
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
-                  {discountsList.map(d => (
-                    <option key={d._id} value={d.promoCode}>
-                      🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
-                    </option>
-                  ))}
+                  {discountsList.map(d => {
+                    const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                    return (
+                      <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
+                        🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1482,11 +1487,14 @@ function Appointments() {
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
-                  {discountsList.map(d => (
-                    <option key={d._id} value={d.promoCode}>
-                      🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
-                    </option>
-                  ))}
+                  {discountsList.map(d => {
+                    const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                    return (
+                      <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
+                        🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
