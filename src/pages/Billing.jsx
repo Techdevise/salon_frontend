@@ -4,7 +4,10 @@ import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } f
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
 
+import { useConfirm } from '../components/ConfirmModal';
+
 function Billing() {
+  const confirm = useConfirm();
   const { selectedSalonId } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
 
@@ -296,6 +299,8 @@ function Billing() {
   });
 
   const handleGenerateBill = async () => {
+    if (isSubmitting) return;
+
     if (!selectedCustomer) {
       setMessage({ text: 'Please select a customer', type: 'error' });
       return;
@@ -313,6 +318,15 @@ function Billing() {
       setMessage({ text: 'Please add at least one service or package', type: 'error' });
       return;
     }
+
+    const confirmed = await confirm({
+      title: 'Generate Bill Confirmation',
+      message: `Are you sure you want to generate the bill for ₹${grandTotal.toFixed(2)}?`,
+      confirmText: 'Generate Bill',
+      cancelText: 'Cancel',
+      type: 'info'
+    });
+    if (!confirmed) return;
 
     setIsSubmitting(true);
     setMessage({ text: '', type: '' });

@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
 
 // Helper: generate bill after appointment creation
-const generateBillForAppointment = async ({ customerId, staffId, services, totalAmount, salonId, paymentMethod = 'Cash' }) => {
+const generateBillForAppointment = async ({ customerId, appointmentId, staffId, services, totalAmount, salonId, paymentMethod = 'Cash' }) => {
   try {
     const billServices = (services || []).map(s => ({
       serviceId: s.serviceId || null,
@@ -21,6 +21,7 @@ const generateBillForAppointment = async ({ customerId, staffId, services, total
     const payload = {
       salonId,
       customerId,
+      appointmentId: appointmentId || null,
       staffId,
       services: billServices,
       tax: 18,
@@ -32,6 +33,7 @@ const generateBillForAppointment = async ({ customerId, staffId, services, total
     return res.data?.data;
   } catch (err) {
     console.error('Bill generation failed:', err.response?.data?.message || err.message);
+    alert('❌ ' + (err.response?.data?.message || err.message || 'Bill generation failed'));
     return null;
   }
 };
@@ -656,80 +658,16 @@ function Appointments() {
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
-      await axios.post('/api/appointment/create', payload, { withCredentials: true });
+      const createdRes = await axios.post('/api/appointment/create', payload, { withCredentials: true });
+      const createdApt = createdRes.data?.data;
 
       fetchAppointments();
       setShowWalkInModal(false);
+      alert('Walk-in appointment booked successfully!');
     } catch (error) {
       setWalkInError(error.response?.data?.message || error.message || 'Failed to create walk-in booking');
     } finally {
       setWalkInLoading(false);
-    }
-  };
-
-  // Standalone bill generation for walk-in
-  const [walkInBillLoading, setWalkInBillLoading] = useState(false);
-  const [walkInBillMsg, setWalkInBillMsg] = useState('');
-
-  const handleGenerateWalkInBill = async () => {
-    setWalkInBillMsg('');
-    if (!walkInFormData.customerName.trim() || !walkInFormData.customerPhone.trim()) {
-      setWalkInBillMsg('❌ Please fill Customer Name and Phone first.');
-      return;
-    }
-    if (!walkInFormData.serviceId && !walkInFormData.packageId) {
-      setWalkInBillMsg('❌ Please select a Service or Package first.');
-      return;
-    }
-    setWalkInBillLoading(true);
-    try {
-      // Resolve customer
-      let targetCustomerId = walkInFormData.customerId;
-      if (!targetCustomerId) {
-        const existingCust = customerList.find(
-          c => c.phone === walkInFormData.customerPhone ||
-            c.name.toLowerCase() === walkInFormData.customerName.toLowerCase()
-        );
-        if (existingCust) {
-          targetCustomerId = existingCust._id;
-        } else {
-          const custRes = await axios.post('/api/customer/create', {
-            name: walkInFormData.customerName,
-            phone: walkInFormData.customerPhone,
-            ...(selectedSalonId && { salonId: selectedSalonId })
-          }, { withCredentials: true });
-          targetCustomerId = custRes.data?.data?._id;
-        }
-      }
-      const matchedStaff = staffList.find(s => s.name.toLowerCase().includes(walkInFormData.staffName.toLowerCase()));
-      const targetStaffId = matchedStaff?._id || staffList[0]?._id;
-
-      let billServiceDetails = [];
-      if (walkInFormData.packageId) {
-        const pkg = packagesList.find(p => p._id === walkInFormData.packageId);
-        if (pkg) billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(walkInFormData.totalAmount) || 0 }];
-      } else if (walkInFormData.serviceId) {
-        const s = serviceList.find(item => item._id === walkInFormData.serviceId);
-        if (s) billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(walkInFormData.totalAmount) || Number(s.price) || 0 }];
-      }
-
-      const result = await generateBillForAppointment({
-        customerId: targetCustomerId,
-        staffId: targetStaffId,
-        services: billServiceDetails,
-        totalAmount: Number(walkInFormData.totalAmount) || 0,
-        salonId: selectedSalonId || user?.salonId,
-        paymentMethod: 'Cash'
-      });
-      if (result) {
-        setWalkInBillMsg('✅ Bill generated successfully!');
-      } else {
-        setWalkInBillMsg('❌ Bill generation failed. Please try again.');
-      }
-    } catch (err) {
-      setWalkInBillMsg('❌ ' + (err.response?.data?.message || err.message || 'Bill generation failed.'));
-    } finally {
-      setWalkInBillLoading(false);
     }
   };
 
@@ -773,29 +711,30 @@ function Appointments() {
     setFormLoading(true);
     setErrorMsg('');
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (formData.date < todayStr) {
-      setErrorMsg('Booking date cannot be in the past. Please select today or a future date.');
+    if (!formData.customerId) {
+      setErrorMsg('Please select a customer.');
       setFormLoading(false);
       return;
     }
-
-    const apptYr = new Date(formData.date).getFullYear();
-    if (isNaN(apptYr) || apptYr > 2099) {
-      setErrorMsg('Invalid year. Please enter a valid 4-digit year (max 2099).');
+    if (!formData.staffId) {
+      setErrorMsg('Please select a staff member.');
       setFormLoading(false);
       return;
     }
-
     if (!formData.serviceId && !formData.packageId) {
-      setErrorMsg('Please select either a Service or a Package.');
+      setErrorMsg('Please select at least one Service or Package.');
+      setFormLoading(false);
+      return;
+    }
+    if (!formData.startTime) {
+      setErrorMsg('Please select a time slot.');
       setFormLoading(false);
       return;
     }
 
     try {
-      let targetServiceIds = [];
       let serviceNoteText = '';
+      let targetServiceIds = [];
       let billServiceDetails = [];
 
       if (formData.packageId) {
@@ -833,11 +772,13 @@ function Appointments() {
         setFormLoading(false);
         return;
       } else {
-      await axios.post('/api/appointment/create', payload, { withCredentials: true });
-      }
+        const createdRes = await axios.post('/api/appointment/create', payload, { withCredentials: true });
+        const createdApt = createdRes.data?.data;
 
-      fetchAppointments();
-      closeModal();
+        fetchAppointments();
+        closeModal();
+        alert('Appointment booked successfully!');
+      }
     } catch (error) {
       setErrorMsg(error.response?.data?.message || 'Failed to create booking');
     } finally {
@@ -845,51 +786,46 @@ function Appointments() {
     }
   };
 
-  // Standalone bill generation for new booking
-  const [newBillLoading, setNewBillLoading] = useState(false);
-  const [newBillMsg, setNewBillMsg] = useState('');
+  const handleGenerateBillForExistingAppointment = async (apt) => {
+    if (apt.hasBill || apt.paymentStatus === 'Paid') {
+      alert(`Bill already generated for this appointment (Invoice: ${apt.billDetails?.[0]?.invoiceNumber || 'Paid'}). Duplicate bill generation is blocked.`);
+      return;
+    }
 
-  const handleGenerateNewBookingBill = async () => {
-    setNewBillMsg('');
-    if (!formData.customerId) {
-      setNewBillMsg('❌ Please select a customer first.');
-      return;
+    const custName = apt.customerDetails?.name || 'Customer';
+    const totalAmt = Number(apt.totalAmount) || 0;
+    const confirmed = await confirm({
+      title: 'Generate Bill Confirmation',
+      message: `Are you sure you want to generate the bill of ₹${totalAmt} for ${custName}?`,
+      confirmText: 'Generate Bill',
+      cancelText: 'Cancel',
+      type: 'info'
+    });
+    if (!confirmed) return;
+
+    let billServiceDetails = (apt.serviceDetails || []).map(s => ({
+      serviceId: s._id || null,
+      serviceName: s.serviceName || 'Service',
+      price: Number(s.price) || totalAmt || 0,
+      quantity: 1
+    }));
+    if (!billServiceDetails.length) {
+      billServiceDetails = [{ serviceId: null, serviceName: 'Appointment Service', price: totalAmt, quantity: 1 }];
     }
-    if (!formData.staffId) {
-      setNewBillMsg('❌ Please select a staff member first.');
-      return;
-    }
-    if (!formData.serviceId && !formData.packageId) {
-      setNewBillMsg('❌ Please select a Service or Package first.');
-      return;
-    }
-    setNewBillLoading(true);
-    try {
-      let billServiceDetails = [];
-      if (formData.packageId) {
-        const pkg = packagesList.find(p => p._id === formData.packageId);
-        if (pkg) billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(formData.totalAmount) || 0 }];
-      } else if (formData.serviceId) {
-        const s = serviceList.find(item => item._id === formData.serviceId);
-        if (s) billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(formData.totalAmount) || Number(s.price) || 0 }];
-      }
-      const result = await generateBillForAppointment({
-        customerId: formData.customerId,
-        staffId: formData.staffId,
-        services: billServiceDetails,
-        totalAmount: Number(formData.totalAmount) || 0,
-        salonId: selectedSalonId || user?.salonId,
-        paymentMethod: 'Cash'
-      });
-      if (result) {
-        setNewBillMsg('✅ Bill generated successfully!');
-      } else {
-        setNewBillMsg('❌ Bill generation failed. Please try again.');
-      }
-    } catch (err) {
-      setNewBillMsg('❌ ' + (err.response?.data?.message || err.message || 'Bill generation failed.'));
-    } finally {
-      setNewBillLoading(false);
+
+    const result = await generateBillForAppointment({
+      customerId: apt.customerId?._id || apt.customerId,
+      appointmentId: apt._id,
+      staffId: apt.staffId?._id || apt.staffId,
+      services: billServiceDetails,
+      totalAmount: totalAmt,
+      salonId: selectedSalonId || user?.salonId,
+      paymentMethod: 'Cash'
+    });
+
+    if (result) {
+      alert(`✅ Bill generated successfully! Invoice No: ${result.invoiceNumber || 'Generated'}`);
+      fetchAppointments();
     }
   };
 
@@ -1393,23 +1329,8 @@ function Appointments() {
                   placeholder="Walk-in remarks..."
                 ></textarea>
               </div>
-
-              {walkInBillMsg && (
-                <div style={{ margin: '0 1.5rem 0.75rem', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', background: walkInBillMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: walkInBillMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>
-                  {walkInBillMsg}
-                </div>
-              )}
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setShowWalkInModal(false)}>Cancel</button>
-                <button
-                  type="button"
-                  className="primary-btn"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
-                  disabled={walkInBillLoading}
-                  onClick={handleGenerateWalkInBill}
-                >
-                  {walkInBillLoading ? 'Generating...' : '🧾 Generate Bill'}
-                </button>
                 <button type="submit" className="primary-btn" disabled={walkInLoading}>
                   {walkInLoading ? 'Booking...' : 'Confirm Walk in Booking'}
                 </button>
@@ -1570,23 +1491,8 @@ function Appointments() {
                 <label>Booking Notes</label>
                 <textarea name="notes" rows="2" value={formData.notes} onChange={handleInputChange} placeholder="Special instructions for staff..."></textarea>
               </div>
-
-              {newBillMsg && (
-                <div style={{ margin: '0 1.5rem 0.75rem', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', background: newBillMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: newBillMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>
-                  {newBillMsg}
-                </div>
-              )}
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
-                <button
-                  type="button"
-                  className="primary-btn"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
-                  disabled={newBillLoading}
-                  onClick={handleGenerateNewBookingBill}
-                >
-                  {newBillLoading ? 'Generating...' : '🧾 Generate Bill'}
-                </button>
                 <button type="submit" className="primary-btn" disabled={formLoading}>
                   {formLoading ? 'Booking...' : 'Confirm Appointment'}
                 </button>

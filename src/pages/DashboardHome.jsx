@@ -52,6 +52,12 @@ function DashboardHome() {
   const filteredStaffActivities = useMemo(() => {
     if (!staffActivities || staffActivities.length === 0) return [];
 
+    const now = new Date();
+    const todayYear = now.getFullYear();
+    const todayMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const todayDay = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+
     return staffActivities.filter(act => {
       // 0. Exclude Cancelled appointments/orders
       const statusStr = String(act.paymentStatus || act.status || '').toLowerCase();
@@ -65,8 +71,9 @@ function DashboardHome() {
         if (actStaffId !== selectedStaffIdFilter) return false;
       }
 
-      // 2. From Date / To Date Filter
+      // 2. Date Filtering
       if (fromDate || toDate) {
+        if (!act.date) return false;
         const actDate = new Date(act.date);
         const year = actDate.getFullYear();
         const month = String(actDate.getMonth() + 1).padStart(2, '0');
@@ -75,11 +82,27 @@ function DashboardHome() {
 
         if (fromDate && actDateStr < fromDate) return false;
         if (toDate && actDateStr > toDate) return false;
+      } else if (activityFilter === 'daily') {
+        if (!act.date) return false;
+        const actDate = new Date(act.date);
+        const year = actDate.getFullYear();
+        const month = String(actDate.getMonth() + 1).padStart(2, '0');
+        const day = String(actDate.getDate()).padStart(2, '0');
+        const actDateStr = `${year}-${month}-${day}`;
+
+        if (actDateStr !== todayStr) return false;
+      } else if (activityFilter === 'monthly') {
+        if (!act.date) return false;
+        const actDate = new Date(act.date);
+        const year = actDate.getFullYear();
+        const month = String(actDate.getMonth() + 1).padStart(2, '0');
+
+        if (year !== todayYear || month !== todayMonth) return false;
       }
 
       return true;
     });
-  }, [staffActivities, fromDate, toDate, selectedStaffIdFilter]);
+  }, [staffActivities, activityFilter, fromDate, toDate, selectedStaffIdFilter]);
 
   const ITEMS_PER_PAGE = 10;
   const totalActivityPages = Math.ceil(filteredStaffActivities.length / ITEMS_PER_PAGE) || 1;
