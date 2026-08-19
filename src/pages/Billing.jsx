@@ -205,6 +205,12 @@ function Billing() {
     }
     const foundDisc = discounts.find(d => d.promoCode === code);
     if (foundDisc) {
+      if (foundDisc.usageLimit && (foundDisc.usedCount || 0) >= foundDisc.usageLimit) {
+        setMessage({ text: `Promo code ${foundDisc.promoCode} usage limit reached (${foundDisc.usageLimit} users max)`, type: 'error' });
+        setDiscount(0);
+        setSelectedPromoCode('');
+        return;
+      }
       if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
         setMessage({ text: `Minimum bill amount ₹${foundDisc.minOrderAmount} required for ${foundDisc.promoCode}`, type: 'error' });
         setDiscount(0);

@@ -321,6 +321,7 @@ function Appointments() {
     if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
     const disc = discountsList.find(d => d.promoCode === promoCode);
     if (!disc) return baseAmount;
+    if (disc.usageLimit && (disc.usedCount || 0) >= disc.usageLimit) return baseAmount;
     if (disc.minOrderAmount && baseAmount < disc.minOrderAmount) return baseAmount;
     let discAmt = 0;
     if (disc.discountType === 'Percentage') {
