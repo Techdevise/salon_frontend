@@ -63,24 +63,44 @@ function Customers() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const openModal = (customer = null) => {
+  const openModal = async (customer = null) => {
     setErrorMsg('');
     if (customer) {
       setEditingCustomer(customer);
       setFormData({
-        name: customer.name,
-        phone: customer.phone,
+        name: customer.name || '',
+        phone: customer.phone || '',
         email: customer.email || '',
         gender: customer.gender || 'Other',
         dob: customer.dob ? new Date(customer.dob).toISOString().split('T')[0] : '',
         address: customer.address || '',
         notes: customer.notes || ''
       });
+      setShowModal(true);
+
+      // Fetch full profile by ID to ensure complete address, dob & notes data are loaded
+      try {
+        const res = await axios.get(`/api/customer/${customer._id}`, { withCredentials: true });
+        if (res.data?.data) {
+          const full = res.data.data;
+          setFormData({
+            name: full.name || customer.name || '',
+            phone: full.phone || customer.phone || '',
+            email: full.email ?? customer.email ?? '',
+            gender: full.gender || customer.gender || 'Other',
+            dob: full.dob ? new Date(full.dob).toISOString().split('T')[0] : (customer.dob ? new Date(customer.dob).toISOString().split('T')[0] : ''),
+            address: full.address ?? customer.address ?? '',
+            notes: full.notes ?? customer.notes ?? ''
+          });
+        }
+      } catch {
+        // Fallback to already populated form data
+      }
     } else {
       setEditingCustomer(null);
       setFormData({ name: '', phone: '', email: '', gender: 'Other', dob: '', address: '', notes: '' });
+      setShowModal(true);
     }
-    setShowModal(true);
   };
 
   const closeModal = () => {

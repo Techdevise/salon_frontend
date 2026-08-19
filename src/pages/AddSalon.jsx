@@ -328,22 +328,7 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
               </div>
             </div>
 
-            {/* Categories */}
-            <div className="form-section">
-              <h4 className="section-label"><Tag size={14} /> Categories</h4>
-              <div className="chip-group">
-                {CATEGORIES.map(cat => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={`chip ${form.category.includes(cat) ? 'chip-active' : ''}`}
-                    onClick={() => toggleCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
+
 
             {/* Submit */}
             <div className="salon-modal-footer">

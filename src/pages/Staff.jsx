@@ -294,9 +294,6 @@ function Staff() {
           <p className="page-subtitle">Manage salon employees, attendance, and performance</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="primary-btn" style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }} onClick={() => openCustomOrderModal()}>
-            <Plus size={18} /> Custom Order
-          </button>
           <button className="primary-btn" onClick={() => openModal()}>
             <Plus size={18} /> Add Staff
           </button>
@@ -373,7 +370,6 @@ function Staff() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="icon-btn" title="Create Custom Order" style={{ color: '#c084fc' }} onClick={() => openCustomOrderModal(staff)}><Plus size={16}/></button>
                         <button className="icon-btn edit" onClick={() => openModal(staff)}><Edit2 size={16}/></button>
                         <button className="icon-btn delete" onClick={() => handleDelete(staff._id)}><Trash2 size={16}/></button>
                       </div>
@@ -390,103 +386,6 @@ function Staff() {
         )}
       </div>
 
-      {/* Custom Order Modal */}
-      {showCustomOrderModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '540px' }}>
-            <div className="modal-header">
-              <h2>Create Custom Order / Booking</h2>
-              <button className="close-btn" onClick={() => setShowCustomOrderModal(false)}><X size={20}/></button>
-            </div>
-            
-            {customOrderError && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{customOrderError}</div>}
-            {customOrderSuccess && <div className="alert success" style={{margin: '0 1.5rem 1rem', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '10px 14px', borderRadius: '8px'}}>{customOrderSuccess}</div>}
-            
-            <form onSubmit={handleCustomOrderSubmit} className="modal-form">
-              <div className="form-group">
-                <label>Select Customer *</label>
-                <select name="customerId" required value={customOrderData.customerId} onChange={handleCustomOrderChange}>
-                  <option value="">-- Choose Customer --</option>
-                  {customersList.map(c => (
-                    <option key={c._id} value={c._id}>
-                      {c.name} ({c.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Assign Staff Member *</label>
-                  <select name="staffId" required value={customOrderData.staffId} onChange={handleCustomOrderChange}>
-                    <option value="">-- Select Staff --</option>
-                    {staffList.map(s => (
-                      <option key={s._id} value={s._id}>
-                        {s.name} ({s.role || 'Staff'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Service Provided</label>
-                  <select name="serviceId" value={customOrderData.serviceId} onChange={handleCustomOrderChange}>
-                    <option value="">-- Select Service --</option>
-                    {availableServices.map(s => (
-                      <option key={s._id} value={s._id}>
-                        {s.serviceName} - ₹{s.price}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Total Amount (₹) *</label>
-                  <input
-                    type="number"
-                    name="totalAmount"
-                    required
-                    value={customOrderData.totalAmount}
-                    onChange={handleCustomOrderChange}
-                    placeholder="Enter manual price"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Time Slot / Note</label>
-                  <input
-                    type="text"
-                    name="startTime"
-                    value={customOrderData.startTime}
-                    onChange={handleCustomOrderChange}
-                    placeholder="e.g. 10:30 AM"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Notes / Special Remarks</label>
-                <textarea
-                  name="notes"
-                  rows="2"
-                  value={customOrderData.notes}
-                  onChange={handleCustomOrderChange}
-                  placeholder="Manual booking details..."
-                  style={{ width: '100%', padding: '10px', background: '#0f0f17', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowCustomOrderModal(false)}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={customOrderLoading}>
-                  {customOrderLoading ? 'Saving...' : 'Save Order'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal / Add Edit Staff Form */}
       {showModal && (
@@ -522,7 +421,6 @@ function Staff() {
                     <select name="role" value={formData.role} onChange={handleInputChange}>
                       <option value="Staff">Staff</option>
                       <option value="Manager">Manager</option>
-                      <option value="Admin">Admin</option>
                     </select>
                   </div>
                   <div className="form-group">

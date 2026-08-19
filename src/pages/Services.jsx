@@ -7,7 +7,39 @@ import { useConfirm } from '../components/ConfirmModal';
 
 function Services() {
   const confirm = useConfirm();
-  const { selectedSalonId } = useSelector((state) => state.salon);
+  const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+
+  const DEFAULT_CATEGORIES = ['Hair', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
+  const [salonCategories, setSalonCategories] = useState(DEFAULT_CATEGORIES);
+
+  // Synchronize categories dynamically whenever selected salon or salon info changes
+  useEffect(() => {
+    if (selectedSalonInfo?.category && selectedSalonInfo.category.length > 0) {
+      setSalonCategories(selectedSalonInfo.category);
+      return;
+    }
+
+    if (selectedSalonId) {
+      const fetchSalonCategories = async () => {
+        try {
+          const res = await axios.get(`/api/salon/${selectedSalonId}`, { withCredentials: true });
+          const fetched = res.data?.data?.category;
+          if (fetched && fetched.length > 0) {
+            setSalonCategories(fetched);
+          } else {
+            setSalonCategories(DEFAULT_CATEGORIES);
+          }
+        } catch {
+          setSalonCategories(DEFAULT_CATEGORIES);
+        }
+      };
+      fetchSalonCategories();
+    } else {
+      setSalonCategories(DEFAULT_CATEGORIES);
+    }
+  }, [selectedSalonId, selectedSalonInfo]);
+
+
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -278,11 +310,9 @@ function Services() {
                 <label>Category</label>
                 <select name="category" value={formData.category} onChange={handleInputChange}>
                   <option value="">Select Category...</option>
-                  <option value="Hair">Hair</option>
-                  <option value="Skin">Skin</option>
-                  <option value="Nails">Nails</option>
-                  <option value="Massage">Massage</option>
-                  <option value="Other">Other</option>
+                  {salonCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
 

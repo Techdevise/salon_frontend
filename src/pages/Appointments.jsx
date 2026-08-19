@@ -5,6 +5,37 @@ import '../styles/DashboardPages.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
 
+// Helper: generate bill after appointment creation
+const generateBillForAppointment = async ({ customerId, staffId, services, totalAmount, salonId, paymentMethod = 'Cash' }) => {
+  try {
+    const billServices = (services || []).map(s => ({
+      serviceId: s.serviceId || null,
+      serviceName: s.serviceName || s.name || 'Service',
+      price: Number(s.price) || Number(totalAmount) || 0,
+      quantity: 1
+    }));
+    // If no service details available, create a generic entry
+    if (!billServices.length || billServices.every(s => !s.serviceName)) {
+      billServices.push({ serviceId: null, serviceName: 'Appointment Service', price: Number(totalAmount) || 0, quantity: 1 });
+    }
+    const payload = {
+      salonId,
+      customerId,
+      staffId,
+      services: billServices,
+      tax: 18,
+      discountAmount: 0,
+      paidAmount: Number(totalAmount) || 0,
+      paymentMethod
+    };
+    const res = await axios.post('/api/billing/generate', payload, { withCredentials: true });
+    return res.data?.data;
+  } catch (err) {
+    console.error('Bill generation failed:', err.response?.data?.message || err.message);
+    return null;
+  }
+};
+
 export const format24Hour = (timeStr) => {
   if (!timeStr) return 'N/A';
   const str = timeStr.trim();
@@ -67,7 +98,7 @@ const SearchableSelect = ({
         <input
           type="text"
           value={value || ''}
-          onChange={() => {}}
+          onChange={() => { }}
           required={required}
           tabIndex={-1}
           style={{ opacity: 0, position: 'absolute', width: '100%', height: 0, bottom: 0, pointerEvents: 'none' }}
@@ -349,6 +380,7 @@ function Appointments() {
   // Walk-in Modal states
   const [showWalkInModal, setShowWalkInModal] = useState(false);
   const [walkInFormData, setWalkInFormData] = useState({
+    customerId: '',
     customerName: '',
     customerPhone: '',
     serviceId: '',
@@ -486,6 +518,7 @@ function Appointments() {
     setWalkInDate(today);
     setAvailableSlots([]);
     setWalkInFormData({
+      customerId: '',
       customerName: '',
       customerPhone: '',
       serviceId: '',
@@ -586,11 +619,13 @@ function Appointments() {
       // 3. Resolve Services / Package
       let targetServiceIds = [];
       let serviceNoteText = '';
+      let billServiceDetails = [];
 
       if (walkInFormData.packageId) {
         const pkg = packagesList.find(p => p._id === walkInFormData.packageId);
         if (pkg) {
           serviceNoteText = `[Package: ${pkg.packageName}]`;
+          billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(walkInFormData.totalAmount) || 0 }];
           const pkgServices = (pkg.services || [])
             .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
             .filter(Boolean);
@@ -600,6 +635,7 @@ function Appointments() {
         const s = serviceList.find(item => item._id === walkInFormData.serviceId);
         if (s) {
           serviceNoteText = `[Service: ${s.serviceName}]`;
+          billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(walkInFormData.totalAmount) || Number(s.price) || 0 }];
         }
         targetServiceIds = [walkInFormData.serviceId];
       }
@@ -620,12 +656,79 @@ function Appointments() {
       };
 
       await axios.post('/api/appointment/create', payload, { withCredentials: true });
+
       fetchAppointments();
       setShowWalkInModal(false);
     } catch (error) {
       setWalkInError(error.response?.data?.message || error.message || 'Failed to create walk-in booking');
     } finally {
       setWalkInLoading(false);
+    }
+  };
+
+  // Standalone bill generation for walk-in
+  const [walkInBillLoading, setWalkInBillLoading] = useState(false);
+  const [walkInBillMsg, setWalkInBillMsg] = useState('');
+
+  const handleGenerateWalkInBill = async () => {
+    setWalkInBillMsg('');
+    if (!walkInFormData.customerName.trim() || !walkInFormData.customerPhone.trim()) {
+      setWalkInBillMsg('❌ Please fill Customer Name and Phone first.');
+      return;
+    }
+    if (!walkInFormData.serviceId && !walkInFormData.packageId) {
+      setWalkInBillMsg('❌ Please select a Service or Package first.');
+      return;
+    }
+    setWalkInBillLoading(true);
+    try {
+      // Resolve customer
+      let targetCustomerId = walkInFormData.customerId;
+      if (!targetCustomerId) {
+        const existingCust = customerList.find(
+          c => c.phone === walkInFormData.customerPhone ||
+            c.name.toLowerCase() === walkInFormData.customerName.toLowerCase()
+        );
+        if (existingCust) {
+          targetCustomerId = existingCust._id;
+        } else {
+          const custRes = await axios.post('/api/customer/create', {
+            name: walkInFormData.customerName,
+            phone: walkInFormData.customerPhone,
+            ...(selectedSalonId && { salonId: selectedSalonId })
+          }, { withCredentials: true });
+          targetCustomerId = custRes.data?.data?._id;
+        }
+      }
+      const matchedStaff = staffList.find(s => s.name.toLowerCase().includes(walkInFormData.staffName.toLowerCase()));
+      const targetStaffId = matchedStaff?._id || staffList[0]?._id;
+
+      let billServiceDetails = [];
+      if (walkInFormData.packageId) {
+        const pkg = packagesList.find(p => p._id === walkInFormData.packageId);
+        if (pkg) billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(walkInFormData.totalAmount) || 0 }];
+      } else if (walkInFormData.serviceId) {
+        const s = serviceList.find(item => item._id === walkInFormData.serviceId);
+        if (s) billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(walkInFormData.totalAmount) || Number(s.price) || 0 }];
+      }
+
+      const result = await generateBillForAppointment({
+        customerId: targetCustomerId,
+        staffId: targetStaffId,
+        services: billServiceDetails,
+        totalAmount: Number(walkInFormData.totalAmount) || 0,
+        salonId: selectedSalonId || user?.salonId,
+        paymentMethod: 'Cash'
+      });
+      if (result) {
+        setWalkInBillMsg('✅ Bill generated successfully!');
+      } else {
+        setWalkInBillMsg('❌ Bill generation failed. Please try again.');
+      }
+    } catch (err) {
+      setWalkInBillMsg('❌ ' + (err.response?.data?.message || err.message || 'Bill generation failed.'));
+    } finally {
+      setWalkInBillLoading(false);
     }
   };
 
@@ -692,11 +795,13 @@ function Appointments() {
     try {
       let targetServiceIds = [];
       let serviceNoteText = '';
+      let billServiceDetails = [];
 
       if (formData.packageId) {
         const pkg = packagesList.find(p => p._id === formData.packageId);
         if (pkg) {
           serviceNoteText = `[Package: ${pkg.packageName}]`;
+          billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(formData.totalAmount) || 0 }];
           const pkgServices = (pkg.services || [])
             .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
             .filter(Boolean);
@@ -706,6 +811,7 @@ function Appointments() {
         const s = serviceList.find(item => item._id === formData.serviceId);
         if (s) {
           serviceNoteText = `[Service: ${s.serviceName}]`;
+          billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(formData.totalAmount) || Number(s.price) || 0 }];
         }
         targetServiceIds = [formData.serviceId];
       }
@@ -726,7 +832,7 @@ function Appointments() {
         setFormLoading(false);
         return;
       } else {
-        await axios.post('/api/appointment/create', payload, { withCredentials: true });
+      await axios.post('/api/appointment/create', payload, { withCredentials: true });
       }
 
       fetchAppointments();
@@ -735,6 +841,54 @@ function Appointments() {
       setErrorMsg(error.response?.data?.message || 'Failed to create booking');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  // Standalone bill generation for new booking
+  const [newBillLoading, setNewBillLoading] = useState(false);
+  const [newBillMsg, setNewBillMsg] = useState('');
+
+  const handleGenerateNewBookingBill = async () => {
+    setNewBillMsg('');
+    if (!formData.customerId) {
+      setNewBillMsg('❌ Please select a customer first.');
+      return;
+    }
+    if (!formData.staffId) {
+      setNewBillMsg('❌ Please select a staff member first.');
+      return;
+    }
+    if (!formData.serviceId && !formData.packageId) {
+      setNewBillMsg('❌ Please select a Service or Package first.');
+      return;
+    }
+    setNewBillLoading(true);
+    try {
+      let billServiceDetails = [];
+      if (formData.packageId) {
+        const pkg = packagesList.find(p => p._id === formData.packageId);
+        if (pkg) billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(formData.totalAmount) || 0 }];
+      } else if (formData.serviceId) {
+        const s = serviceList.find(item => item._id === formData.serviceId);
+        if (s) billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(formData.totalAmount) || Number(s.price) || 0 }];
+      }
+      const result = await generateBillForAppointment({
+        customerId: formData.customerId,
+        staffId: formData.staffId,
+        services: billServiceDetails,
+        totalAmount: Number(formData.totalAmount) || 0,
+        salonId: selectedSalonId || user?.salonId,
+        paymentMethod: 'Cash'
+      });
+      if (result) {
+        setNewBillMsg('✅ Bill generated successfully!');
+      } else {
+        setNewBillMsg('❌ Bill generation failed. Please try again.');
+      }
+    } catch (err) {
+      setNewBillMsg('❌ ' + (err.response?.data?.message || err.message || 'Bill generation failed.'));
+    } finally {
+      setNewBillLoading(false);
     }
   };
 
@@ -935,9 +1089,9 @@ function Appointments() {
                         </div>
                       </td>
                       <td>
-                        <div className="user-combo">
-                          <User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}
-                          {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', borderLeft: '1px solid #333', paddingLeft: '5px', marginLeft: '5px' }}>{apt.customerDetails?.phone}</span>}
+                        <div className="user-combo" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}</span>
+                          {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', paddingLeft: '18px' }}>{apt.customerDetails.phone}</span>}
                         </div>
                       </td>
                       <td>
@@ -1050,55 +1204,31 @@ function Appointments() {
             {walkInError && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{walkInError}</div>}
 
             <form onSubmit={handleWalkInSubmit} className="modal-form">
-              <div className="form-group" style={{ marginBottom: '0.2rem' }}>
-                <label>Search Existing Customer (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="🔍 Search existing customer by name or phone..."
-                  value={walkInCustomerSearch}
-                  onChange={(e) => setWalkInCustomerSearch(e.target.value)}
-                  style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', marginBottom: '4px' }}
-                />
-                {walkInCustomerSearch && (
-                  <select
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      if (selectedId) {
-                        const found = customerList.find(c => c._id === selectedId);
-                        if (found) {
-                          setWalkInFormData(prev => ({
-                            ...prev,
-                            customerName: found.name || '',
-                            customerPhone: found.phone || ''
-                          }));
-                        }
-                      }
-                    }}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
-                  >
-                    <option value="">-- Choose matching customer --</option>
-                    {customerList
-                      .filter(c => {
-                        const q = walkInCustomerSearch.toLowerCase();
-                        return (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q);
-                      })
-                      .map(c => (
-                        <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
-                      ))}
-                  </select>
-                )}
-              </div>
-
               <div className="form-row">
                 <div className="form-group">
                   <label>Customer Name *</label>
-                  <input
-                    type="text"
-                    name="customerName"
-                    required
-                    value={walkInFormData.customerName}
-                    onChange={handleWalkInChange}
-                    placeholder="e.g. Rahul Sharma"
+                  <SearchableSelect
+                    name="customerId"
+                    value={walkInFormData.customerId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const found = customerList.find(c => c._id === selectedId);
+                      if (found) {
+                        setWalkInFormData(prev => ({
+                          ...prev,
+                          customerId: found._id,
+                          customerName: found.name || '',
+                          customerPhone: found.phone || ''
+                        }));
+                      }
+                    }}
+                    placeholder="-- Search or Select Customer --"
+                    options={customerList.map(c => ({
+                      value: c._id,
+                      label: c.name,
+                      sublabel: c.phone,
+                      searchTerms: `${c.name} ${c.phone}`
+                    }))}
                   />
                 </div>
                 <div className="form-group">
@@ -1114,6 +1244,8 @@ function Appointments() {
                   />
                 </div>
               </div>
+
+
 
               <div className="form-row">
                 <div className="form-group">
@@ -1261,8 +1393,22 @@ function Appointments() {
                 ></textarea>
               </div>
 
+              {walkInBillMsg && (
+                <div style={{ margin: '0 1.5rem 0.75rem', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', background: walkInBillMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: walkInBillMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>
+                  {walkInBillMsg}
+                </div>
+              )}
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setShowWalkInModal(false)}>Cancel</button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+                  disabled={walkInBillLoading}
+                  onClick={handleGenerateWalkInBill}
+                >
+                  {walkInBillLoading ? 'Generating...' : '🧾 Generate Bill'}
+                </button>
                 <button type="submit" className="primary-btn" disabled={walkInLoading}>
                   {walkInLoading ? 'Booking...' : 'Confirm Walk in Booking'}
                 </button>
@@ -1424,8 +1570,22 @@ function Appointments() {
                 <textarea name="notes" rows="2" value={formData.notes} onChange={handleInputChange} placeholder="Special instructions for staff..."></textarea>
               </div>
 
+              {newBillMsg && (
+                <div style={{ margin: '0 1.5rem 0.75rem', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', background: newBillMsg.startsWith('✅') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: newBillMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>
+                  {newBillMsg}
+                </div>
+              )}
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+                  disabled={newBillLoading}
+                  onClick={handleGenerateNewBookingBill}
+                >
+                  {newBillLoading ? 'Generating...' : '🧾 Generate Bill'}
+                </button>
                 <button type="submit" className="primary-btn" disabled={formLoading}>
                   {formLoading ? 'Booking...' : 'Confirm Appointment'}
                 </button>

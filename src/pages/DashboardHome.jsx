@@ -478,7 +478,23 @@ function DashboardHome() {
             <div className="salon-detail-actions">
               <button
                 className="salon-action-btn edit"
-                onClick={() => setEditingSalonData(selectedSalonInfo)}
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const res = await axios.get(`/api/salon/${selectedSalonInfo._id}`, {
+                      withCredentials: true,
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (res.data?.data) {
+                      setEditingSalonData(res.data.data);
+                    } else {
+                      setEditingSalonData(selectedSalonInfo);
+                    }
+                  } catch {
+                    // fallback to Redux state if API fails
+                    setEditingSalonData(selectedSalonInfo);
+                  }
+                }}
                 title="Edit Salon"
               >
                 <Pencil size={16} />
@@ -517,6 +533,26 @@ function DashboardHome() {
                 {selectedSalonInfo.isActive !== false ? '● Active' : '● Inactive'}
               </span>
             </div>
+            {selectedSalonInfo.category && selectedSalonInfo.category.length > 0 && (
+              <div className="salon-detail-item full-span" style={{ gridColumn: '1 / -1', marginTop: '6px' }}>
+                <span className="detail-label">Categories</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  {selectedSalonInfo.category.map((cat, idx) => (
+                    <span key={idx} style={{
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      background: 'rgba(124, 58, 237, 0.15)',
+                      border: '1px solid rgba(124, 58, 237, 0.3)',
+                      color: '#c084fc',
+                      fontSize: '0.78rem',
+                      fontWeight: 500
+                    }}>
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

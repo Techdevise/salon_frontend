@@ -38,6 +38,7 @@ function Billing() {
   const [historySearch, setHistorySearch] = useState('');
 
   useEffect(() => {
+    setSelectedCustomer(null);
     fetchCustomers();
     fetchServices();
     fetchPackages();
@@ -291,6 +292,11 @@ function Billing() {
   const handleGenerateBill = async () => {
     if (!selectedCustomer) {
       setMessage({ text: 'Please select a customer', type: 'error' });
+      return;
+    }
+    const activeSalonId = selectedSalonId || user?.salonId;
+    if (selectedCustomer?.salonId && activeSalonId && String(selectedCustomer.salonId) !== String(activeSalonId)) {
+      setMessage({ text: 'Selected customer does not belong to this salon. Cannot generate bill.', type: 'error' });
       return;
     }
     if (!selectedStaffId) {
