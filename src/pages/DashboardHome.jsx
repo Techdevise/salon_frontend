@@ -730,8 +730,8 @@ function DashboardHome() {
                           </span>
                         </td>
                         <td>
-                          <span className={`activity-status-badge ${String(act.status || act.paymentStatus || 'Confirmed').toLowerCase()}`}>
-                            {act.status || act.paymentStatus || 'Confirmed'}
+                          <span className={`activity-status-badge ${String(act.status || 'Pending').toLowerCase()}`}>
+                            {act.status || 'Pending'}
                           </span>
                         </td>
                       </tr>

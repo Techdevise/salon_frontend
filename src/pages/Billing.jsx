@@ -208,6 +208,19 @@ function Billing() {
     }
     const foundDisc = discounts.find(d => d.promoCode === code);
     if (foundDisc) {
+      const now = new Date();
+      if (foundDisc.startDate && now < new Date(foundDisc.startDate)) {
+        setMessage({ text: `Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${new Date(foundDisc.startDate).toLocaleDateString()})`, type: 'error' });
+        setDiscount(0);
+        setSelectedPromoCode('');
+        return;
+      }
+      if (foundDisc.endDate && now > new Date(foundDisc.endDate)) {
+        setMessage({ text: `Promo code ${foundDisc.promoCode} has expired on ${new Date(foundDisc.endDate).toLocaleDateString()}`, type: 'error' });
+        setDiscount(0);
+        setSelectedPromoCode('');
+        return;
+      }
       const limit = foundDisc.usageLimit;
       const used = Number(foundDisc.usedCount || 0);
       if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) {
@@ -730,10 +743,13 @@ function Billing() {
                   >
                     <option value="">-- Select Offer --</option>
                     {discounts.map(d => {
+                      const isNotValidYet = d.startDate && new Date() < new Date(d.startDate);
+                      const isDateExpired = d.endDate && new Date() > new Date(d.endDate);
                       const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                      const isDisabled = isNotValidYet || isDateExpired || isLimitReached;
                       return (
-                        <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
-                          🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                        <option key={d._id} value={d.promoCode} disabled={isDisabled}>
+                          🏷️ {d.promoCode} {isNotValidYet ? '(Not valid yet)' : isDateExpired ? '(Expired)' : isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
                         </option>
                       );
                     })}

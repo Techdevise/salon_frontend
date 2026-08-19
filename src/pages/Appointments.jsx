@@ -324,6 +324,9 @@ function Appointments() {
     if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
     const disc = discountsList.find(d => d.promoCode === promoCode);
     if (!disc) return baseAmount;
+    const now = new Date();
+    if (disc.startDate && now < new Date(disc.startDate)) return baseAmount;
+    if (disc.endDate && now > new Date(disc.endDate)) return baseAmount;
     const limit = disc.usageLimit;
     const used = Number(disc.usedCount || 0);
     if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) return baseAmount;
@@ -1294,6 +1297,19 @@ function Appointments() {
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
+                    const now = new Date();
+                    if (disc && disc.startDate && now < new Date(disc.startDate)) {
+                      setWalkInError(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
+                      setWalkInSelectedPromoCode('');
+                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
+                    if (disc && disc.endDate && now > new Date(disc.endDate)) {
+                      setWalkInError(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
+                      setWalkInSelectedPromoCode('');
+                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
                       setWalkInError(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
                       setWalkInSelectedPromoCode('');
@@ -1315,10 +1331,13 @@ function Appointments() {
                 >
                   <option value="">-- No Discount / Promo Code --</option>
                   {discountsList.map(d => {
+                    const isNotValidYet = d.startDate && new Date() < new Date(d.startDate);
+                    const isDateExpired = d.endDate && new Date() > new Date(d.endDate);
                     const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                    const isDisabled = isNotValidYet || isDateExpired || isLimitReached;
                     return (
-                      <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
-                        🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                      <option key={d._id} value={d.promoCode} disabled={isDisabled}>
+                        🏷️ {d.promoCode} {isNotValidYet ? '(Not valid yet)' : isDateExpired ? '(Expired)' : isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
                       </option>
                     );
                   })}
@@ -1494,6 +1513,19 @@ function Appointments() {
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
+                    const now = new Date();
+                    if (disc && disc.startDate && now < new Date(disc.startDate)) {
+                      setErrorMsg(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
+                      setSelectedPromoCode('');
+                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
+                    if (disc && disc.endDate && now > new Date(disc.endDate)) {
+                      setErrorMsg(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
+                      setSelectedPromoCode('');
+                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
                       setErrorMsg(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
                       setSelectedPromoCode('');
@@ -1515,10 +1547,13 @@ function Appointments() {
                 >
                   <option value="">-- No Discount / Promo Code --</option>
                   {discountsList.map(d => {
+                    const isNotValidYet = d.startDate && new Date() < new Date(d.startDate);
+                    const isDateExpired = d.endDate && new Date() > new Date(d.endDate);
                     const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
+                    const isDisabled = isNotValidYet || isDateExpired || isLimitReached;
                     return (
-                      <option key={d._id} value={d.promoCode} disabled={isLimitReached}>
-                        🏷️ {d.promoCode} {isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                      <option key={d._id} value={d.promoCode} disabled={isDisabled}>
+                        🏷️ {d.promoCode} {isNotValidYet ? '(Not valid yet)' : isDateExpired ? '(Expired)' : isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
                       </option>
                     );
                   })}
