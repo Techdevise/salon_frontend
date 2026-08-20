@@ -3,7 +3,7 @@ import axios from 'axios';
 import { X, Store, User, Mail, Phone, MapPin, Clock, Tag, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import '../styles/AddSalon.css';
 
-const CATEGORIES = ['Hair', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
+const CATEGORIES = ['Hair', 'Hair Treatment', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
 const WORKING_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const initialForm = {

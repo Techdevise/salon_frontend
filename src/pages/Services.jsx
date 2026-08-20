@@ -9,7 +9,7 @@ function Services() {
   const confirm = useConfirm();
   const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
 
-  const DEFAULT_CATEGORIES = ['Hair', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
+  const DEFAULT_CATEGORIES = ['Hair', 'Hair Treatment', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
   const [salonCategories, setSalonCategories] = useState(DEFAULT_CATEGORIES);
 
   // Synchronize categories dynamically whenever selected salon or salon info changes
@@ -47,11 +47,11 @@ function Services() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
   const [fetchError, setFetchError] = useState('');
-  
+
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  
+
   // Form states
   const [formData, setFormData] = useState({
     serviceName: '',
@@ -173,17 +173,17 @@ function Services() {
       await axios.patch(`/api/service/toggle/${id}`, {}, { withCredentials: true });
       fetchServices();
     } catch (error) {
-        alert(error.response?.data?.message || 'Failed to toggle status');
+      alert(error.response?.data?.message || 'Failed to toggle status');
     }
   };
 
   const filteredServices = services.filter(s => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       s.serviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = selectedCategoryFilter === 'All' || 
+
+    const matchesCategory = selectedCategoryFilter === 'All' ||
       (s.category && s.category.toLowerCase() === selectedCategoryFilter.toLowerCase());
 
     return matchesSearch && matchesCategory;
@@ -213,15 +213,15 @@ function Services() {
       <div className="table-controls" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="search-bar" style={{ flex: 1, minWidth: '220px' }}>
           <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search services..." 
+          <input
+            type="text"
+            placeholder="Search services..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <select 
+        <select
           className="filter-select"
           style={{
             padding: '0.65rem 1rem',
@@ -263,37 +263,37 @@ function Services() {
                   <tr key={service._id}>
                     <td>
                       <div className="service-cell">
-                        <div className="service-icon-box"><Scissors size={16}/></div>
+                        <div className="service-icon-box"><Scissors size={16} /></div>
                         <div className="service-details">
-                            <span className="service-name">{service.serviceName}</span>
-                            <span className="service-desc">{service.description?.substring(0, 30)}{service.description?.length > 30 ? '...' : ''}</span>
+                          <span className="service-name">{service.serviceName}</span>
+                          <span className="service-desc">{service.description?.substring(0, 30)}{service.description?.length > 30 ? '...' : ''}</span>
                         </div>
                       </div>
                     </td>
                     <td><span className="category-badge">{service.category || 'General'}</span></td>
                     <td>
                       <div className="duration-cell">
-                        <Clock size={14}/> {service.duration} mins
+                        <Clock size={14} /> {service.duration} mins
                       </div>
                     </td>
                     <td>
                       <div className="price-cell">
-                        <IndianRupee size={14}/> {service.price}
+                        <IndianRupee size={14} /> {service.price}
                       </div>
                     </td>
                     <td>
-                      <button 
-                         className={`status-badge border-0 cursor-pointer ${service.isActive !== false ? 'active' : 'inactive'}`}
-                         onClick={() => handleToggleStatus(service._id)}
-                         title="Click to toggle status"
+                      <button
+                        className={`status-badge border-0 cursor-pointer ${service.isActive !== false ? 'active' : 'inactive'}`}
+                        onClick={() => handleToggleStatus(service._id)}
+                        title="Click to toggle status"
                       >
                         {service.isActive !== false ? 'Available' : 'Unavailable'}
                       </button>
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button className="icon-btn edit" onClick={() => openModal(service)}><Edit2 size={16}/></button>
-                        <button className="icon-btn delete" onClick={() => handleDelete(service._id)}><Trash2 size={16}/></button>
+                        <button className="icon-btn edit" onClick={() => openModal(service)}><Edit2 size={16} /></button>
+                        <button className="icon-btn delete" onClick={() => handleDelete(service._id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -314,17 +314,17 @@ function Services() {
           <div className="modal-content">
             <div className="modal-header">
               <h2>{editingService ? 'Edit Service' : 'Add New Service'}</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20}/></button>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
-            
-            {errorMsg && <div className="error-banner" style={{margin: '0 1.5rem 1rem'}}>{errorMsg}</div>}
-            
+
+            {errorMsg && <div className="error-banner" style={{ margin: '0 1.5rem 1rem' }}>{errorMsg}</div>}
+
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
                 <label>Service Name *</label>
                 <input type="text" name="serviceName" required value={formData.serviceName} onChange={handleInputChange} placeholder="e.g. Haircut & Wash" />
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Price (₹) *</label>

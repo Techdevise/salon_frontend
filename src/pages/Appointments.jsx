@@ -238,6 +238,35 @@ const SearchableSelect = ({
   );
 };
 
+export const calculateRecurringDateTime = (baseDateStr, baseTimeStr, interval) => {
+  const dStr = baseDateStr || new Date().toISOString().split('T')[0];
+  const tStr = (baseTimeStr && baseTimeStr !== 'TBD') ? baseTimeStr : '09:00';
+
+  const [year, month, day] = dStr.split('-').map(Number);
+  const [hours, minutes] = tStr.split(':').map(Number);
+
+  const dateObj = new Date(year, month - 1, day, hours || 9, minutes || 0, 0);
+
+  if (interval === '2_hours') {
+    dateObj.setHours(dateObj.getHours() + 2);
+  } else if (interval === '2_days') {
+    dateObj.setDate(dateObj.getDate() + 2);
+  } else if (interval === '3_days') {
+    dateObj.setDate(dateObj.getDate() + 3);
+  }
+
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+  const hh = String(dateObj.getHours()).padStart(2, '0');
+  const min = String(dateObj.getMinutes()).padStart(2, '0');
+  const formattedTime = `${hh}:${min}`;
+
+  return { date: formattedDate, startTime: formattedTime };
+};
+
 function Appointments() {
   const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
@@ -276,6 +305,11 @@ function Appointments() {
   const [walkInServiceSearch, setWalkInServiceSearch] = useState('');
   const [walkInPackageSearch, setWalkInPackageSearch] = useState('');
   const [walkInStaffSearch, setWalkInStaffSearch] = useState('');
+
+  // Recurring Appointment states
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false);
+  const [recurringStep, setRecurringStep] = useState('question'); // 'question' | 'options'
+  const [selectedRecurringIntervals, setSelectedRecurringIntervals] = useState([]); // ['2_hours', '2_days', '3_days']
 
   // Form states
   const [formData, setFormData] = useState({
@@ -367,13 +401,25 @@ function Appointments() {
         const selectedService = serviceList.find(s => s._id === value);
         if (selectedService) {
           updatedData.totalAmount = applyPromoToAmount(selectedService.price, selectedPromoCode);
+
+          const cat = (selectedService.category || '').toLowerCase();
+          const nameLower = (selectedService.serviceName || '').toLowerCase();
+          if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
+            setRecurringStep('question');
+            setSelectedRecurringIntervals([]);
+            setShowRecurringDialog(true);
+          } else {
+            setSelectedRecurringIntervals([]);
+          }
         }
       } else if (!updatedData.packageId) {
         updatedData.totalAmount = '';
+        setSelectedRecurringIntervals([]);
       }
     } else if (name === 'packageId') {
       if (value) {
         updatedData.serviceId = '';
+        setSelectedRecurringIntervals([]);
         const selectedPkg = packagesList.find(p => p._id === value);
         if (selectedPkg) {
           const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
@@ -523,6 +569,7 @@ function Appointments() {
     setWalkInPackageSearch('');
     setWalkInStaffSearch('');
     setWalkInSelectedPromoCode('');
+    setSelectedRecurringIntervals([]);
     const today = new Date().toISOString().split('T')[0];
     setWalkInDate(today);
     setAvailableSlots([]);
@@ -555,13 +602,25 @@ function Appointments() {
         const selectedService = serviceList.find(s => s._id === value);
         if (selectedService) {
           updatedWalkIn.totalAmount = applyPromoToAmount(selectedService.price, walkInSelectedPromoCode);
+
+          const cat = (selectedService.category || '').toLowerCase();
+          const nameLower = (selectedService.serviceName || '').toLowerCase();
+          if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
+            setRecurringStep('question');
+            setSelectedRecurringIntervals([]);
+            setShowRecurringDialog(true);
+          } else {
+            setSelectedRecurringIntervals([]);
+          }
         }
       } else if (!updatedWalkIn.packageId) {
         updatedWalkIn.totalAmount = '';
+        setSelectedRecurringIntervals([]);
       }
     } else if (name === 'packageId') {
       if (value) {
         updatedWalkIn.serviceId = '';
+        setSelectedRecurringIntervals([]);
         const selectedPkg = packagesList.find(p => p._id === value);
         if (selectedPkg) {
           const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
@@ -667,8 +726,31 @@ function Appointments() {
       const createdRes = await axios.post('/api/appointment/create', payload, { withCredentials: true });
       const createdApt = createdRes.data?.data;
 
+      // Create recurring appointments if selected
+      if (selectedRecurringIntervals.length > 0) {
+        for (const interval of selectedRecurringIntervals) {
+          const { date: recDate, startTime: recTime } = calculateRecurringDateTime(
+            payload.date,
+            payload.timeSlot?.start,
+            interval
+          );
+          const recPayload = {
+            ...payload,
+            date: recDate,
+            timeSlot: { start: recTime, end: 'TBD' },
+            notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`
+          };
+          try {
+            await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
+          } catch (err) {
+            console.error(`Error creating recurring appointment (${interval}):`, err);
+          }
+        }
+      }
+
       fetchAppointments();
       setShowWalkInModal(false);
+      setSelectedRecurringIntervals([]);
 
       if (createdApt?._id) {
         const generateNow = await confirm({
@@ -715,6 +797,7 @@ function Appointments() {
     setPackageSearch('');
     setStaffSearch('');
     setSelectedPromoCode('');
+    setSelectedRecurringIntervals([]);
     const today = new Date().toISOString().split('T')[0];
     if (appointment) {
       setEditingAppointment(appointment);
@@ -740,6 +823,7 @@ function Appointments() {
   const closeModal = () => {
     setShowModal(false);
     setEditingAppointment(null);
+    setSelectedRecurringIntervals([]);
   };
 
   const handleSubmit = async (e) => {
@@ -811,8 +895,31 @@ function Appointments() {
         const createdRes = await axios.post('/api/appointment/create', payload, { withCredentials: true });
         const createdApt = createdRes.data?.data;
 
+        // Create recurring appointments if selected
+        if (selectedRecurringIntervals.length > 0) {
+          for (const interval of selectedRecurringIntervals) {
+            const { date: recDate, startTime: recTime } = calculateRecurringDateTime(
+              payload.date,
+              payload.timeSlot?.start,
+              interval
+            );
+            const recPayload = {
+              ...payload,
+              date: recDate,
+              timeSlot: { start: recTime, end: 'TBD' },
+              notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`
+            };
+            try {
+              await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
+            } catch (err) {
+              console.error(`Error creating recurring appointment (${interval}):`, err);
+            }
+          }
+        }
+
         fetchAppointments();
         closeModal();
+        setSelectedRecurringIntervals([]);
 
         if (createdApt?._id) {
           const generateNow = await confirm({
@@ -1264,6 +1371,21 @@ function Appointments() {
                       searchTerms: `${s.serviceName} ${s.category || ''}`
                     }))}
                   />
+                  {selectedRecurringIntervals.length > 0 && walkInFormData.serviceId && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🔄 Recurring set: {selectedRecurringIntervals.map(i => i.replace('_', ' ')).join(', ')}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecurringStep('options');
+                          setShowRecurringDialog(true);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.82rem', padding: 0 }}
+                      >
+                        (Change)
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Select Package</label>
@@ -1479,6 +1601,21 @@ function Appointments() {
                       searchTerms: `${s.serviceName} ${s.category || ''}`
                     }))}
                   />
+                  {selectedRecurringIntervals.length > 0 && formData.serviceId && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🔄 Recurring set: {selectedRecurringIntervals.map(i => i.replace('_', ' ')).join(', ')}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecurringStep('options');
+                          setShowRecurringDialog(true);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#db2777', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.82rem', padding: 0 }}
+                      >
+                        (Change)
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -1735,6 +1872,110 @@ function Appointments() {
                       onClick={handleConfirmReschedule}
                     >
                       {cancelModalData.loading ? 'Rescheduling...' : 'Confirm Reschedule'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recurring Appointment Dialog Modal */}
+      {showRecurringDialog && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h2>🔄 Recurring Appointment</h2>
+              <button className="close-btn" onClick={() => setShowRecurringDialog(false)}><X size={20} /></button>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+              {recurringStep === 'question' ? (
+                <div>
+                  <p style={{ color: '#f4f4f5', fontSize: '1.05rem', fontWeight: 500, marginBottom: '1.5rem', lineHeight: '1.6', textAlign: 'center' }}>
+                    Is there any recurring appointment needed?
+                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      style={{ flex: 1, padding: '0.75rem' }}
+                      onClick={() => {
+                        setSelectedRecurringIntervals([]);
+                        setShowRecurringDialog(false);
+                      }}
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg, #7c3aed, #db2777)', justifyContent: 'center' }}
+                      onClick={() => setRecurringStep('options')}
+                    >
+                      Yes
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                    Select recurring appointment interval(s):
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                    {[
+                      { id: '2_hours', label: '2 Hours' },
+                      { id: '2_days', label: '2 Days' },
+                      { id: '3_days', label: '3 Days' }
+                    ].map((opt) => (
+                      <label
+                        key={opt.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: selectedRecurringIntervals.includes(opt.id) ? '1px solid #7c3aed' : '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          fontSize: '0.95rem'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRecurringIntervals.includes(opt.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRecurringIntervals(prev => [...prev, opt.id]);
+                            } else {
+                              setSelectedRecurringIntervals(prev => prev.filter(i => i !== opt.id));
+                            }
+                          }}
+                          style={{ width: '18px', height: '18px', accentColor: '#7c3aed', cursor: 'pointer' }}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => setRecurringStep('question')}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+                      onClick={() => setShowRecurringDialog(false)}
+                    >
+                      Confirm ({selectedRecurringIntervals.length} selected)
                     </button>
                   </div>
                 </div>
