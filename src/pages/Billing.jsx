@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } from 'lucide-react';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
@@ -8,6 +9,7 @@ import { useConfirm } from '../components/ConfirmModal';
 
 function Billing() {
   const confirm = useConfirm();
+  const location = useLocation();
   const { selectedSalonId } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
 
@@ -40,6 +42,10 @@ function Billing() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
 
+  // For pre-filling from Appointments page
+  const [pendingCustomerState, setPendingCustomerState] = useState(null);
+  const [linkedAppointmentId, setLinkedAppointmentId] = useState(null);
+
   useEffect(() => {
     setSelectedCustomer(null);
     fetchCustomers();
@@ -48,6 +54,57 @@ function Billing() {
     fetchStaff();
     fetchDiscounts();
   }, [selectedSalonId]);
+
+  // Pre-fill form when navigated from Appointments page
+  useEffect(() => {
+    const state = location.state;
+    if (!state?.fromAppointment) return;
+
+    // Pre-fill bill items from appointment services
+    if (state.billItems?.length) {
+      setBillItems(state.billItems);
+    }
+
+    // Pre-fill staff
+    if (state.staffId) {
+      setSelectedStaffId(state.staffId);
+    }
+
+    // Store customer info to be matched once customers list loads
+    if (state.customerId || state.customerName) {
+      setPendingCustomerState(state);
+    }
+
+    // Store appointmentId for linking bill
+    if (state.appointmentId) {
+      setLinkedAppointmentId(state.appointmentId);
+    }
+
+    // Show a helpful banner
+    setMessage({ text: `📋 Appointment services pre-filled. You can add more services below before generating the bill.`, type: 'success' });
+
+    // Clear the navigation state so refreshing doesn't re-trigger
+    window.history.replaceState({}, document.title);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
+  // Auto-select customer when BOTH customers list and pendingCustomerState are ready
+  // This solves the timing issue where fetchCustomers runs before location.state is processed
+  useEffect(() => {
+    if (!pendingCustomerState || customers.length === 0) return;
+
+    const { customerId, customerName, customerPhone } = pendingCustomerState;
+    const matched = customers.find(c =>
+      (customerId && (c._id === customerId || String(c._id) === String(customerId))) ||
+      (customerPhone && c.phone === customerPhone) ||
+      (customerName && c.name?.toLowerCase() === customerName?.toLowerCase())
+    );
+
+    if (matched) {
+      setSelectedCustomer(matched);
+    }
+    setPendingCustomerState(null);
+  }, [customers, pendingCustomerState]);
 
   const fetchDiscounts = async () => {
     try {
@@ -354,6 +411,7 @@ function Billing() {
       const payload = {
         salonId: selectedSalonId || user?.salonId,
         customerId: selectedCustomer._id,
+        appointmentId: linkedAppointmentId || null,
         staffId: selectedStaffId,
         services: billItems.map(i => ({
           serviceId: i.serviceId && !String(i.serviceId).startsWith('custom_') ? i.serviceId : null,
@@ -395,6 +453,7 @@ function Billing() {
       setDiscount(0);
       setSelectedPromoCode('');
       setPaymentMethod('Cash');
+      setLinkedAppointmentId(null);
 
       fetchDiscounts();
 

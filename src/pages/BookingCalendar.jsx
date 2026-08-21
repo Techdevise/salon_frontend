@@ -68,17 +68,32 @@ function BookingCalendar() {
       `/api/appointment/date?date=${dateStr}${salonParam}`,
       { withCredentials: true, headers: { Authorization: `Bearer ${token}` } }
     );
-    return (res.data.data || []).map((apt) => ({
-      _id: apt._id,
-      date: apt.date,
-      time: apt.timeSlot?.start || '',
-      status: apt.status || 'Pending',
-      totalAmount: apt.totalAmount || 0,
-      customer: { name: apt.customerDetails?.name || 'Walk-in' },
-      service: { serviceName: apt.serviceDetails?.[0]?.serviceName || 'Service' },
-      staff: { name: apt.staffDetails?.name || 'Unassigned' },
-      paymentStatus: apt.paymentStatus || 'Unpaid',
-    }));
+    return (res.data.data || []).map((apt) => {
+      const lower = (apt.status || '').toLowerCase();
+      const normStatus = lower === 'completed'
+        ? 'Completed'
+        : lower === 'confirmed'
+        ? 'Confirmed'
+        : lower === 'cancelled' || lower === 'canceled'
+        ? 'Cancelled'
+        : apt.status
+        ? apt.status.charAt(0).toUpperCase() + apt.status.slice(1).toLowerCase()
+        : apt.paymentStatus === 'Paid'
+        ? 'Completed'
+        : 'Pending';
+
+      return {
+        _id: apt._id,
+        date: apt.date,
+        time: apt.timeSlot?.start || '',
+        status: normStatus,
+        totalAmount: apt.totalAmount || 0,
+        customer: { name: apt.customerDetails?.name || 'Walk-in' },
+        service: { serviceName: apt.serviceDetails?.[0]?.serviceName || 'Service' },
+        staff: { name: apt.staffDetails?.name || 'Unassigned' },
+        paymentStatus: apt.paymentStatus || 'Unpaid',
+      };
+    });
   }, [selectedSalonId]);
 
   const fetchCalendarData = useCallback(async () => {

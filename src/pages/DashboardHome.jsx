@@ -226,7 +226,11 @@ function DashboardHome() {
       });
 
       if (res.data.success && Array.isArray(res.data.data)) {
-        setStaffActivities(res.data.data);
+        const formattedData = res.data.data.map(act => ({
+          ...act,
+          status: act.status || (act.paymentStatus === 'Paid' ? 'Completed' : 'Pending')
+        }));
+        setStaffActivities(formattedData);
       } else {
         // Fallback to billing logs if staff-activity returns empty or isn't available
         const billRes = await axios.get(`/api/billing${salonParam}`, {
@@ -256,6 +260,7 @@ function DashboardHome() {
               totalAmount: bill.totalAmount || bill.subTotal || bill.paidAmount || 0,
               paymentMethod: bill.paymentMethod || 'Cash',
               paymentStatus: bill.paymentStatus || 'Paid',
+              status: bill.status || (bill.paymentStatus === 'Paid' ? 'Completed' : 'Pending'),
               date: bill.createdAt
             };
           });
@@ -730,9 +735,16 @@ function DashboardHome() {
                           </span>
                         </td>
                         <td>
-                          <span className={`activity-status-badge ${String(act.status || 'Pending').toLowerCase()}`}>
-                            {act.status || 'Pending'}
-                          </span>
+                          {(() => {
+                            const rawStatus = act.status || (act.paymentStatus === 'Paid' ? 'Completed' : 'Pending');
+                            const lower = String(rawStatus).toLowerCase();
+                            const normalized = lower === 'completed' ? 'Completed' : lower === 'confirmed' ? 'Confirmed' : lower === 'cancelled' || lower === 'canceled' ? 'Cancelled' : rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+                            return (
+                              <span className={`activity-status-badge ${normalized.toLowerCase()}`}>
+                                {normalized}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}

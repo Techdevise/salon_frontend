@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import { useSelector } from 'react-redux';
@@ -38,6 +39,20 @@ const generateBillForAppointment = async ({ customerId, appointmentId, staffId, 
     return null;
   }
 };
+
+export const normalizeStatus = (status, hasBill = false, paymentStatus = '') => {
+  if (hasBill || paymentStatus === 'Paid') return 'Completed';
+  if (!status) return 'Pending';
+  const str = String(status).trim();
+  const lower = str.toLowerCase();
+  if (lower === 'completed') return 'Completed';
+  if (lower === 'pending') return 'Pending';
+  if (lower === 'confirmed') return 'Confirmed';
+  if (lower === 'cancelled' || lower === 'canceled') return 'Cancelled';
+  if (lower === 'reschedule') return 'Reschedule';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
 
 export const format24Hour = (timeStr) => {
   if (!timeStr) return 'N/A';
@@ -271,6 +286,7 @@ function Appointments() {
   const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
@@ -752,36 +768,7 @@ function Appointments() {
       setShowWalkInModal(false);
       setSelectedRecurringIntervals([]);
 
-      if (createdApt?._id) {
-        const generateNow = await confirm({
-          title: 'Booking Confirmed!',
-          message: `Walk-in appointment booked successfully for ₹${payload.totalAmount}. Would you like to generate the bill now?`,
-          confirmText: 'Generate Bill Now',
-          cancelText: 'Later',
-          type: 'info'
-        });
-        if (generateNow) {
-          const billRes = await generateBillForAppointment({
-            customerId: targetCustomerId,
-            appointmentId: createdApt._id,
-            staffId: targetStaffId,
-            services: billServiceDetails,
-            totalAmount: payload.totalAmount,
-            salonId: selectedSalonId || user?.salonId,
-            paymentMethod: 'Cash',
-            promoCode: walkInSelectedPromoCode
-          });
-          if (billRes) {
-            await confirm({
-              title: 'Bill Generated',
-              message: 'Your bill is generated!',
-              confirmText: 'OK',
-              type: 'info'
-            });
-          }
-          fetchAppointments();
-        }
-      }
+      // Bill will be generated automatically when status is changed to Completed
     } catch (error) {
       setWalkInError(error.response?.data?.message || error.message || 'Failed to create walk-in booking');
     } finally {
@@ -921,36 +908,7 @@ function Appointments() {
         closeModal();
         setSelectedRecurringIntervals([]);
 
-        if (createdApt?._id) {
-          const generateNow = await confirm({
-            title: 'Appointment Confirmed!',
-            message: `Appointment booked successfully for ₹${payload.totalAmount}. Would you like to generate the bill now?`,
-            confirmText: 'Generate Bill Now',
-            cancelText: 'Later',
-            type: 'info'
-          });
-          if (generateNow) {
-            const billRes = await generateBillForAppointment({
-              customerId: formData.customerId,
-              appointmentId: createdApt._id,
-              staffId: formData.staffId,
-              services: billServiceDetails,
-              totalAmount: payload.totalAmount,
-              salonId: selectedSalonId || user?.salonId,
-              paymentMethod: 'Cash',
-              promoCode: selectedPromoCode
-            });
-            if (billRes) {
-              await confirm({
-                title: 'Bill Generated',
-                message: 'Your bill is generated!',
-                confirmText: 'OK',
-                type: 'info'
-              });
-            }
-            fetchAppointments();
-          }
-        }
+        // Bill will be generated automatically when status is changed to Completed
       }
     } catch (error) {
       setErrorMsg(error.response?.data?.message || 'Failed to create booking');
@@ -1079,8 +1037,10 @@ function Appointments() {
 
   const handleStatusChange = async (id, newStatus) => {
     const apt = appointments.find(a => a._id === id);
-    if (apt?.status === 'Completed' && newStatus === 'Cancelled') {
-      alert('A completed service appointment cannot be cancelled.');
+    const currentNormStatus = normalizeStatus(apt?.status, apt?.hasBill, apt?.paymentStatus);
+
+    // Once Completed, status is permanently locked — no changes allowed
+    if (currentNormStatus === 'Completed') {
       return;
     }
     if (newStatus === 'Cancelled' && apt) {
@@ -1094,6 +1054,72 @@ function Appointments() {
     try {
       await axios.patch(`/api/appointment/status/${id}`, { status: newStatus }, { withCredentials: true });
       fetchAppointments();
+
+      // When service is marked Completed → ask to open Billing page
+      // Exception: Skip for Hair Treatment recurring appointments (only main appointment gets billed)
+      if (newStatus === 'Completed' && apt) {
+        const isRecurringHairTreatment = apt.notes && apt.notes.includes('[Recurring:');
+        if (!isRecurringHairTreatment && !apt.hasBill && apt.paymentStatus !== 'Paid') {
+          const totalAmt = Number(apt.totalAmount) || 0;
+          const custName = apt.customerDetails?.name || 'Customer';
+
+          const openBilling = await confirm({
+            title: '✅ Service Completed!',
+            message: `Service completed for ${custName} (₹${totalAmt}). Open Billing page to generate the bill?`,
+            confirmText: 'Generate Bill',
+            cancelText: 'Later',
+            type: 'info'
+          });
+
+          if (openBilling) {
+            // Build pre-filled service items from appointment
+            let prefilledItems = (apt.serviceDetails || []).map(s => ({
+              id: s._id || ('pre_' + Date.now() + Math.random()),
+              serviceId: s._id || null,
+              name: s.serviceName || 'Service',
+              price: Number(s.price) || totalAmt || 0,
+              quantity: 1,
+              type: 'service'
+            }));
+
+            // Fallback: if no serviceDetails, create one item from totalAmount
+            if (!prefilledItems.length) {
+              prefilledItems = [{
+                id: 'pre_apt_' + apt._id,
+                serviceId: null,
+                name: 'Appointment Service',
+                price: totalAmt,
+                quantity: 1,
+                type: 'custom'
+              }];
+            }
+
+            // Resolve IDs from appointment data
+            const resolvedCustomerId =
+              apt.customerDetails?._id ||
+              apt.customerId?._id ||
+              (typeof apt.customerId === 'string' ? apt.customerId : null);
+
+            const resolvedStaffId =
+              apt.staffDetails?._id ||
+              apt.staffId?._id ||
+              (typeof apt.staffId === 'string' ? apt.staffId : null);
+
+            // Navigate to Billing page with pre-filled data via route state
+            navigate('/dashboard/billing', {
+              state: {
+                fromAppointment: true,
+                appointmentId: apt._id,
+                customerId: resolvedCustomerId,
+                customerName: apt.customerDetails?.name || 'Customer',
+                customerPhone: apt.customerDetails?.phone || '',
+                staffId: resolvedStaffId,
+                billItems: prefilledItems
+              }
+            });
+          }
+        }
+      }
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to update status');
     }
@@ -1102,7 +1128,7 @@ function Appointments() {
   const handleCancel = (id) => {
     const apt = appointments.find(a => a._id === id);
     if (apt) {
-      if (apt.status === 'Completed') {
+      if (normalizeStatus(apt.status, apt.hasBill, apt.paymentStatus) === 'Completed') {
         alert('A completed service appointment cannot be cancelled.');
         return;
       }
@@ -1111,18 +1137,20 @@ function Appointments() {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    const norm = normalizeStatus(status);
+    switch (norm) {
       case 'Pending': return 'warning';
       case 'Confirmed': return 'info';
       case 'Completed': return 'success';
       case 'Cancelled': return 'danger';
+      case 'Reschedule': return 'info';
       default: return 'inactive';
     }
   };
 
   const filteredAppointments = appointments.filter((apt) => {
     if (selectedStatusFilter === 'All') return true;
-    return (apt.status || 'Pending').toLowerCase() === selectedStatusFilter.toLowerCase();
+    return normalizeStatus(apt.status, apt.hasBill, apt.paymentStatus).toLowerCase() === selectedStatusFilter.toLowerCase();
   });
 
   const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage) || 1;
@@ -1191,78 +1219,84 @@ function Appointments() {
               </thead>
               <tbody>
                 {paginatedAppointments.length > 0 ? (
-                  paginatedAppointments.map((apt) => (
-                    <tr key={apt._id}>
-                      <td>
-                        <div className="time-cell">
-                          <Clock size={16} /> {format24Hour(apt.timeSlot?.start)}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="user-combo" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}</span>
-                          {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', paddingLeft: '18px' }}>{apt.customerDetails.phone}</span>}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="service-combo">
-                          {apt.notes && apt.notes.includes('[Package:') ? (
-                            <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
-                          ) : (
-                            <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
-                      </td>
-                      <td>
-                        <div className="price-cell" style={{ fontWeight: 600 }}>
-                          <IndianRupee size={12} /> {apt.totalAmount}
-                        </div>
-                      </td>
-                      <td>
-                        <select
-                          className={`status-badge border-0 ${apt.status?.toLowerCase() === 'cancelled' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${getStatusColor(apt.status)}`}
-                          value={apt.status}
-                          onChange={(e) => handleStatusChange(apt._id, e.target.value)}
-                          disabled={apt.status?.toLowerCase() === 'cancelled'}
-                          style={apt.status?.toLowerCase() === 'cancelled' ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Confirmed">Confirmed</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Reschedule">Reschedule</option>
-                          <option value="Cancelled" disabled={apt.status === 'Completed'}>Cancelled</option>
-                        </select>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          {apt.status !== 'Cancelled' && (
-                            <>
-                              <button
-                                className="icon-btn edit"
-                                style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#a78bfa' }}
-                                onClick={() => openRescheduleModal(apt)}
-                                title="Reschedule Appointment"
-                              >
-                                <CalendarIcon size={16} />
-                              </button>
-                              <button
-                                className="icon-btn delete"
-                                onClick={() => handleCancel(apt._id)}
-                                disabled={apt.status === 'Completed'}
-                                style={apt.status === 'Completed' ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-                                title={apt.status === 'Completed' ? "Completed service cannot be cancelled" : "Cancel Booking"}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  paginatedAppointments.map((apt) => {
+                    const currentNormStatus = normalizeStatus(apt.status, apt.hasBill, apt.paymentStatus);
+                    const isLocked = currentNormStatus === 'Cancelled' || currentNormStatus === 'Completed';
+                    return (
+                      <tr key={apt._id}>
+                        <td>
+                          <div className="time-cell">
+                            <Clock size={16} /> {format24Hour(apt.timeSlot?.start)}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="user-combo" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {apt.customerDetails?.name || apt.customerId || 'Walk-in'}</span>
+                            {apt.customerDetails?.phone && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', paddingLeft: '18px' }}>{apt.customerDetails.phone}</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="service-combo">
+                            {apt.notes && apt.notes.includes('[Package:') ? (
+                              <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
+                            ) : (
+                              <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="staff-assignee">{apt.staffDetails?.name || apt.staffId || 'Unassigned'}</span>
+                        </td>
+                        <td>
+                          <div className="price-cell" style={{ fontWeight: 600 }}>
+                            <IndianRupee size={12} /> {apt.totalAmount}
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            className={`status-badge border-0 ${getStatusColor(currentNormStatus)}`}
+                            value={currentNormStatus}
+                            onChange={(e) => handleStatusChange(apt._id, e.target.value)}
+                            disabled={isLocked}
+                            title={currentNormStatus === 'Completed' ? 'Completed appointments cannot be changed' : currentNormStatus === 'Cancelled' ? 'Cancelled appointments cannot be changed' : ''}
+                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', pointerEvents: 'none' } : { cursor: 'pointer' }}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Reschedule">Reschedule</option>
+                            <option value="Cancelled">Cancelled</option>
+                          </select>
+                        </td>
+                        <td>
+                          <div className="action-buttons">
+                            {currentNormStatus !== 'Cancelled' && (
+                              <>
+                                <button
+                                  className="icon-btn edit"
+                                  style={{ background: 'rgba(124, 58, 237, 0.15)', color: '#a78bfa' }}
+                                  onClick={() => openRescheduleModal(apt)}
+                                  title="Reschedule Appointment"
+                                >
+                                  <CalendarIcon size={16} />
+                                </button>
+                                <button
+                                  className="icon-btn delete"
+                                  onClick={() => handleCancel(apt._id)}
+                                  disabled={currentNormStatus === 'Completed'}
+                                  style={currentNormStatus === 'Completed' ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                                  title={currentNormStatus === 'Completed' ? "Completed service cannot be cancelled" : "Cancel Booking"}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+
                 ) : (
                   <tr>
                     <td colSpan="7" className="empty-state">No appointments found for this date.</td>
