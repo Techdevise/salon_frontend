@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, MessageSquare } from 'lucide-react';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
 
@@ -41,6 +41,56 @@ function Billing() {
   const [historyList, setHistoryList] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState(null);
+
+  const handleSendWhatsAppBill = async (billId, phone) => {
+    if (!billId) {
+      setMessage({ text: 'No generated bill found to send on WhatsApp', type: 'error' });
+      return;
+    }
+    if (!phone) {
+      setMessage({ text: 'Customer phone number is missing', type: 'error' });
+      return;
+    }
+    try {
+      setSendingWhatsAppId(billId);
+      const res = await axios.post(`/api/billing/${billId}/send-whatsapp`, {}, { withCredentials: true });
+      if (res.data?.success) {
+        setMessage({ text: `📱 ${res.data.message}`, type: 'success' });
+      } else {
+        setMessage({ text: res.data?.message || 'Failed to send WhatsApp bill', type: 'error' });
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage({
+        text: err.response?.data?.message || 'Failed to send WhatsApp bill via API',
+        type: 'error'
+      });
+    } finally {
+      setSendingWhatsAppId(null);
+    }
+  };
+
+  const openWhatsAppWeb = (phone, billSnapshot) => {
+    if (!phone) return;
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const formattedPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+
+    const itemsText = (billSnapshot?.items || billSnapshot?.services || []).map(i => {
+      const name = i.name || i.serviceName || 'Service';
+      const qty = i.quantity || 1;
+      const price = i.price || 0;
+      return `• ${name} - ₹${price}${qty > 1 ? ` (x${qty})` : ''}`;
+    }).join('%0A');
+
+    const invNo = billSnapshot?.invoiceNo || billSnapshot?.invoiceNumber || 'INV';
+    const total = billSnapshot?.grandTotal || billSnapshot?.totalAmount || 0;
+    const custName = billSnapshot?.customer?.name || billSnapshot?.customerDetails?.name || 'Customer';
+
+    const text = `🧾 *SALON BILL RECEIPT*%0A--------------------------------%0A*Invoice No:* ${invNo}%0A*Customer:* ${encodeURIComponent(custName)}%0A%0A*Services:*%0A${itemsText}%0A%0A--------------------------------%0A*Grand Total:* ₹${total}%0A%0AThank you for visiting! ✨`;
+
+    window.open(`https://wa.me/${formattedPhone}?text=${text}`, '_blank');
+  };
 
   // For pre-filling from Appointments page
   const [pendingCustomerState, setPendingCustomerState] = useState(null);
@@ -61,8 +111,9 @@ function Billing() {
     if (!state?.fromAppointment) return;
 
     // Pre-fill bill items from appointment services
-    if (state.billItems?.length) {
-      setBillItems(state.billItems);
+    const itemsToSet = (state.items && state.items.length) ? state.items : (state.billItems && state.billItems.length) ? state.billItems : [];
+    if (itemsToSet.length) {
+      setBillItems(itemsToSet);
     }
 
     // Pre-fill staff
@@ -70,8 +121,13 @@ function Billing() {
       setSelectedStaffId(state.staffId);
     }
 
-    // Store customer info to be matched once customers list loads
+    // Store customer info and set selected customer immediately
     if (state.customerId || state.customerName) {
+      setSelectedCustomer({
+        _id: state.customerId || ('temp_' + Date.now()),
+        name: state.customerName || 'Customer',
+        phone: state.customerPhone || ''
+      });
       setPendingCustomerState(state);
     }
 
@@ -81,7 +137,7 @@ function Billing() {
     }
 
     // Show a helpful banner
-    setMessage({ text: `📋 Appointment services pre-filled. You can add more services below before generating the bill.`, type: 'success' });
+    setMessage({ text: `📋 Appointment services pre-filled for ${state.customerName || 'Customer'}. You can generate the bill now.`, type: 'success' });
 
     // Clear the navigation state so refreshing doesn't re-trigger
     window.history.replaceState({}, document.title);
@@ -103,7 +159,6 @@ function Billing() {
     if (matched) {
       setSelectedCustomer(matched);
     }
-    setPendingCustomerState(null);
   }, [customers, pendingCustomerState]);
 
   const fetchDiscounts = async () => {
@@ -431,6 +486,7 @@ function Billing() {
 
       // Save complete last bill snapshot before resetting form
       const generatedBillObj = {
+        _id: res.data?.data?._id,
         invoiceNo: res.data?.data?.invoiceNumber || res.data?.data?._id?.substring(0, 8) || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         customer: { ...selectedCustomer },
@@ -444,7 +500,7 @@ function Billing() {
       };
 
       setLastBill(generatedBillObj);
-      setMessage({ text: 'Bill generated successfully!', type: 'success' });
+      setMessage({ text: '📱 Bill generated & sent to customer WhatsApp successfully!', type: 'success' });
 
       // Reset form fields
       setBillItems([]);
@@ -477,7 +533,7 @@ function Billing() {
     <div className="billing-container">
       <div className="billing-header">
         <h1>Billing & Payment</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             className="btn-secondary"
             onClick={fetchBillingHistory}
@@ -491,6 +547,25 @@ function Billing() {
           >
             <Printer size={18} /> Print Last Bill
           </button>
+          {lastBill && (
+            <>
+              <button
+                className="btn-secondary"
+                style={{ background: '#25D366', color: '#fff', border: 'none', fontWeight: 600 }}
+                disabled={sendingWhatsAppId === (lastBill._id || 'last')}
+                onClick={() => handleSendWhatsAppBill(lastBill._id, lastBill.customer?.phone)}
+              >
+                <MessageSquare size={18} /> {sendingWhatsAppId === (lastBill._id || 'last') ? 'Sending...' : 'Send WhatsApp'}
+              </button>
+              <button
+                className="btn-secondary"
+                style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#4ade80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 600 }}
+                onClick={() => openWhatsAppWeb(lastBill.customer?.phone, lastBill)}
+              >
+                WhatsApp Web
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1087,25 +1162,68 @@ function Billing() {
                             {b.paymentMethod || 'Cash'}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => handlePrintHistoryBill(b)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px 12px',
-                              background: 'rgba(192, 132, 252, 0.15)',
-                              border: '1px solid rgba(192, 132, 252, 0.3)',
-                              color: '#c084fc',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              fontWeight: 500
-                            }}
-                          >
-                            <Printer size={14} /> Receipt
-                          </button>
+                        <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => handlePrintHistoryBill(b)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '6px 10px',
+                                background: 'rgba(192, 132, 252, 0.15)',
+                                border: '1px solid rgba(192, 132, 252, 0.3)',
+                                color: '#c084fc',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                fontWeight: 500
+                              }}
+                              title="Print Receipt"
+                            >
+                              <Printer size={14} /> Receipt
+                            </button>
+                            <button
+                              onClick={() => handleSendWhatsAppBill(b._id, b.customerDetails?.phone)}
+                              disabled={sendingWhatsAppId === b._id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '6px 10px',
+                                background: '#25D366',
+                                border: 'none',
+                                color: '#fff',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                opacity: sendingWhatsAppId === b._id ? 0.7 : 1
+                              }}
+                              title="Send WhatsApp Bill via Meta Cloud API"
+                            >
+                              <MessageSquare size={14} /> {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'}
+                            </button>
+                            <button
+                              onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '6px 10px',
+                                background: 'rgba(37, 211, 102, 0.15)',
+                                border: '1px solid rgba(37, 211, 102, 0.4)',
+                                color: '#4ade80',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                fontWeight: 500
+                              }}
+                              title="Open Direct Chat on WhatsApp Web"
+                            >
+                              Web WA
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
