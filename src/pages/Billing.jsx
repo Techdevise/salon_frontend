@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, MessageSquare } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } from 'lucide-react';
+import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
 
@@ -555,14 +556,14 @@ function Billing() {
                 disabled={sendingWhatsAppId === (lastBill._id || 'last')}
                 onClick={() => handleSendWhatsAppBill(lastBill._id, lastBill.customer?.phone)}
               >
-                <MessageSquare size={18} /> {sendingWhatsAppId === (lastBill._id || 'last') ? 'Sending...' : 'Send WhatsApp'}
+                <WhatsAppIcon size={18} /> {sendingWhatsAppId === (lastBill._id || 'last') ? 'Sending...' : 'Send WhatsApp'}
               </button>
               <button
                 className="btn-secondary"
-                style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#4ade80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 600 }}
+                style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#4ade80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={() => openWhatsAppWeb(lastBill.customer?.phone, lastBill)}
               >
-                WhatsApp Web
+                <WhatsAppIcon size={16} /> WhatsApp Web
               </button>
             </>
           )}
@@ -1202,7 +1203,7 @@ function Billing() {
                               }}
                               title="Send WhatsApp Bill via Meta Cloud API"
                             >
-                              <MessageSquare size={14} /> {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'}
+                              <WhatsAppIcon /> {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'}
                             </button>
                             <button
                               onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Repeat, Plus, Search, Trash2, Calendar, User, Clock, Scissors, X } from 'lucide-react';
+import { Repeat, Plus, Search, Trash2, Calendar, User, Clock, Scissors, X, Bell } from 'lucide-react';
+import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/DashboardPages.css';
 import '../styles/RecurringAppointments.css';
 import { useSelector } from 'react-redux';
@@ -25,6 +26,8 @@ function RecurringAppointments() {
   const [recurringList, setRecurringList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sendingReminderId, setSendingReminderId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   // Dropdown options
   const [customers, setCustomers] = useState([]);
@@ -35,6 +38,11 @@ function RecurringAppointments() {
   const [showModal, setShowModal] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4500);
+  };
 
   const [formData, setFormData] = useState({
     customerId: '',
@@ -149,6 +157,7 @@ function RecurringAppointments() {
       await axios.post('/api/recurring/create', payload, { withCredentials: true });
       fetchRecurring();
       closeModal();
+      showToast('Recurring series created! Automated reminders active (24h & 1h before booking).', 'success');
     } catch (error) {
       setErrorMsg(error.response?.data?.message || 'Failed to setup recurring series');
     } finally {
@@ -170,10 +179,46 @@ function RecurringAppointments() {
       try {
         await axios.patch(`/api/recurring/cancel/${id}`, {}, { withCredentials: true });
         fetchRecurring();
+        showToast('Recurring series cancelled.', 'success');
       } catch (error) {
         console.error('Failed to cancel recurring series:', error);
+        showToast('Failed to cancel recurring series.', 'error');
       }
     }
+  };
+
+  const handleSendWhatsAppReminder = async (item) => {
+    if (!item || !item._id) return;
+    setSendingReminderId(item._id);
+    try {
+      const res = await axios.post(`/api/recurring/reminder/${item._id}`, { reminderType: '24h' }, { withCredentials: true });
+      if (res.data?.success) {
+        showToast(`WhatsApp reminder sent to ${item.customerName}!`, 'success');
+      } else {
+        showToast(res.data?.message || 'Failed to send WhatsApp reminder', 'error');
+      }
+    } catch (error) {
+      console.error('Error sending WhatsApp reminder:', error);
+      const errMsg = error.response?.data?.message || 'Error sending WhatsApp reminder. You can also use WhatsApp Web.';
+      showToast(errMsg, 'error');
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
+  const openWhatsAppWeb = (item) => {
+    if (!item?.customerPhone) {
+      showToast('Customer phone number is missing.', 'error');
+      return;
+    }
+    let cleanPhone = String(item.customerPhone).replace(/\D/g, '');
+    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+    const message = `*SALON APPOINTMENT REMINDER*\n--------------------------------\nHello ${item.customerName || 'Customer'},\n\nThis is a friendly reminder for your upcoming recurring appointment!\n\n*Service:* ${item.serviceName || 'Salon Service'}\n*Staff:* ${item.staffName || 'Stylist'}\n*Time:* ${item.appointmentTime || 'Scheduled Time'}\n*Schedule:* ${item.frequency || 'Recurring'}\n--------------------------------\nWe look forward to seeing you! ✨`;
+
+    const encodedText = encodeURIComponent(message);
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+    window.open(waUrl, '_blank');
   };
 
   const filteredList = recurringList.filter(r =>
@@ -183,10 +228,19 @@ function RecurringAppointments() {
 
   return (
     <div className="page-container">
+      {toast.show && (
+        <div className={`reminder-toast ${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Recurring Appointments</h1>
           <p className="page-subtitle">Manage automated weekly or monthly appointment schedules</p>
+          <div className="reminder-header-pill">
+            <Bell size={14} /> Automatic WhatsApp Reminders: 24h & 1h before booking active
+          </div>
         </div>
         <button className="primary-btn" onClick={openModal}>
           <Plus size={18} /> Setup New Series
@@ -217,6 +271,7 @@ function RecurringAppointments() {
                 <th>Frequency</th>
                 <th>Duration</th>
                 <th>Status</th>
+                <th>WhatsApp Reminders</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -227,7 +282,10 @@ function RecurringAppointments() {
                     <td>
                       <div className="flex-cell">
                         <User size={16} className="text-gray" />
-                        <span className="font-medium text-white">{item.customerName || 'Customer'}</span>
+                        <div>
+                          <span className="font-medium text-white block">{item.customerName || 'Customer'}</span>
+                          {item.customerPhone && <span className="text-sm text-gray">{item.customerPhone}</span>}
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -255,9 +313,34 @@ function RecurringAppointments() {
                       </span>
                     </td>
                     <td>
+                      {item.status === 'Active' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            className="icon-btn whatsapp"
+                            style={{ padding: '6px 10px', fontSize: '12px', gap: '4px' }}
+                            disabled={sendingReminderId === item._id}
+                            onClick={() => handleSendWhatsAppReminder(item)}
+                            title="Send instant WhatsApp Reminder API"
+                          >
+                            <WhatsAppIcon size={14} />
+                            {sendingReminderId === item._id ? 'Sending...' : 'Send Reminder'}
+                          </button>
+                          <button
+                            className="icon-btn whatsapp-web"
+                            onClick={() => openWhatsAppWeb(item)}
+                            title="Open in WhatsApp Web"
+                          >
+                            <WhatsAppIcon size={12} /> Web
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray">Inactive</span>
+                      )}
+                    </td>
+                    <td>
                       <div className="action-buttons">
                         {item.status === 'Active' && (
-                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Delete Series"><Trash2 size={16} /></button>
+                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series"><Trash2 size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -265,7 +348,7 @@ function RecurringAppointments() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="empty-state">No recurring appointments found</td>
+                  <td colSpan="7" className="empty-state">No recurring appointments found</td>
                 </tr>
               )}
             </tbody>
