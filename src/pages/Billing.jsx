@@ -11,8 +11,11 @@ import { useConfirm } from '../components/ConfirmModal';
 function Billing() {
   const confirm = useConfirm();
   const location = useLocation();
-  const { selectedSalonId } = useSelector((state) => state.salon);
+  const { selectedSalonId, selectedSalonInfo, salons } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
+
+  const currentSalon = selectedSalonInfo || (salons || []).find(s => s._id === selectedSalonId) || (user?.salonId && typeof user.salonId === 'object' ? user.salonId : null);
+  const currentSalonName = currentSalon?.salonName || currentSalon?.name || (user?.salonName) || 'Salon';
 
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
@@ -392,10 +395,20 @@ function Billing() {
     }
   };
 
+  const triggerPrint = () => {
+    const originalTitle = document.title;
+    document.title = ' ';
+    window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
+  };
+
   const handlePrintHistoryBill = (bill) => {
     const snapshot = {
       invoiceNo: bill.invoiceNumber || bill._id?.substring(0, 8) || 'INV',
       date: new Date(bill.createdAt).toLocaleString(),
+      salonName: bill.salonId?.salonName || bill.salonId?.name || currentSalonName,
       customer: {
         name: bill.customerDetails?.name || 'Walk-in Customer',
         phone: bill.customerDetails?.phone || 'N/A'
@@ -416,7 +429,7 @@ function Billing() {
     };
     setLastBill(snapshot);
     setTimeout(() => {
-      window.print();
+      triggerPrint();
     }, 300);
   };
 
@@ -494,6 +507,7 @@ function Billing() {
         _id: res.data?.data?._id,
         invoiceNo: res.data?.data?.invoiceNumber || res.data?.data?._id?.substring(0, 8) || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
+        salonName: currentSalonName,
         customer: { ...selectedCustomer },
         staff: selectedStaff ? { ...selectedStaff } : { name: 'Staff Member' },
         items: [...billItems],
@@ -520,7 +534,7 @@ function Billing() {
 
       // Auto trigger print dialog after small delay so DOM updates
       setTimeout(() => {
-        window.print();
+        triggerPrint();
       }, 300);
 
     } catch (err) {
@@ -551,13 +565,13 @@ function Billing() {
           >
             <Clock size={18} /> All History
           </button>
-          <button
+          {/* <button
             className="btn-secondary"
             disabled={!lastBill && billItems.length === 0}
-            onClick={() => window.print()}
+            onClick={triggerPrint}
           >
             <Printer size={18} /> Print Last Bill
-          </button>
+          </button> */}
           {lastBill && (
             <>
               <button
@@ -954,15 +968,18 @@ function Billing() {
 
       {/* Dedicated Printable Thermal Receipt Layout */}
       <div className="printable-receipt-container">
+        <div className="receipt-top-bar">
+          <span>{new Date().toLocaleString()}</span>
+        </div>
         <div className="receipt-header">
-          <h2>SALON MANAGEMENT TAX RECEIPT</h2>
+          <h2>{`${(lastBill?.salonName || currentSalonName || 'Salon').toUpperCase()} TAX RECEIPT`}</h2>
           <p>Official Billing & Services Invoice</p>
           <p className="receipt-date">Date: {lastBill?.date || new Date().toLocaleString()}</p>
         </div>
 
         <div className="receipt-info-grid">
           <div><strong>Invoice No:</strong> {lastBill?.invoiceNo || 'INV-DRAFT'}</div>
-          <div><strong>Customer:</strong> {lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</div>
+          <div><strong>Customer Name:</strong> {lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</div>
           <div><strong>Phone:</strong> {lastBill?.customer?.phone || selectedCustomer?.phone || 'N/A'}</div>
           <div><strong>Served By:</strong> {lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</div>
         </div>
@@ -970,7 +987,7 @@ function Billing() {
         <table className="receipt-table">
           <thead>
             <tr>
-              <th>Service / Item</th>
+              <th>Service</th>
               <th>Qty</th>
               <th>Price</th>
               <th>Total</th>
@@ -982,7 +999,7 @@ function Billing() {
               : [{ name: 'N/A', quantity: 1, price: 0 }]
             ).map((item, idx) => (
               <tr key={idx}>
-                <td>{item.name}</td>
+                <td style={{ textTransform: 'capitalize' }}>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>₹{item.price}</td>
                 <td>₹{item.price * item.quantity}</td>
@@ -994,14 +1011,19 @@ function Billing() {
         <div className="receipt-totals">
           <div className="row"><span>Subtotal:</span><span>₹{(lastBill ? lastBill.subtotal : subtotal).toFixed(2)}</span></div>
           <div className="row"><span>GST (18%):</span><span>₹{(lastBill ? lastBill.tax : tax).toFixed(2)}</span></div>
-          <div className="row"><span>Discount:</span><span>-₹{lastBill ? lastBill.discount : discount}</span></div>
+          <div className="row"><span>Discount:</span><span>₹{lastBill ? lastBill.discount : discount}</span></div>
           <div className="row"><span>Payment Method:</span><span>{lastBill ? lastBill.paymentMethod : paymentMethod}</span></div>
           <div className="row grand"><span>Grand Total:</span><span>₹{(lastBill ? lastBill.grandTotal : grandTotal).toFixed(2)}</span></div>
         </div>
 
         <div className="receipt-footer">
-          <p>Thank you for visiting our Salon!</p>
+          <p>Thank you for visiting {lastBill?.salonName || currentSalonName || 'our Salon'}!</p>
           <p>Have a wonderful day ahead.</p>
+        </div>
+
+        <div className="receipt-bottom-bar">
+          <span>{window.location.host + window.location.pathname}</span>
+          <span>1/1</span>
         </div>
       </div>
       {/* All Billing & Payments History Modal */}
@@ -1130,7 +1152,7 @@ function Billing() {
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Invoice #</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Served By</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Items</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Service</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Total Amount</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Method</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
@@ -1152,7 +1174,7 @@ function Billing() {
                         <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
                           {b.staffDetails?.name || 'Staff'}
                         </td>
-                        <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
                           {(b.services || []).map(s => s.serviceName || s.serviceId?.serviceName || 'Service').join(', ') || 'Service'}
                         </td>
                         <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
@@ -1213,7 +1235,8 @@ function Billing() {
                               }}
                               title="Send WhatsApp Bill via Meta Cloud API"
                             >
-                              <WhatsAppIcon /> {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'}
+                              <WhatsAppIcon /> 
+                              {/* {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'} */}
                             </button>
                             <button
                               onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}
