@@ -230,6 +230,7 @@ function RecurringAppointments() {
     <div className="page-container">
       {toast.show && (
         <div className={`reminder-toast ${toast.type}`}>
+          {toast.type === 'success' ? '✅ ' : '⚠️ '}
           {toast.message}
         </div>
       )}

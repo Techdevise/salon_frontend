@@ -43,30 +43,34 @@ function Billing() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [sendingWhatsAppId, setSendingWhatsAppId] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (text, type = 'success') => {
+    setToast({ show: true, message: text, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 5000);
+  };
 
   const handleSendWhatsAppBill = async (billId, phone) => {
     if (!billId) {
-      setMessage({ text: 'No generated bill found to send on WhatsApp', type: 'error' });
+      showToast('No generated bill found to send on WhatsApp', 'error');
       return;
     }
     if (!phone) {
-      setMessage({ text: 'Customer phone number is missing', type: 'error' });
+      showToast('Customer phone number is missing', 'error');
       return;
     }
     try {
       setSendingWhatsAppId(billId);
       const res = await axios.post(`/api/billing/${billId}/send-whatsapp`, {}, { withCredentials: true });
       if (res.data?.success) {
-        setMessage({ text: `📱 ${res.data.message}`, type: 'success' });
+        showToast(res.data.message || 'WhatsApp bill sent successfully!', 'success');
       } else {
-        setMessage({ text: res.data?.message || 'Failed to send WhatsApp bill', type: 'error' });
+        showToast(res.data?.message || 'Failed to send WhatsApp bill', 'error');
       }
     } catch (err) {
       console.error(err);
-      setMessage({
-        text: err.response?.data?.message || 'Failed to send WhatsApp bill via API',
-        type: 'error'
-      });
+      const errMsg = err.response?.data?.message || 'Failed to send WhatsApp bill via API. Try using WhatsApp Web.';
+      showToast(errMsg, 'error');
     } finally {
       setSendingWhatsAppId(null);
     }
@@ -532,6 +536,12 @@ function Billing() {
 
   return (
     <div className="billing-container">
+      {toast.show && (
+        <div className={`billing-toast ${toast.type}`}>
+          {toast.type === 'success' ? '✅ ' : '⚠️ '}
+          {toast.message}
+        </div>
+      )}
       <div className="billing-header">
         <h1>Billing & Payment</h1>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

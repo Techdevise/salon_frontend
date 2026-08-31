@@ -154,7 +154,7 @@
 
 .reminder-toast {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
   padding: 12px 20px;
   border-radius: 8px;
@@ -162,7 +162,7 @@
   font-weight: 500;
   z-index: 10000;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-  animation: slideInUp 0.3s ease;
+  animation: slideInDown 0.3s ease;
 }
 
 .reminder-toast.success {
@@ -175,9 +175,9 @@
   color: #ffffff;
 }
 
-@keyframes slideInUp {
+@keyframes slideInDown {
   from {
-    transform: translateY(100%);
+    transform: translateY(-100%);
     opacity: 0;
   }
   to {
