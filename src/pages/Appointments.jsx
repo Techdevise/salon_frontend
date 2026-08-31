@@ -765,6 +765,7 @@ function Appointments() {
       }
 
       fetchAppointments();
+      fetchOptions();
       setShowWalkInModal(false);
       setSelectedRecurringIntervals([]);
 
@@ -1351,28 +1352,13 @@ function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Customer Name *</label>
-                  <SearchableSelect
-                    name="customerId"
-                    value={walkInFormData.customerId}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      const found = customerList.find(c => c._id === selectedId);
-                      if (found) {
-                        setWalkInFormData(prev => ({
-                          ...prev,
-                          customerId: found._id,
-                          customerName: found.name || '',
-                          customerPhone: found.phone || ''
-                        }));
-                      }
-                    }}
-                    placeholder="-- Search or Select Customer --"
-                    options={customerList.map(c => ({
-                      value: c._id,
-                      label: c.name,
-                      sublabel: c.phone,
-                      searchTerms: `${c.name} ${c.phone}`
-                    }))}
+                  <input
+                    type="text"
+                    name="customerName"
+                    required
+                    value={walkInFormData.customerName}
+                    onChange={handleWalkInChange}
+                    placeholder="Enter customer name"
                   />
                 </div>
                 <div className="form-group">
