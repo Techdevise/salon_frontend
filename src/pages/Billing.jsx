@@ -317,7 +317,7 @@ function Billing() {
   const [lastBill, setLastBill] = useState(null);
 
   const subtotal = billItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.18; // 18% GST example
+  const tax = Math.max(0, subtotal - discount) * 0.18; // 18% GST on taxable amount
   const grandTotal = Math.max(0, subtotal + tax - discount);
 
   const handlePromoCodeChange = (code) => {
@@ -405,6 +405,19 @@ function Billing() {
   };
 
   const handlePrintHistoryBill = (bill) => {
+    const sTotal = Number(bill.subTotal || bill.totalAmount || 0);
+    const dAmount = Number(bill.discountAmount || 0);
+    const taxable = Math.max(0, sTotal - dAmount);
+    let taxAmt = 0;
+    if (bill.taxAmount !== undefined && bill.taxAmount !== null && Number(bill.taxAmount) > 0) {
+      taxAmt = Number(bill.taxAmount);
+    } else if (bill.tax !== undefined && bill.tax !== null && Number(bill.tax) > 0) {
+      const tVal = Number(bill.tax);
+      taxAmt = tVal <= 100 ? (taxable * tVal) / 100 : tVal;
+    } else {
+      taxAmt = taxable * 0.18;
+    }
+
     const snapshot = {
       invoiceNo: bill.invoiceNumber || bill._id?.substring(0, 8) || 'INV',
       date: new Date(bill.createdAt).toLocaleString(),
@@ -421,10 +434,10 @@ function Billing() {
         quantity: s.quantity || 1,
         price: s.price || 0
       })),
-      subtotal: bill.subTotal || bill.totalAmount || 0,
-      tax: bill.tax !== undefined ? bill.tax : ((bill.subTotal || bill.totalAmount || 0) * 0.18),
-      discount: bill.discountAmount || 0,
-      grandTotal: bill.totalAmount || bill.paidAmount || 0,
+      subtotal: sTotal,
+      tax: taxAmt,
+      discount: dAmount,
+      grandTotal: Number(bill.totalAmount || bill.paidAmount || 0),
       paymentMethod: bill.paymentMethod || 'Cash'
     };
     setLastBill(snapshot);
@@ -1013,8 +1026,8 @@ function Billing() {
 
         <div className="receipt-totals">
           <div className="row"><span>Subtotal:</span><span>₹{(lastBill ? lastBill.subtotal : subtotal).toFixed(2)}</span></div>
-          <div className="row"><span>GST (18%):</span><span>₹{(lastBill ? lastBill.tax : tax).toFixed(2)}</span></div>
-          <div className="row"><span>Discount:</span><span>₹{lastBill ? lastBill.discount : discount}</span></div>
+          <div className="row"><span>GST (18%):</span><span>₹{Number(lastBill ? lastBill.tax : tax).toFixed(2)}</span></div>
+          <div className="row"><span>Discount:</span><span>-₹{Number(lastBill ? lastBill.discount : discount).toFixed(2)}</span></div>
           <div className="row"><span>Payment Method:</span><span>{lastBill ? lastBill.paymentMethod : paymentMethod}</span></div>
           <div className="row grand"><span>Grand Total:</span><span>₹{(lastBill ? lastBill.grandTotal : grandTotal).toFixed(2)}</span></div>
         </div>
