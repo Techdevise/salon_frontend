@@ -901,17 +901,20 @@ function Billing() {
                     className="payment-select"
                   >
                     <option value="">-- Select Offer --</option>
-                    {discounts.map(d => {
-                      const isNotValidYet = d.startDate && new Date() < new Date(d.startDate);
-                      const isDateExpired = d.endDate && new Date() > new Date(d.endDate);
-                      const isLimitReached = d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit);
-                      const isDisabled = isNotValidYet || isDateExpired || isLimitReached;
-                      return (
-                        <option key={d._id} value={d.promoCode} disabled={isDisabled}>
-                          🏷️ {d.promoCode} {isNotValidYet ? '(Not valid yet)' : isDateExpired ? '(Expired)' : isLimitReached ? '(Limit Reached)' : (d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`)}
+                    {discounts
+                      .filter(d => {
+                        if (!d || d.isActive === false) return false;
+                        const now = new Date();
+                        if (d.startDate && now < new Date(d.startDate)) return false;
+                        if (d.endDate && now > new Date(d.endDate)) return false;
+                        if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
+                        return true;
+                      })
+                      .map(d => (
+                        <option key={d._id} value={d.promoCode}>
+                          🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
                         </option>
-                      );
-                    })}
+                      ))}
                   </select>
                 </div>
               </div>
