@@ -979,9 +979,9 @@ function Billing() {
 
         <div className="receipt-info-grid">
           <div><strong>Invoice No:</strong> {lastBill?.invoiceNo || 'INV-DRAFT'}</div>
-          <div><strong>Customer Name:</strong> {lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</div>
+          <div><strong>Customer Name:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</span></div>
           <div><strong>Phone:</strong> {lastBill?.customer?.phone || selectedCustomer?.phone || 'N/A'}</div>
-          <div><strong>Served By:</strong> {lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</div>
+          <div><strong>Served By:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</span></div>
         </div>
 
         <table className="receipt-table">
