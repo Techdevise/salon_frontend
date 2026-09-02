@@ -155,8 +155,8 @@ function Billing() {
       setAppointmentTimeSlot(state.timeSlot);
     }
 
-    // Show a helpful banner
-    setMessage({ text: `📋 Appointment services pre-filled for ${state.customerName || 'Customer'}. You can generate the bill now.`, type: 'success' });
+    // Show a helpful toast
+    showToast(`📋 Appointment services pre-filled for ${state.customerName || 'Customer'}.`, 'success');
 
     // Clear the navigation state so refreshing doesn't re-trigger
     window.history.replaceState({}, document.title);
@@ -261,50 +261,80 @@ function Billing() {
       const serviceObj = services.find(s => s._id === selectedService);
       if (!serviceObj) return;
 
-      const existing = billItems.find(item => item.id === serviceObj._id);
-      if (existing) {
-        setBillItems(billItems.map(item =>
-          item.id === serviceObj._id ? { ...item, quantity: item.quantity + 1 } : item
-        ));
-      } else {
-        setBillItems([...billItems, {
-          id: serviceObj._id,
-          serviceId: serviceObj._id,
-          name: serviceObj.serviceName,
-          price: serviceObj.price,
-          quantity: 1,
-          type: 'service'
-        }]);
+      const alreadyAdded = billItems.some(item =>
+        item.serviceId === serviceObj._id ||
+        item.id === serviceObj._id ||
+        (item.name && item.name.toLowerCase().trim() === serviceObj.serviceName.toLowerCase().trim())
+      );
+
+      if (alreadyAdded) {
+        setMessage({
+          text: `⚠️ Service "${serviceObj.serviceName}" is already added to the bill. Duplicate services cannot be added.`,
+          type: 'error'
+        });
+        setSelectedService('');
+        return;
       }
+
+      setBillItems([...billItems, {
+        id: serviceObj._id,
+        serviceId: serviceObj._id,
+        name: serviceObj.serviceName,
+        price: serviceObj.price,
+        quantity: 1,
+        type: 'service'
+      }]);
       setSelectedService('');
     } else if (itemType === 'package') {
       if (!selectedPackageId) return;
       const pkgObj = packages.find(p => p._id === selectedPackageId);
       if (!pkgObj) return;
 
-      const existing = billItems.find(item => item.id === pkgObj._id);
-      if (existing) {
-        setBillItems(billItems.map(item =>
-          item.id === pkgObj._id ? { ...item, quantity: item.quantity + 1 } : item
-        ));
-      } else {
-        setBillItems([...billItems, {
-          id: pkgObj._id,
-          packageId: pkgObj._id,
-          name: `📦 ${pkgObj.packageName}`,
-          price: pkgObj.packagePrice || pkgObj.price || 0,
-          quantity: 1,
-          type: 'package'
-        }]);
+      const alreadyAdded = billItems.some(item =>
+        item.packageId === pkgObj._id ||
+        item.id === pkgObj._id ||
+        (item.name && item.name.toLowerCase().trim().includes(pkgObj.packageName.toLowerCase().trim()))
+      );
+
+      if (alreadyAdded) {
+        setMessage({
+          text: `⚠️ Package "${pkgObj.packageName}" is already added to the bill. Duplicate packages cannot be added.`,
+          type: 'error'
+        });
+        setSelectedPackageId('');
+        return;
       }
+
+      setBillItems([...billItems, {
+        id: pkgObj._id,
+        packageId: pkgObj._id,
+        name: `📦 ${pkgObj.packageName}`,
+        price: pkgObj.packagePrice || pkgObj.price || 0,
+        quantity: 1,
+        type: 'package'
+      }]);
       setSelectedPackageId('');
     } else if (itemType === 'custom') {
       if (!customServiceName.trim() || !customServicePrice) return;
+      const trimmedName = customServiceName.trim();
+
+      const alreadyAdded = billItems.some(item =>
+        item.name && item.name.toLowerCase().trim() === trimmedName.toLowerCase()
+      );
+
+      if (alreadyAdded) {
+        setMessage({
+          text: `⚠️ Custom service "${trimmedName}" is already added to the bill. Duplicate services cannot be added.`,
+          type: 'error'
+        });
+        return;
+      }
+
       const customId = 'custom_' + Date.now();
       setBillItems([...billItems, {
         id: customId,
         serviceId: null,
-        name: customServiceName.trim(),
+        name: trimmedName,
         price: Number(customServicePrice),
         quantity: 1,
         type: 'custom'
@@ -343,10 +373,7 @@ function Billing() {
       if (selectedCustomer?._id && Array.isArray(foundDisc.usedBy)) {
         const isAlreadyUsed = foundDisc.usedBy.some(id => String(id?._id || id) === String(selectedCustomer._id));
         if (isAlreadyUsed) {
-          setMessage({
-            text: `Promo code ${foundDisc.promoCode} has already been used by ${selectedCustomer.name || 'this customer'}. A customer can only apply this promo code once.`,
-            type: 'error'
-          });
+          showToast(`Promo code ${foundDisc.promoCode} has already been used by ${selectedCustomer.name || 'this customer'}. A customer can only apply this promo code once.`, 'error');
           setDiscount(0);
           setSelectedPromoCode('');
           return;
@@ -355,13 +382,13 @@ function Billing() {
 
       const now = new Date();
       if (foundDisc.startDate && now < new Date(foundDisc.startDate)) {
-        setMessage({ text: `Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${new Date(foundDisc.startDate).toLocaleDateString()})`, type: 'error' });
+        showToast(`Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${new Date(foundDisc.startDate).toLocaleDateString()})`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
       }
       if (foundDisc.endDate && now > new Date(foundDisc.endDate)) {
-        setMessage({ text: `Promo code ${foundDisc.promoCode} has expired on ${new Date(foundDisc.endDate).toLocaleDateString()}`, type: 'error' });
+        showToast(`Promo code ${foundDisc.promoCode} has expired on ${new Date(foundDisc.endDate).toLocaleDateString()}`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
@@ -369,13 +396,13 @@ function Billing() {
       const limit = foundDisc.usageLimit;
       const used = Number(foundDisc.usedCount || 0);
       if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) {
-        setMessage({ text: `Promo code ${foundDisc.promoCode} usage limit reached (${limit} max limit)`, type: 'error' });
+        showToast(`Promo code ${foundDisc.promoCode} usage limit reached (${limit} max limit)`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
       }
       if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
-        setMessage({ text: `This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required.`, type: 'error' });
+        showToast(`This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required.`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
@@ -391,7 +418,7 @@ function Billing() {
       }
       discAmt = Math.min(discAmt, subtotal);
       setDiscount(discAmt);
-      setMessage({ text: `Applied ${foundDisc.promoCode} (-₹${discAmt})`, type: 'success' });
+      showToast(`Applied ${foundDisc.promoCode} (-₹${discAmt})`, 'success');
     }
   };
 
@@ -558,7 +585,7 @@ function Billing() {
       };
 
       setLastBill(generatedBillObj);
-      setMessage({ text: '📱 Bill generated & sent to customer WhatsApp successfully!', type: 'success' });
+      showToast('📱 Bill generated & sent to customer WhatsApp successfully!', 'success');
 
       // Reset form fields
       setBillItems([]);
@@ -579,10 +606,7 @@ function Billing() {
 
     } catch (err) {
       console.error(err);
-      setMessage({
-        text: err.response?.data?.message || 'Failed to generate bill',
-        type: 'error'
-      });
+      showToast(err.response?.data?.message || 'Failed to generate bill', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -633,12 +657,6 @@ function Billing() {
           )}
         </div>
       </div>
-
-      {message.text && (
-        <div className={`alert ${message.type}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="billing-grid">
         {/* Left Side - Selection */}
@@ -760,11 +778,18 @@ function Billing() {
                   className="service-select"
                 >
                   <option value="">-- Select a Service --</option>
-                  {services.map(s => (
-                    <option key={s._id} value={s._id}>
-                      {s.serviceName} - ₹{s.price}
-                    </option>
-                  ))}
+                  {services.map(s => {
+                    const isAlreadyAdded = billItems.some(item =>
+                      item.serviceId === s._id ||
+                      item.id === s._id ||
+                      (item.name && item.name.toLowerCase().trim() === s.serviceName.toLowerCase().trim())
+                    );
+                    return (
+                      <option key={s._id} value={s._id} disabled={isAlreadyAdded}>
+                        {s.serviceName} - ₹{s.price} {isAlreadyAdded ? '(Already Added)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   className="btn-primary"
@@ -785,11 +810,18 @@ function Billing() {
                   className="service-select"
                 >
                   <option value="">-- Select a Service Package --</option>
-                  {packages.map(p => (
-                    <option key={p._id} value={p._id}>
-                      📦 {p.packageName} - ₹{p.packagePrice || p.price}
-                    </option>
-                  ))}
+                  {packages.map(p => {
+                    const isAlreadyAdded = billItems.some(item =>
+                      item.packageId === p._id ||
+                      item.id === p._id ||
+                      (item.name && item.name.toLowerCase().trim().includes(p.packageName.toLowerCase().trim()))
+                    );
+                    return (
+                      <option key={p._id} value={p._id} disabled={isAlreadyAdded}>
+                        📦 {p.packageName} - ₹{p.packagePrice || p.price} {isAlreadyAdded ? '(Already Added)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   className="btn-primary"
