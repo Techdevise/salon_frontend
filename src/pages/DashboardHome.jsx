@@ -228,7 +228,7 @@ function DashboardHome() {
       if (res.data.success && Array.isArray(res.data.data)) {
         const formattedData = res.data.data.map(act => ({
           ...act,
-          status: act.status || (act.paymentStatus === 'Paid' ? 'Completed' : 'Pending')
+          status: act.status || 'Completed'
         }));
         setStaffActivities(formattedData);
       } else {
@@ -260,7 +260,7 @@ function DashboardHome() {
               totalAmount: bill.totalAmount || bill.subTotal || bill.paidAmount || 0,
               paymentMethod: bill.paymentMethod || 'Cash',
               paymentStatus: bill.paymentStatus || 'Paid',
-              status: bill.status || (bill.paymentStatus === 'Paid' ? 'Completed' : 'Pending'),
+              status: bill.status || 'Completed',
               date: bill.createdAt
             };
           });
