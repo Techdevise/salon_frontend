@@ -328,6 +328,20 @@ function Billing() {
     }
     const foundDisc = discounts.find(d => d.promoCode === code);
     if (foundDisc) {
+      // Check if this specific customer has already used this promo code
+      if (selectedCustomer?._id && Array.isArray(foundDisc.usedBy)) {
+        const isAlreadyUsed = foundDisc.usedBy.some(id => String(id?._id || id) === String(selectedCustomer._id));
+        if (isAlreadyUsed) {
+          setMessage({
+            text: `Promo code ${foundDisc.promoCode} has already been used by ${selectedCustomer.name || 'this customer'}. A customer can only apply this promo code once.`,
+            type: 'error'
+          });
+          setDiscount(0);
+          setSelectedPromoCode('');
+          return;
+        }
+      }
+
       const now = new Date();
       if (foundDisc.startDate && now < new Date(foundDisc.startDate)) {
         setMessage({ text: `Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${new Date(foundDisc.startDate).toLocaleDateString()})`, type: 'error' });
@@ -370,12 +384,12 @@ function Billing() {
     }
   };
 
-  // Re-evaluate discount if subtotal changes and promo code is selected
+  // Re-evaluate discount if subtotal or customer changes
   useEffect(() => {
     if (selectedPromoCode) {
       handlePromoCodeChange(selectedPromoCode);
     }
-  }, [subtotal]);
+  }, [subtotal, selectedCustomer]);
 
   const selectedStaff = staffList.find(s => s._id === selectedStaffId);
 
@@ -921,6 +935,7 @@ function Billing() {
                         if (d.startDate && now < new Date(d.startDate)) return false;
                         if (d.endDate && now > new Date(d.endDate)) return false;
                         if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
+                        if (selectedCustomer?._id && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(selectedCustomer._id))) return false;
                         return true;
                       })
                       .map(d => (
