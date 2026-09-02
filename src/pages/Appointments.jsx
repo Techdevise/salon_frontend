@@ -1110,6 +1110,17 @@ function Appointments() {
               apt.staffId?._id ||
               (typeof apt.staffId === 'string' ? apt.staffId : null);
 
+            let formattedSlot = '';
+            if (typeof apt.timeSlot === 'string') {
+              formattedSlot = apt.timeSlot;
+            } else if (apt.timeSlot && typeof apt.timeSlot === 'object') {
+              if (apt.timeSlot.start && apt.timeSlot.end && apt.timeSlot.end !== 'TBD') {
+                formattedSlot = `${apt.timeSlot.start} - ${apt.timeSlot.end}`;
+              } else if (apt.timeSlot.start) {
+                formattedSlot = apt.timeSlot.start;
+              }
+            }
+
             // Navigate to Billing page with pre-filled data via route state
             navigate('/dashboard/billing', {
               state: {
@@ -1121,7 +1132,9 @@ function Appointments() {
                 staffId: resolvedStaffId,
                 billItems: prefilledItems,
                 promoCode: apt.promoCode || null,
-                packageId: apt.packageId || null
+                packageId: apt.packageId || null,
+                timeSlot: formattedSlot || null,
+                date: apt.date || null
               }
             });
           }

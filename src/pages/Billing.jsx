@@ -103,6 +103,7 @@ function Billing() {
   // For pre-filling from Appointments page
   const [pendingCustomerState, setPendingCustomerState] = useState(null);
   const [linkedAppointmentId, setLinkedAppointmentId] = useState(null);
+  const [appointmentTimeSlot, setAppointmentTimeSlot] = useState(null);
 
   useEffect(() => {
     setSelectedCustomer(null);
@@ -147,6 +148,11 @@ function Billing() {
     // Pre-fill promo code from appointment if applied
     if (state.promoCode) {
       setSelectedPromoCode(state.promoCode);
+    }
+
+    // Pre-fill time slot from appointment if available
+    if (state.timeSlot) {
+      setAppointmentTimeSlot(state.timeSlot);
     }
 
     // Show a helpful banner
@@ -542,6 +548,7 @@ function Billing() {
         salonName: currentSalonName,
         customer: { ...selectedCustomer },
         staff: selectedStaff ? { ...selectedStaff } : { name: 'Staff Member' },
+        timeSlot: appointmentTimeSlot,
         items: [...billItems],
         subtotal,
         tax,
@@ -561,6 +568,7 @@ function Billing() {
       setSelectedPromoCode('');
       setPaymentMethod('Cash');
       setLinkedAppointmentId(null);
+      setAppointmentTimeSlot(null);
 
       fetchDiscounts();
 
@@ -870,6 +878,12 @@ function Billing() {
                 <span className="label">Served By:</span>
                 <span className="value">{selectedStaff ? selectedStaff.name : 'Not Selected'}</span>
               </div>
+              {appointmentTimeSlot && (
+                <div className="invoice-details-row">
+                  <span className="label">Time Slot:</span>
+                  <span className="value">{appointmentTimeSlot}</span>
+                </div>
+              )}
             </div>
 
             <div className="invoice-items">
@@ -1018,6 +1032,9 @@ function Billing() {
           <div><strong>Customer Name:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</span></div>
           <div><strong>Phone:</strong> {lastBill?.customer?.phone || selectedCustomer?.phone || 'N/A'}</div>
           <div><strong>Served By:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</span></div>
+          {(lastBill?.timeSlot || appointmentTimeSlot) && (
+            <div><strong>Time Slot:</strong> {lastBill?.timeSlot || appointmentTimeSlot}</div>
+          )}
         </div>
 
         <table className="receipt-table">
