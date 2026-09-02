@@ -732,6 +732,8 @@ function Appointments() {
         customerId: targetCustomerId,
         staffId: targetStaffId,
         services: targetServiceIds,
+        packageId: walkInFormData.packageId || null,
+        promoCode: walkInSelectedPromoCode || null,
         date: walkInDate || new Date().toISOString().split('T')[0],
         timeSlot: { start: walkInFormData.startTime || 'TBD', end: "TBD" },
         totalAmount: Number(walkInFormData.totalAmount) || 0,
@@ -868,6 +870,8 @@ function Appointments() {
         customerId: formData.customerId,
         staffId: formData.staffId,
         services: targetServiceIds,
+        packageId: formData.packageId || null,
+        promoCode: selectedPromoCode || null,
         date: formData.date,
         timeSlot: { start: formData.startTime, end: "TBD" },
         totalAmount: Number(formData.totalAmount) || 0,
@@ -1115,7 +1119,9 @@ function Appointments() {
                 customerName: apt.customerDetails?.name || 'Customer',
                 customerPhone: apt.customerDetails?.phone || '',
                 staffId: resolvedStaffId,
-                billItems: prefilledItems
+                billItems: prefilledItems,
+                promoCode: apt.promoCode || null,
+                packageId: apt.packageId || null
               }
             });
           }
@@ -1439,6 +1445,17 @@ function Appointments() {
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
+                    const currentWalkInCust = walkInFormData.customerId
+                      ? customerList.find(c => c._id === walkInFormData.customerId)
+                      : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
+
+                    if (currentWalkInCust?._id && disc && Array.isArray(disc.usedBy) && disc.usedBy.some(id => String(id?._id || id) === String(currentWalkInCust._id))) {
+                      setWalkInError(`Promo code ${disc.promoCode} has already been used by this customer. A customer can only apply this promo code once.`);
+                      setWalkInSelectedPromoCode('');
+                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
+
                     const now = new Date();
                     if (disc && disc.startDate && now < new Date(disc.startDate)) {
                       setWalkInError(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
@@ -1479,6 +1496,10 @@ function Appointments() {
                       if (d.startDate && now < new Date(d.startDate)) return false;
                       if (d.endDate && now > new Date(d.endDate)) return false;
                       if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
+                      const currentWalkInCust = walkInFormData.customerId
+                        ? customerList.find(c => c._id === walkInFormData.customerId)
+                        : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
+                      if (currentWalkInCust?._id && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(currentWalkInCust._id))) return false;
                       return true;
                     })
                     .map(d => (
@@ -1673,6 +1694,13 @@ function Appointments() {
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
+                    if (formData.customerId && disc && Array.isArray(disc.usedBy) && disc.usedBy.some(id => String(id?._id || id) === String(formData.customerId))) {
+                      setErrorMsg(`Promo code ${disc.promoCode} has already been used by this customer. A customer can only apply this promo code once.`);
+                      setSelectedPromoCode('');
+                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
+
                     const now = new Date();
                     if (disc && disc.startDate && now < new Date(disc.startDate)) {
                       setErrorMsg(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
@@ -1713,6 +1741,7 @@ function Appointments() {
                       if (d.startDate && now < new Date(d.startDate)) return false;
                       if (d.endDate && now > new Date(d.endDate)) return false;
                       if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
+                      if (formData.customerId && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(formData.customerId))) return false;
                       return true;
                     })
                     .map(d => (

@@ -144,6 +144,11 @@ function Billing() {
       setLinkedAppointmentId(state.appointmentId);
     }
 
+    // Pre-fill promo code from appointment if applied
+    if (state.promoCode) {
+      setSelectedPromoCode(state.promoCode);
+    }
+
     // Show a helpful banner
     setMessage({ text: `📋 Appointment services pre-filled for ${state.customerName || 'Customer'}. You can generate the bill now.`, type: 'success' });
 
