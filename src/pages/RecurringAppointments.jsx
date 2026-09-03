@@ -170,7 +170,7 @@ function RecurringAppointments() {
     const customerName = item?.customerName || 'this series';
     const confirmed = await confirm({
       title: 'Cancel Recurring Series',
-      message: `Are you sure you want to cancel all future appointments in the series for "${customerName}"?`,
+      message: `Are you sure you want to cancel all future appointments in the series for "${customerName}"? They will be removed from the booking calendar.`,
       confirmText: 'Cancel Series',
       cancelText: 'Keep Series',
       type: 'danger'
@@ -179,10 +179,32 @@ function RecurringAppointments() {
       try {
         await axios.patch(`/api/recurring/cancel/${id}`, {}, { withCredentials: true });
         fetchRecurring();
-        showToast('Recurring series cancelled.', 'success');
+        showToast('Recurring series cancelled and future dates removed from calendar.', 'success');
       } catch (error) {
         console.error('Failed to cancel recurring series:', error);
         showToast('Failed to cancel recurring series.', 'error');
+      }
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const item = recurringList.find(r => r._id === id);
+    const customerName = item?.customerName || 'this series';
+    const confirmed = await confirm({
+      title: 'Delete Recurring Series',
+      message: `Permanently delete recurring series for "${customerName}" and all associated future scheduled appointments?`,
+      confirmText: 'Delete Permanently',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (confirmed) {
+      try {
+        await axios.delete(`/api/recurring/${id}`, { withCredentials: true });
+        fetchRecurring();
+        showToast('Recurring series and upcoming dates permanently removed.', 'success');
+      } catch (error) {
+        console.error('Failed to delete recurring series:', error);
+        showToast('Failed to delete recurring series.', 'error');
       }
     }
   };
@@ -340,8 +362,14 @@ function RecurringAppointments() {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        {item.status === 'Active' && (
-                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series"><Trash2 size={16} /></button>
+                        {item.status === 'Active' ? (
+                          <button className="icon-btn delete" onClick={() => handleCancel(item._id)} title="Cancel Series & Remove Upcoming Bookings">
+                            <Trash2 size={16} />
+                          </button>
+                        ) : (
+                          <button className="icon-btn delete" style={{ color: '#ef4444' }} onClick={() => handleDelete(item._id)} title="Permanently Delete Series">
+                            <Trash2 size={16} />
+                          </button>
                         )}
                       </div>
                     </td>

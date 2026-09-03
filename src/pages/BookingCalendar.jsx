@@ -68,14 +68,15 @@ function BookingCalendar() {
       `/api/appointment/date?date=${dateStr}${salonParam}`,
       { withCredentials: true, headers: { Authorization: `Bearer ${token}` } }
     );
-    return (res.data.data || []).map((apt) => {
+    const activeAppointments = (res.data.data || []).filter(
+      (apt) => (apt.status || '').toLowerCase() !== 'cancelled' && (apt.status || '').toLowerCase() !== 'canceled'
+    );
+    return activeAppointments.map((apt) => {
       const lower = (apt.status || '').toLowerCase();
       const normStatus = lower === 'completed'
         ? 'Completed'
         : lower === 'confirmed'
         ? 'Confirmed'
-        : lower === 'cancelled' || lower === 'canceled'
-        ? 'Cancelled'
         : apt.status
         ? apt.status.charAt(0).toUpperCase() + apt.status.slice(1).toLowerCase()
         : apt.paymentStatus === 'Paid'
