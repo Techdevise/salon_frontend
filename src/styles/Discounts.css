@@ -70,3 +70,72 @@
 .mt-20 {
   margin-top: 20px;
 }
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+.datetime-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.one-day-offer-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.08));
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #fef08a;
+  font-size: 13px;
+  margin: 4px 0 14px 0;
+  line-height: 1.4;
+}
+
+.one-day-offer-notice .notice-icon {
+  font-size: 18px;
+  color: #facc15;
+  flex-shrink: 0;
+}
+
+.one-day-validity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+
+.one-day-badge {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(245, 158, 11, 0.15));
+  color: #fef08a;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+}
+
+.date-main {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 13px;
+}
+
+.time-subtext {
+  font-size: 11px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+

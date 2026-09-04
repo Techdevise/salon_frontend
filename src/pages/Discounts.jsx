@@ -20,14 +20,17 @@ function Discounts() {
 
   // Form states
   const [formData, setFormData] = useState({
+    title: '',
     promoCode: '',
     description: '',
     discountType: 'Percentage',
     discountValue: '',
-    minOrderValue: '',
+    minOrderAmount: '',
     maxDiscountAmount: '',
-    validFrom: '',
-    validUntil: '',
+    startDate: '',
+    startTime: '00:00',
+    endDate: '',
+    endTime: '23:59',
     usageLimit: ''
   });
   const [formLoading, setFormLoading] = useState(false);
@@ -65,6 +68,16 @@ function Discounts() {
     setErrorMsg('');
     if (discount) {
       setEditingDiscount(discount);
+      const startD = discount.startDate ? new Date(discount.startDate) : null;
+      const endD = discount.endDate ? new Date(discount.endDate) : null;
+
+      const formatTime = (d, defaultTime) => {
+        if (!d || isNaN(d.getTime())) return defaultTime;
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${mins}`;
+      };
+
       setFormData({
         title: discount.title || discount.promoCode,
         promoCode: discount.promoCode,
@@ -73,15 +86,28 @@ function Discounts() {
         discountValue: discount.discountValue,
         minOrderAmount: discount.minOrderAmount || '',
         maxDiscountAmount: discount.maxDiscountAmount || '',
-        startDate: discount.startDate ? new Date(discount.startDate).toISOString().split('T')[0] : '',
-        endDate: discount.endDate ? new Date(discount.endDate).toISOString().split('T')[0] : '',
+        startDate: startD ? startD.toISOString().split('T')[0] : '',
+        startTime: discount.startTime || formatTime(startD, '00:00'),
+        endDate: endD ? endD.toISOString().split('T')[0] : '',
+        endTime: discount.endTime || formatTime(endD, '23:59'),
         usageLimit: discount.usageLimit || ''
       });
     } else {
       setEditingDiscount(null);
+      const todayStr = new Date().toISOString().split('T')[0];
       setFormData({
-        title: '', promoCode: '', description: '', discountType: 'Percentage', discountValue: '',
-        minOrderAmount: '', maxDiscountAmount: '', startDate: '', endDate: '', usageLimit: ''
+        title: '',
+        promoCode: '',
+        description: '',
+        discountType: 'Percentage',
+        discountValue: '',
+        minOrderAmount: '',
+        maxDiscountAmount: '',
+        startDate: todayStr,
+        startTime: '00:00',
+        endDate: todayStr,
+        endTime: '23:59',
+        usageLimit: ''
       });
     }
     setShowModal(true);
@@ -120,6 +146,15 @@ function Discounts() {
         setErrorMsg('Valid Until date cannot be before Valid From date.');
         setFormLoading(false);
         return;
+      }
+      if (formData.startDate && formData.startDate === formData.endDate) {
+        const sTime = formData.startTime || '00:00';
+        const eTime = formData.endTime || '23:59';
+        if (sTime >= eTime) {
+          setErrorMsg('For a same-day offer, End Time must be later than Start Time.');
+          setFormLoading(false);
+          return;
+        }
       }
     }
 
@@ -249,8 +284,50 @@ function Discounts() {
                     </td>
                     <td>
                       <div className="date-cell">
-                        <span className="date-block">From: {new Date(discount.startDate).toLocaleDateString()}</span>
-                        <span className="date-block">To: {new Date(discount.endDate).toLocaleDateString()}</span>
+                        {(() => {
+                          const isSameDate = discount.startDate && discount.endDate && 
+                            new Date(discount.startDate).toLocaleDateString() === new Date(discount.endDate).toLocaleDateString();
+                          
+                          const formatTimeDisplay = (timeStr, dateObj) => {
+                            if (timeStr && timeStr.includes(':')) {
+                              const [h, m] = timeStr.split(':');
+                              const hr = parseInt(h, 10);
+                              const ampm = hr >= 12 ? 'PM' : 'AM';
+                              const h12 = hr % 12 || 12;
+                              return `${h12}:${m} ${ampm}`;
+                            }
+                            if (dateObj) {
+                              return new Date(dateObj).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            }
+                            return '';
+                          };
+
+                          const startTimeStr = formatTimeDisplay(discount.startTime, discount.startDate);
+                          const endTimeStr = formatTimeDisplay(discount.endTime, discount.endDate);
+
+                          if (isSameDate || discount.isOneDayOffer) {
+                            return (
+                              <div className="one-day-validity">
+                                <span className="one-day-badge">⚡ 1-Day Offer</span>
+                                <span className="date-main">{new Date(discount.startDate).toLocaleDateString()}</span>
+                                <span className="time-subtext">
+                                  {startTimeStr || '12:00 AM'} – {endTimeStr || '11:59 PM'}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <>
+                              <span className="date-block">
+                                <strong>From:</strong> {new Date(discount.startDate).toLocaleDateString()} {startTimeStr ? `(${startTimeStr})` : ''}
+                              </span>
+                              <span className="date-block">
+                                <strong>To:</strong> {new Date(discount.endDate).toLocaleDateString()} {endTimeStr ? `(${endTimeStr})` : ''}
+                              </span>
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td>
@@ -264,7 +341,14 @@ function Discounts() {
                     <td>
                       {(() => {
                         const isLimitReached = discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit);
-                        const isDateExpired = discount.endDate && new Date(discount.endDate) < new Date();
+                        
+                        let endDateTime = discount.endDate ? new Date(discount.endDate) : null;
+                        if (endDateTime && endDateTime.getHours() === 0 && endDateTime.getMinutes() === 0 && endDateTime.getSeconds() === 0) {
+                          endDateTime = new Date(endDateTime);
+                          endDateTime.setHours(23, 59, 59, 999);
+                        }
+                        
+                        const isDateExpired = endDateTime && endDateTime < new Date();
                         const isExpired = !discount.isActive || isLimitReached || isDateExpired;
                         return (
                           <button
@@ -333,29 +417,61 @@ function Discounts() {
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Valid From *</label>
-                  <input 
-                    type="date" 
-                    name="startDate" 
-                    required 
-                    value={formData.startDate} 
-                    onChange={handleInputChange} 
-                    min={new Date().toISOString().split('T')[0]} 
-                  />
+              <div className="datetime-section">
+                <div className="form-row">
+                  <div className="form-group flex-2">
+                    <label>Valid From Date *</label>
+                    <input 
+                      type="date" 
+                      name="startDate" 
+                      required 
+                      value={formData.startDate} 
+                      onChange={handleInputChange} 
+                      min={new Date().toISOString().split('T')[0]} 
+                    />
+                  </div>
+                  <div className="form-group flex-1">
+                    <label>Start Time</label>
+                    <input 
+                      type="time" 
+                      name="startTime" 
+                      value={formData.startTime} 
+                      onChange={handleInputChange} 
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Valid Until *</label>
-                  <input 
-                    type="date" 
-                    name="endDate" 
-                    required 
-                    value={formData.endDate} 
-                    onChange={handleInputChange} 
-                    min={formData.startDate || new Date().toISOString().split('T')[0]} 
-                  />
+
+                <div className="form-row">
+                  <div className="form-group flex-2">
+                    <label>Valid Until Date *</label>
+                    <input 
+                      type="date" 
+                      name="endDate" 
+                      required 
+                      value={formData.endDate} 
+                      onChange={handleInputChange} 
+                      min={formData.startDate || new Date().toISOString().split('T')[0]} 
+                    />
+                  </div>
+                  <div className="form-group flex-1">
+                    <label>End Time</label>
+                    <input 
+                      type="time" 
+                      name="endTime" 
+                      value={formData.endTime} 
+                      onChange={handleInputChange} 
+                    />
+                  </div>
                 </div>
+
+                {formData.startDate && formData.endDate && formData.startDate === formData.endDate && (
+                  <div className="one-day-offer-notice">
+                    <span className="notice-icon">⚡</span>
+                    <div>
+                      <strong>One-Day Special Offer:</strong> Active on {new Date(formData.startDate).toLocaleDateString()} from <strong>{formData.startTime || '00:00'}</strong> to <strong>{formData.endTime || '23:59'}</strong>.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <h4 className="section-divider">Usage Limits Optional</h4>
