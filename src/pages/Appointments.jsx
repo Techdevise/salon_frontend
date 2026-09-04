@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar as CalendarIcon, Plus, Search, Edit2, Trash2, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Search, Edit2, XCircle, Clock, User, Scissors, IndianRupee, X, Store, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import '../styles/DashboardPages.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
@@ -1380,7 +1380,7 @@ function Appointments() {
                                   style={currentNormStatus === 'Completed' ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                                   title={currentNormStatus === 'Completed' ? "Completed service cannot be cancelled" : "Cancel Booking"}
                                 >
-                                  <Trash2 size={16} />
+                                  <XCircle size={16} />
                                 </button>
                               </>
                             )}
