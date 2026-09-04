@@ -1,12 +1,206 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
-
 import { useConfirm } from '../components/ConfirmModal';
+
+const SearchableSelect = ({
+  options = [],
+  value = '',
+  onChange,
+  placeholder = '-- Select --',
+  searchPlaceholder = 'Search...',
+  required = false,
+  name,
+  disabled = false,
+  className = ''
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const selectedOption = options.find((opt) => String(opt.value) === String(value));
+
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const q = searchQuery.trim().toLowerCase();
+    return options.filter((opt) => {
+      const label = (opt.label || '').toLowerCase();
+      const sublabel = (opt.sublabel || '').toLowerCase();
+      const searchTerms = (opt.searchTerms || '').toLowerCase();
+      return label.includes(q) || sublabel.includes(q) || searchTerms.includes(q);
+    });
+  }, [options, searchQuery]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', flex: 1 }}>
+      {required && (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={() => { }}
+          required={required}
+          tabIndex={-1}
+          style={{ opacity: 0, position: 'absolute', width: '100%', height: 0, bottom: 0, pointerEvents: 'none' }}
+        />
+      )}
+
+      <div
+        className={`searchable-select-trigger ${className}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: '#0f0f17',
+          border: isOpen ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '8px',
+          padding: '12px 14px',
+          color: selectedOption ? '#fff' : '#94a3b8',
+          fontSize: '14px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          userSelect: 'none',
+          boxSizing: 'border-box',
+          minHeight: '44px',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+          boxShadow: isOpen ? '0 0 0 2px rgba(192, 132, 252, 0.2)' : 'none'
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: selectedOption ? 500 : 400 }}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown size={16} style={{ color: '#94a3b8', marginLeft: '8px', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </div>
+
+      {isOpen && (
+        <div
+          className="searchable-select-menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: '#181825',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
+            overflow: 'hidden',
+            maxHeight: '260px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ padding: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: '#12121c', position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.75rem 0.5rem 2.2rem',
+                fontSize: '0.85rem',
+                background: '#0f0f17',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '6px',
+                color: '#fff',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ overflowY: 'auto', flex: 1, maxHeight: '200px' }}>
+            <div
+              onClick={() => {
+                onChange({ target: { name, value: '' } });
+                setIsOpen(false);
+                setSearchQuery('');
+              }}
+              style={{
+                padding: '0.65rem 0.9rem',
+                cursor: 'pointer',
+                color: '#94a3b8',
+                fontSize: '0.88rem',
+                borderBottom: '1px solid rgba(255,255,255,0.05)'
+              }}
+            >
+              {placeholder}
+            </div>
+
+            {filteredOptions.length === 0 ? (
+              <div style={{ padding: '0.75rem 0.9rem', color: '#64748b', fontSize: '0.85rem', textAlign: 'center' }}>
+                No matching results
+              </div>
+            ) : (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  onClick={() => {
+                    if (opt.disabled) return;
+                    onChange({ target: { name, value: opt.value } });
+                    setIsOpen(false);
+                    setSearchQuery('');
+                  }}
+                  style={{
+                    padding: '0.65rem 0.9rem',
+                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                    opacity: opt.disabled ? 0.45 : 1,
+                    color: opt.disabled ? '#64748b' : String(value) === String(opt.value) ? '#c084fc' : '#fff',
+                    background: String(value) === String(opt.value) ? 'rgba(124, 58, 237, 0.15)' : 'transparent',
+                    fontSize: '0.88rem',
+                    transition: 'background 0.15s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    borderLeft: String(value) === String(opt.value) ? '3px solid #c084fc' : '3px solid transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!opt.disabled && String(value) !== String(opt.value)) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!opt.disabled && String(value) !== String(opt.value)) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <span style={{ fontWeight: 500 }}>{opt.label}</span>
+                  {opt.sublabel && <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{opt.sublabel}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function Billing() {
   const confirm = useConfirm();
@@ -771,30 +965,32 @@ function Billing() {
 
             {/* Catalog Service Dropdown */}
             {itemType === 'service' && (
-              <div className="service-add-row">
-                <select
+              <div className="service-add-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <SearchableSelect
                   value={selectedService}
                   onChange={(e) => setSelectedService(e.target.value)}
-                  className="service-select"
-                >
-                  <option value="">-- Select a Service --</option>
-                  {services.map(s => {
+                  placeholder="-- Select a Service --"
+                  searchPlaceholder="Search services by name, category, price..."
+                  options={services.map(s => {
                     const isAlreadyAdded = billItems.some(item =>
                       item.serviceId === s._id ||
                       item.id === s._id ||
                       (item.name && item.name.toLowerCase().trim() === s.serviceName.toLowerCase().trim())
                     );
-                    return (
-                      <option key={s._id} value={s._id} disabled={isAlreadyAdded}>
-                        {s.serviceName} - ₹{s.price} {isAlreadyAdded ? '(Already Added)' : ''}
-                      </option>
-                    );
+                    return {
+                      value: s._id,
+                      label: `${s.serviceName} - ₹${s.price}`,
+                      sublabel: s.category || '',
+                      searchTerms: `${s.serviceName} ${s.category || ''} ${s.price}`,
+                      disabled: isAlreadyAdded
+                    };
                   })}
-                </select>
+                />
                 <button
                   className="btn-primary"
                   onClick={handleAddItem}
                   disabled={!selectedService}
+                  style={{ height: '44px', whiteSpace: 'nowrap' }}
                 >
                   <Plus size={18} /> Add
                 </button>
@@ -803,30 +999,32 @@ function Billing() {
 
             {/* Package Selection Dropdown */}
             {itemType === 'package' && (
-              <div className="service-add-row">
-                <select
+              <div className="service-add-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <SearchableSelect
                   value={selectedPackageId}
                   onChange={(e) => setSelectedPackageId(e.target.value)}
-                  className="service-select"
-                >
-                  <option value="">-- Select a Service Package --</option>
-                  {packages.map(p => {
+                  placeholder="-- Select a Service Package --"
+                  searchPlaceholder="Search package by name..."
+                  options={packages.map(p => {
                     const isAlreadyAdded = billItems.some(item =>
                       item.packageId === p._id ||
                       item.id === p._id ||
                       (item.name && item.name.toLowerCase().trim().includes(p.packageName.toLowerCase().trim()))
                     );
-                    return (
-                      <option key={p._id} value={p._id} disabled={isAlreadyAdded}>
-                        📦 {p.packageName} - ₹{p.packagePrice || p.price} {isAlreadyAdded ? '(Already Added)' : ''}
-                      </option>
-                    );
+                    return {
+                      value: p._id,
+                      label: `📦 ${p.packageName} - ₹${p.packagePrice || p.price}`,
+                      sublabel: (p.services || []).map(s => s.serviceName || s.name).filter(Boolean).join(', '),
+                      searchTerms: `${p.packageName} ${p.packagePrice || p.price}`,
+                      disabled: isAlreadyAdded
+                    };
                   })}
-                </select>
+                />
                 <button
                   className="btn-primary"
                   onClick={handleAddItem}
                   disabled={!selectedPackageId}
+                  style={{ height: '44px', whiteSpace: 'nowrap' }}
                 >
                   <Plus size={18} /> Add Package
                 </button>
@@ -867,18 +1065,17 @@ function Billing() {
           <div className="billing-card">
             <h3>3. Select Staff Member</h3>
             <div className="service-add-row">
-              <select
+              <SearchableSelect
                 value={selectedStaffId}
                 onChange={(e) => setSelectedStaffId(e.target.value)}
-                className="service-select"
-              >
-                <option value="">-- Select Staff Member --</option>
-                {staffList.map(s => (
-                  <option key={s._id} value={s._id}>
-                    {s.name} ({s.role})
-                  </option>
-                ))}
-              </select>
+                placeholder="-- Select Staff Member --"
+                searchPlaceholder="Search staff by name or role..."
+                options={staffList.map(s => ({
+                  value: s._id,
+                  label: `${s.name} (${s.role || 'Staff'})`,
+                  searchTerms: `${s.name} ${s.role || ''}`
+                }))}
+              />
             </div>
           </div>
 

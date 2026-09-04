@@ -90,7 +90,11 @@ function BookingCalendar() {
         status: normStatus,
         totalAmount: apt.totalAmount || 0,
         customer: { name: apt.customerDetails?.name || 'Walk-in' },
-        service: { serviceName: apt.serviceDetails?.[0]?.serviceName || 'Service' },
+        service: {
+          serviceName: (apt.serviceDetails && apt.serviceDetails.length > 0)
+            ? apt.serviceDetails.map(s => s.serviceName).join(', ')
+            : (apt.notes?.includes('[Package:') ? (apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package') : 'Service')
+        },
         staff: { name: apt.staffDetails?.name || 'Unassigned' },
         paymentStatus: apt.paymentStatus || 'Unpaid',
       };

@@ -215,14 +215,16 @@ const SearchableSelect = ({
                 <div
                   key={opt.value}
                   onClick={() => {
+                    if (opt.disabled) return;
                     onChange({ target: { name, value: opt.value } });
                     setIsOpen(false);
                     setSearchQuery('');
                   }}
                   style={{
                     padding: '0.65rem 0.9rem',
-                    cursor: 'pointer',
-                    color: String(value) === String(opt.value) ? '#c59d5f' : '#fff',
+                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                    opacity: opt.disabled ? 0.45 : 1,
+                    color: opt.disabled ? '#71717a' : String(value) === String(opt.value) ? '#c59d5f' : '#fff',
                     background: String(value) === String(opt.value) ? 'rgba(197, 157, 95, 0.15)' : 'transparent',
                     fontSize: '0.88rem',
                     transition: 'background 0.15s',
@@ -231,12 +233,12 @@ const SearchableSelect = ({
                     gap: '2px'
                   }}
                   onMouseEnter={(e) => {
-                    if (String(value) !== String(opt.value)) {
+                    if (!opt.disabled && String(value) !== String(opt.value)) {
                       e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (String(value) !== String(opt.value)) {
+                    if (!opt.disabled && String(value) !== String(opt.value)) {
                       e.currentTarget.style.background = 'transparent';
                     }
                   }}
@@ -310,6 +312,8 @@ function Appointments() {
   const [discountsList, setDiscountsList] = useState([]);
   const [selectedPromoCode, setSelectedPromoCode] = useState('');
   const [walkInSelectedPromoCode, setWalkInSelectedPromoCode] = useState('');
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [walkInSelectedServices, setWalkInSelectedServices] = useState([]);
 
   // Search filter states for modals
   const [customerSearch, setCustomerSearch] = useState('');
@@ -393,6 +397,97 @@ function Appointments() {
     return Math.max(0, baseAmount - discAmt);
   };
 
+  const calculateTotalWithPromo = (servicesList, packageId, promoCode) => {
+    let base = (servicesList || []).reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    if (packageId) {
+      const pkg = packagesList.find(p => p._id === packageId);
+      if (pkg) {
+        base += Number(pkg.packagePrice || pkg.price || 0);
+      }
+    }
+    return applyPromoToAmount(base, promoCode);
+  };
+
+  const handleAddService = (serviceId) => {
+    if (!serviceId) return;
+    const service = serviceList.find(s => s._id === serviceId);
+    if (!service) return;
+    if (selectedServices.some(s => s._id === serviceId)) return;
+
+    const next = [...selectedServices, service];
+    setSelectedServices(next);
+    setFormData(prev => ({
+      ...prev,
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode)
+    }));
+
+    const cat = (service.category || '').toLowerCase();
+    const nameLower = (service.serviceName || '').toLowerCase();
+    if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
+      setRecurringStep('question');
+      setSelectedRecurringIntervals([]);
+      setShowRecurringDialog(true);
+    }
+  };
+
+  const handleRemoveService = (serviceId) => {
+    const next = selectedServices.filter(s => s._id !== serviceId);
+    setSelectedServices(next);
+    setFormData(prev => ({
+      ...prev,
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode)
+    }));
+
+    const hasHairTreatment = next.some(s => {
+      const cat = (s.category || '').toLowerCase();
+      const nameLower = (s.serviceName || '').toLowerCase();
+      return cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment');
+    });
+    if (!hasHairTreatment) {
+      setSelectedRecurringIntervals([]);
+    }
+  };
+
+  const handleWalkInAddService = (serviceId) => {
+    if (!serviceId) return;
+    const service = serviceList.find(s => s._id === serviceId);
+    if (!service) return;
+    if (walkInSelectedServices.some(s => s._id === serviceId)) return;
+
+    const next = [...walkInSelectedServices, service];
+    setWalkInSelectedServices(next);
+    setWalkInFormData(prev => ({
+      ...prev,
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode)
+    }));
+
+    const cat = (service.category || '').toLowerCase();
+    const nameLower = (service.serviceName || '').toLowerCase();
+    if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
+      setRecurringStep('question');
+      setSelectedRecurringIntervals([]);
+      setShowRecurringDialog(true);
+    }
+  };
+
+  const handleWalkInRemoveService = (serviceId) => {
+    const next = walkInSelectedServices.filter(s => s._id !== serviceId);
+    setWalkInSelectedServices(next);
+    setWalkInFormData(prev => ({
+      ...prev,
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode)
+    }));
+
+    const hasHairTreatment = next.some(s => {
+      const cat = (s.category || '').toLowerCase();
+      const nameLower = (s.serviceName || '').toLowerCase();
+      return cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment');
+    });
+    if (!hasHairTreatment) {
+      setSelectedRecurringIntervals([]);
+    }
+  };
+
   const fetchAppointments = async () => {
     setLoading(true);
     try {
@@ -411,39 +506,9 @@ function Appointments() {
     const { name, value } = e.target;
     let updatedData = { ...formData, [name]: value };
 
-    if (name === 'serviceId') {
-      if (value) {
-        updatedData.packageId = '';
-        const selectedService = serviceList.find(s => s._id === value);
-        if (selectedService) {
-          updatedData.totalAmount = applyPromoToAmount(selectedService.price, selectedPromoCode);
-
-          const cat = (selectedService.category || '').toLowerCase();
-          const nameLower = (selectedService.serviceName || '').toLowerCase();
-          if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
-            setRecurringStep('question');
-            setSelectedRecurringIntervals([]);
-            setShowRecurringDialog(true);
-          } else {
-            setSelectedRecurringIntervals([]);
-          }
-        }
-      } else if (!updatedData.packageId) {
-        updatedData.totalAmount = '';
-        setSelectedRecurringIntervals([]);
-      }
-    } else if (name === 'packageId') {
-      if (value) {
-        updatedData.serviceId = '';
-        setSelectedRecurringIntervals([]);
-        const selectedPkg = packagesList.find(p => p._id === value);
-        if (selectedPkg) {
-          const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
-          updatedData.totalAmount = applyPromoToAmount(pkgPrice, selectedPromoCode);
-        }
-      } else if (!updatedData.serviceId) {
-        updatedData.totalAmount = '';
-      }
+    if (name === 'packageId') {
+      updatedData.packageId = value;
+      updatedData.totalAmount = calculateTotalWithPromo(selectedServices, value, selectedPromoCode);
     }
     setFormData(updatedData);
   };
@@ -585,6 +650,7 @@ function Appointments() {
     setWalkInPackageSearch('');
     setWalkInStaffSearch('');
     setWalkInSelectedPromoCode('');
+    setWalkInSelectedServices([]);
     setSelectedRecurringIntervals([]);
     const today = new Date().toISOString().split('T')[0];
     setWalkInDate(today);
@@ -612,39 +678,9 @@ function Appointments() {
     }
     const updatedWalkIn = { ...walkInFormData, [name]: value };
 
-    if (name === 'serviceId') {
-      if (value) {
-        updatedWalkIn.packageId = '';
-        const selectedService = serviceList.find(s => s._id === value);
-        if (selectedService) {
-          updatedWalkIn.totalAmount = applyPromoToAmount(selectedService.price, walkInSelectedPromoCode);
-
-          const cat = (selectedService.category || '').toLowerCase();
-          const nameLower = (selectedService.serviceName || '').toLowerCase();
-          if (cat === 'hair treatment' || cat.includes('hair treatment') || nameLower.includes('hair treatment')) {
-            setRecurringStep('question');
-            setSelectedRecurringIntervals([]);
-            setShowRecurringDialog(true);
-          } else {
-            setSelectedRecurringIntervals([]);
-          }
-        }
-      } else if (!updatedWalkIn.packageId) {
-        updatedWalkIn.totalAmount = '';
-        setSelectedRecurringIntervals([]);
-      }
-    } else if (name === 'packageId') {
-      if (value) {
-        updatedWalkIn.serviceId = '';
-        setSelectedRecurringIntervals([]);
-        const selectedPkg = packagesList.find(p => p._id === value);
-        if (selectedPkg) {
-          const pkgPrice = selectedPkg.packagePrice || selectedPkg.price || 0;
-          updatedWalkIn.totalAmount = applyPromoToAmount(pkgPrice, walkInSelectedPromoCode);
-        }
-      } else if (!updatedWalkIn.serviceId) {
-        updatedWalkIn.totalAmount = '';
-      }
+    if (name === 'packageId') {
+      updatedWalkIn.packageId = value;
+      updatedWalkIn.totalAmount = calculateTotalWithPromo(walkInSelectedServices, value, walkInSelectedPromoCode);
     }
     setWalkInFormData(updatedWalkIn);
   };
@@ -666,6 +702,11 @@ function Appointments() {
     const phoneDigits = walkInFormData.customerPhone.replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
       setWalkInError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    if (walkInSelectedServices.length === 0 && !walkInFormData.packageId) {
+      setWalkInError('Please select at least one Service or Package.');
       return;
     }
 
@@ -694,35 +735,30 @@ function Appointments() {
       const matchedStaff = staffList.find(s => s.name.toLowerCase().includes(walkInFormData.staffName.toLowerCase()));
       const targetStaffId = matchedStaff?._id || staffList[0]?._id;
 
-      if (!walkInFormData.serviceId && !walkInFormData.packageId) {
-        setWalkInError('Please select either a Service or a Package.');
-        setWalkInLoading(false);
-        return;
-      }
-
       // 3. Resolve Services / Package
-      let targetServiceIds = [];
-      let serviceNoteText = '';
-      let billServiceDetails = [];
+      let targetServiceIds = walkInSelectedServices.map(s => s._id);
+      let noteParts = [];
+      if (walkInSelectedServices.length > 0) {
+        noteParts.push(`[Services: ${walkInSelectedServices.map(s => s.serviceName).join(', ')}]`);
+      }
 
       if (walkInFormData.packageId) {
         const pkg = packagesList.find(p => p._id === walkInFormData.packageId);
         if (pkg) {
-          serviceNoteText = `[Package: ${pkg.packageName}]`;
-          billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(walkInFormData.totalAmount) || 0 }];
+          noteParts.push(`[Package: ${pkg.packageName}]`);
           const pkgServices = (pkg.services || [])
             .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
             .filter(Boolean);
-          targetServiceIds = pkgServices.length > 0 ? pkgServices : [serviceList[0]?._id].filter(Boolean);
+          pkgServices.forEach(pid => {
+            const pidStr = pid.toString();
+            if (!targetServiceIds.includes(pidStr)) {
+              targetServiceIds.push(pidStr);
+            }
+          });
         }
-      } else if (walkInFormData.serviceId) {
-        const s = serviceList.find(item => item._id === walkInFormData.serviceId);
-        if (s) {
-          serviceNoteText = `[Service: ${s.serviceName}]`;
-          billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(walkInFormData.totalAmount) || Number(s.price) || 0 }];
-        }
-        targetServiceIds = [walkInFormData.serviceId];
       }
+
+      const serviceNoteText = noteParts.join(' ');
 
       if (!targetStaffId || targetServiceIds.length === 0) {
         throw new Error("Salon requires at least one staff and service/package record in database.");
@@ -769,6 +805,7 @@ function Appointments() {
       fetchAppointments();
       fetchOptions();
       setShowWalkInModal(false);
+      setWalkInSelectedServices([]);
       setSelectedRecurringIntervals([]);
 
       // Bill will be generated automatically when status is changed to Completed
@@ -791,10 +828,18 @@ function Appointments() {
     const today = new Date().toISOString().split('T')[0];
     if (appointment) {
       setEditingAppointment(appointment);
+      const initialServices = (appointment.serviceDetails || []).map(s => ({
+        _id: s._id,
+        serviceName: s.serviceName,
+        price: s.price,
+        category: s.category
+      }));
+      setSelectedServices(initialServices);
       setFormData({
-        customerId: appointment.customerId || '',
-        staffId: appointment.staffId || '',
-        serviceId: appointment.services?.[0] || '',
+        customerId: appointment.customerId?._id || appointment.customerId || '',
+        staffId: appointment.staffId?._id || appointment.staffId || '',
+        serviceId: '',
+        packageId: appointment.packageId || '',
         date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : (filterDate >= today ? filterDate : today),
         startTime: appointment.timeSlot?.start ? format24Hour(appointment.timeSlot.start) : '',
         totalAmount: appointment.totalAmount || '',
@@ -802,6 +847,7 @@ function Appointments() {
       });
     } else {
       setEditingAppointment(null);
+      setSelectedServices([]);
       setFormData({
         customerId: '', staffId: '', serviceId: '', packageId: '',
         date: filterDate >= today ? filterDate : today, startTime: '', totalAmount: '', notes: ''
@@ -813,6 +859,7 @@ function Appointments() {
   const closeModal = () => {
     setShowModal(false);
     setEditingAppointment(null);
+    setSelectedServices([]);
     setSelectedRecurringIntervals([]);
   };
 
@@ -831,7 +878,7 @@ function Appointments() {
       setFormLoading(false);
       return;
     }
-    if (!formData.serviceId && !formData.packageId) {
+    if (selectedServices.length === 0 && !formData.packageId) {
       setErrorMsg('Please select at least one Service or Package.');
       setFormLoading(false);
       return;
@@ -843,28 +890,29 @@ function Appointments() {
     }
 
     try {
-      let serviceNoteText = '';
-      let targetServiceIds = [];
-      let billServiceDetails = [];
+      let targetServiceIds = selectedServices.map(s => s._id);
+      let noteParts = [];
+      if (selectedServices.length > 0) {
+        noteParts.push(`[Services: ${selectedServices.map(s => s.serviceName).join(', ')}]`);
+      }
 
       if (formData.packageId) {
         const pkg = packagesList.find(p => p._id === formData.packageId);
         if (pkg) {
-          serviceNoteText = `[Package: ${pkg.packageName}]`;
-          billServiceDetails = [{ serviceId: null, serviceName: `Package: ${pkg.packageName}`, price: Number(formData.totalAmount) || 0 }];
+          noteParts.push(`[Package: ${pkg.packageName}]`);
           const pkgServices = (pkg.services || [])
             .map(s => (typeof s === 'object' ? (s.serviceId?._id || s.serviceId || s._id) : s))
             .filter(Boolean);
-          targetServiceIds = pkgServices.length > 0 ? pkgServices : [serviceList[0]?._id].filter(Boolean);
+          pkgServices.forEach(pid => {
+            const pidStr = pid.toString();
+            if (!targetServiceIds.includes(pidStr)) {
+              targetServiceIds.push(pidStr);
+            }
+          });
         }
-      } else if (formData.serviceId) {
-        const s = serviceList.find(item => item._id === formData.serviceId);
-        if (s) {
-          serviceNoteText = `[Service: ${s.serviceName}]`;
-          billServiceDetails = [{ serviceId: s._id, serviceName: s.serviceName, price: Number(formData.totalAmount) || Number(s.price) || 0 }];
-        }
-        targetServiceIds = [formData.serviceId];
       }
+
+      const serviceNoteText = noteParts.join(' ');
 
       const payload = {
         customerId: formData.customerId,
@@ -911,6 +959,7 @@ function Appointments() {
 
         fetchAppointments();
         closeModal();
+        setSelectedServices([]);
         setSelectedRecurringIntervals([]);
 
         // Bill will be generated automatically when status is changed to Completed
@@ -1256,11 +1305,35 @@ function Appointments() {
                           </div>
                         </td>
                         <td>
-                          <div className="service-combo">
-                            {apt.notes && apt.notes.includes('[Package:') ? (
-                              <span title={apt.notes}>📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}</span>
+                          <div className="service-combo" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            {apt.notes && apt.notes.includes('[Package:') && (
+                              <span style={{ fontSize: '0.82rem', color: '#c084fc', fontWeight: 500 }} title={apt.notes}>
+                                📦 {apt.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package'}
+                              </span>
+                            )}
+                            {apt.serviceDetails && apt.serviceDetails.length > 0 ? (
+                              apt.serviceDetails.length === 1 ? (
+                                <span style={{ color: '#f4f4f5' }}>{apt.serviceDetails[0].serviceName}</span>
+                              ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                  {apt.serviceDetails.map((s, idx) => (
+                                    <span
+                                      key={s._id || idx}
+                                      style={{
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.8rem',
+                                        color: '#e4e4e7'
+                                      }}
+                                    >
+                                      {s.serviceName}
+                                    </span>
+                                  ))}
+                                </div>
+                              )
                             ) : (
-                              <span>{apt.serviceDetails?.[0]?.serviceName || 'Service N/A'}</span>
+                              <span>{apt.notes && apt.notes.includes('[Package:') ? '' : 'Service N/A'}</span>
                             )}
                           </div>
                         </td>
@@ -1398,19 +1471,75 @@ function Appointments() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Select Service</label>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Select Services {walkInSelectedServices.length > 0 && <span style={{ color: '#c59d5f', fontSize: '0.85rem' }}>({walkInSelectedServices.length} selected)</span>}</span>
+                    {walkInSelectedServices.length > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Subtotal: ₹{walkInSelectedServices.reduce((a, b) => a + Number(b.price || 0), 0)}</span>
+                    )}
+                  </label>
                   <SearchableSelect
-                    name="serviceId"
-                    value={walkInFormData.serviceId}
-                    onChange={handleWalkInChange}
-                    placeholder="-- Select Service --"
-                    options={serviceList.map(s => ({
-                      value: s._id,
-                      label: `${s.serviceName} - ₹${s.price}`,
-                      searchTerms: `${s.serviceName} ${s.category || ''}`
-                    }))}
+                    value=""
+                    onChange={(e) => handleWalkInAddService(e.target.value)}
+                    placeholder={walkInSelectedServices.length === 0 ? "-- Choose Service to Add --" : "+ Add another service..."}
+                    options={serviceList.map(s => {
+                      const isSelected = walkInSelectedServices.some(item => item._id === s._id);
+                      return {
+                        value: s._id,
+                        label: isSelected ? `✓ ${s.serviceName} - ₹${s.price} (Added)` : `${s.serviceName} - ₹${s.price}`,
+                        sublabel: s.category || '',
+                        searchTerms: `${s.serviceName} ${s.category || ''}`,
+                        disabled: isSelected
+                      };
+                    })}
                   />
-                  {selectedRecurringIntervals.length > 0 && walkInFormData.serviceId && (
+                  {/* Selected Services Chips / List */}
+                  {walkInSelectedServices.length > 0 && (
+                    <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {walkInSelectedServices.map(s => (
+                        <div
+                          key={s._id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Scissors size={14} style={{ color: '#c59d5f' }} />
+                            <span style={{ color: '#fff', fontWeight: 500 }}>{s.serviceName}</span>
+                            {s.category && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '4px' }}>{s.category}</span>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: '#c59d5f', fontWeight: 600 }}>₹{s.price}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleWalkInRemoveService(s._id)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                padding: '3px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Remove service"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selectedRecurringIntervals.length > 0 && walkInSelectedServices.length > 0 && (
                     <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>🔄 Recurring set: {selectedRecurringIntervals.map(i => i.replace('_', ' ')).join(', ')}</span>
                       <button
@@ -1427,7 +1556,7 @@ function Appointments() {
                   )}
                 </div>
                 <div className="form-group">
-                  <label>Select Package</label>
+                  <label>Select Package (Optional)</label>
                   <SearchableSelect
                     name="packageId"
                     value={walkInFormData.packageId}
@@ -1448,13 +1577,10 @@ function Appointments() {
                   value={walkInSelectedPromoCode}
                   onChange={(e) => {
                     const code = e.target.value;
-                    let basePrice = 0;
-                    if (walkInFormData.serviceId) {
-                      const s = serviceList.find(item => item._id === walkInFormData.serviceId);
-                      if (s) basePrice = s.price;
-                    } else if (walkInFormData.packageId) {
+                    let basePrice = walkInSelectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                    if (walkInFormData.packageId) {
                       const p = packagesList.find(item => item._id === walkInFormData.packageId);
-                      if (p) basePrice = p.packagePrice || p.price || 0;
+                      if (p) basePrice += Number(p.packagePrice || p.price || 0);
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
@@ -1465,7 +1591,7 @@ function Appointments() {
                     if (currentWalkInCust?._id && disc && Array.isArray(disc.usedBy) && disc.usedBy.some(id => String(id?._id || id) === String(currentWalkInCust._id))) {
                       setWalkInError(`Promo code ${disc.promoCode} has already been used by this customer. A customer can only apply this promo code once.`);
                       setWalkInSelectedPromoCode('');
-                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
 
@@ -1473,32 +1599,28 @@ function Appointments() {
                     if (disc && disc.startDate && now < new Date(disc.startDate)) {
                       setWalkInError(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
                       setWalkInSelectedPromoCode('');
-                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
                     if (disc && disc.endDate && now > new Date(disc.endDate)) {
                       setWalkInError(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
                       setWalkInSelectedPromoCode('');
-                      if (basePrice > 0) setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
                       setWalkInError(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
                       setWalkInSelectedPromoCode('');
-                      if (basePrice > 0) {
-                        setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
-                      }
+                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
 
                     setWalkInError('');
                     setWalkInSelectedPromoCode(code);
-                    if (basePrice > 0) {
-                      setWalkInFormData(prev => ({
-                        ...prev,
-                        totalAmount: applyPromoToAmount(basePrice, code)
-                      }));
-                    }
+                    setWalkInFormData(prev => ({
+                      ...prev,
+                      totalAmount: applyPromoToAmount(basePrice, code)
+                    }));
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
@@ -1646,19 +1768,75 @@ function Appointments() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Select Service</label>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Select Services {selectedServices.length > 0 && <span style={{ color: '#c59d5f', fontSize: '0.85rem' }}>({selectedServices.length} selected)</span>}</span>
+                    {selectedServices.length > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Subtotal: ₹{selectedServices.reduce((a, b) => a + Number(b.price || 0), 0)}</span>
+                    )}
+                  </label>
                   <SearchableSelect
-                    name="serviceId"
-                    value={formData.serviceId}
-                    onChange={handleInputChange}
-                    placeholder="-- Choose Service --"
-                    options={serviceList.map(s => ({
-                      value: s._id,
-                      label: `${s.serviceName} - ₹${s.price}`,
-                      searchTerms: `${s.serviceName} ${s.category || ''}`
-                    }))}
+                    value=""
+                    onChange={(e) => handleAddService(e.target.value)}
+                    placeholder={selectedServices.length === 0 ? "-- Choose Service to Add --" : "+ Add another service..."}
+                    options={serviceList.map(s => {
+                      const isSelected = selectedServices.some(item => item._id === s._id);
+                      return {
+                        value: s._id,
+                        label: isSelected ? `✓ ${s.serviceName} - ₹${s.price} (Added)` : `${s.serviceName} - ₹${s.price}`,
+                        sublabel: s.category || '',
+                        searchTerms: `${s.serviceName} ${s.category || ''}`,
+                        disabled: isSelected
+                      };
+                    })}
                   />
-                  {selectedRecurringIntervals.length > 0 && formData.serviceId && (
+                  {/* Selected Services Chips / List */}
+                  {selectedServices.length > 0 && (
+                    <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {selectedServices.map(s => (
+                        <div
+                          key={s._id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Scissors size={14} style={{ color: '#c59d5f' }} />
+                            <span style={{ color: '#fff', fontWeight: 500 }}>{s.serviceName}</span>
+                            {s.category && <span style={{ fontSize: '0.75rem', color: '#a1a1aa', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '4px' }}>{s.category}</span>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: '#c59d5f', fontWeight: 600 }}>₹{s.price}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveService(s._id)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                padding: '3px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title="Remove service"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selectedRecurringIntervals.length > 0 && selectedServices.length > 0 && (
                     <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>🔄 Recurring set: {selectedRecurringIntervals.map(i => i.replace('_', ' ')).join(', ')}</span>
                       <button
@@ -1676,7 +1854,7 @@ function Appointments() {
                 </div>
 
                 <div className="form-group">
-                  <label>Select Package</label>
+                  <label>Select Package (Optional)</label>
                   <SearchableSelect
                     name="packageId"
                     value={formData.packageId}
@@ -1697,20 +1875,17 @@ function Appointments() {
                   value={selectedPromoCode}
                   onChange={(e) => {
                     const code = e.target.value;
-                    let basePrice = 0;
-                    if (formData.serviceId) {
-                      const s = serviceList.find(item => item._id === formData.serviceId);
-                      if (s) basePrice = s.price;
-                    } else if (formData.packageId) {
+                    let basePrice = selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                    if (formData.packageId) {
                       const p = packagesList.find(item => item._id === formData.packageId);
-                      if (p) basePrice = p.packagePrice || p.price || 0;
+                      if (p) basePrice += Number(p.packagePrice || p.price || 0);
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
                     if (formData.customerId && disc && Array.isArray(disc.usedBy) && disc.usedBy.some(id => String(id?._id || id) === String(formData.customerId))) {
                       setErrorMsg(`Promo code ${disc.promoCode} has already been used by this customer. A customer can only apply this promo code once.`);
                       setSelectedPromoCode('');
-                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
 
@@ -1718,32 +1893,28 @@ function Appointments() {
                     if (disc && disc.startDate && now < new Date(disc.startDate)) {
                       setErrorMsg(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
                       setSelectedPromoCode('');
-                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
                     if (disc && disc.endDate && now > new Date(disc.endDate)) {
                       setErrorMsg(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
                       setSelectedPromoCode('');
-                      if (basePrice > 0) setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
                       setErrorMsg(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
                       setSelectedPromoCode('');
-                      if (basePrice > 0) {
-                        setFormData(prev => ({ ...prev, totalAmount: basePrice }));
-                      }
+                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
 
                     setErrorMsg('');
                     setSelectedPromoCode(code);
-                    if (basePrice > 0) {
-                      setFormData(prev => ({
-                        ...prev,
-                        totalAmount: applyPromoToAmount(basePrice, code)
-                      }));
-                    }
+                    setFormData(prev => ({
+                      ...prev,
+                      totalAmount: applyPromoToAmount(basePrice, code)
+                    }));
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
@@ -1853,7 +2024,14 @@ function Appointments() {
             <div style={{ padding: '0 1.5rem 1.5rem' }}>
               <div style={{ marginBottom: '1.25rem', color: '#e4e4e7', fontSize: '0.95rem', lineHeight: '1.6' }}>
                 <p style={{ margin: '0 0 6px 0' }}><strong>Customer:</strong> {cancelModalData.appointment?.customerDetails?.name || cancelModalData.appointment?.customerId || 'Walk-in'}</p>
-                <p style={{ margin: '0 0 6px 0' }}><strong>Service:</strong> {cancelModalData.appointment?.serviceDetails?.[0]?.serviceName || 'Service'}</p>
+                <p style={{ margin: '0 0 6px 0' }}>
+                  <strong>Service(s):</strong>{' '}
+                  {cancelModalData.appointment?.serviceDetails && cancelModalData.appointment.serviceDetails.length > 0
+                    ? cancelModalData.appointment.serviceDetails.map(s => s.serviceName).join(', ')
+                    : (cancelModalData.appointment?.notes && cancelModalData.appointment.notes.includes('[Package:')
+                      ? (cancelModalData.appointment.notes.match(/\[Package:\s*([^\]]+)\]/)?.[1] || 'Package')
+                      : 'Service')}
+                </p>
                 <p style={{ margin: 0 }}><strong>Current Schedule:</strong> {cancelModalData.appointment?.date ? new Date(cancelModalData.appointment.date).toLocaleDateString('en-IN') : 'N/A'} at {format24Hour(cancelModalData.appointment?.timeSlot?.start)}</p>
               </div>
 
