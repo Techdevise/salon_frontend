@@ -573,3 +573,206 @@
   }
 }
 
+/* Unbilled Bookings Section Styles */
+.unbilled-banner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(124, 58, 237, 0.08) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.unbilled-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.unbilled-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unbilled-badge-icon {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.unbilled-banner-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+.unbilled-banner-title span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.unbilled-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.unbilled-card {
+  background: #141420;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.unbilled-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.unbilled-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.unbilled-card-cust {
+  font-weight: 600;
+  color: #fff;
+  font-size: 14px;
+}
+
+.unbilled-card-phone {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.unbilled-status-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.unbilled-status-pill.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.unbilled-status-pill.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.unbilled-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.unbilled-card-services {
+  color: #c084fc;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unbilled-card-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.unbilled-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
+}
+
+.unbilled-card-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.btn-bill-now {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #ffffff;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-bill-now:hover {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  transform: scale(1.02);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+}
+
+/* History Modal Tab Switcher */
+.history-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 0;
+  background: #12121c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.history-modal-tab {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.history-modal-tab:hover {
+  color: #e2e8f0;
+}
+
+.history-modal-tab.active {
+  color: #c084fc;
+  border-bottom-color: #c084fc;
+  font-weight: 600;
+}
+
+

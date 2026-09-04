@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
@@ -239,12 +239,118 @@ function Billing() {
   const [historyList, setHistoryList] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
+  const [historyActiveTab, setHistoryActiveTab] = useState('bills'); // 'bills' | 'unbilled'
   const [sendingWhatsAppId, setSendingWhatsAppId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Unbilled / Pending Bookings State
+  const [unbilledAppointments, setUnbilledAppointments] = useState([]);
+  const [loadingUnbilled, setLoadingUnbilled] = useState(false);
+  const [showUnbilledModal, setShowUnbilledModal] = useState(false);
+  const [unbilledSearch, setUnbilledSearch] = useState('');
 
   const showToast = (text, type = 'success') => {
     setToast({ show: true, message: text, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 5000);
+  };
+
+  const fetchUnbilledAppointments = async () => {
+    try {
+      setLoadingUnbilled(true);
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/appointment/unbilled${salonParam}`, { withCredentials: true });
+      setUnbilledAppointments(res.data?.data || []);
+    } catch (err) {
+      console.error("Failed to load unbilled appointments", err);
+      setUnbilledAppointments([]);
+    } finally {
+      setLoadingUnbilled(false);
+    }
+  };
+
+  const handleLoadUnbilledAppointment = (apt) => {
+    if (!apt) return;
+
+    // 1. Resolve Customer
+    const custId = apt.customerDetails?._id || apt.customerId?._id || (typeof apt.customerId === 'string' ? apt.customerId : null);
+    const matchedCust = customers.find(c => String(c._id) === String(custId)) || {
+      _id: custId || ('temp_' + Date.now()),
+      name: apt.customerDetails?.name || 'Customer',
+      phone: apt.customerDetails?.phone || ''
+    };
+    setSelectedCustomer(matchedCust);
+
+    // 2. Resolve Staff
+    const staffId = apt.staffDetails?._id || apt.staffId?._id || (typeof apt.staffId === 'string' ? apt.staffId : '');
+    if (staffId) {
+      setSelectedStaffId(staffId);
+    }
+
+    // 3. Resolve Items
+    let itemsToLoad = [];
+    if (Array.isArray(apt.serviceDetails) && apt.serviceDetails.length > 0) {
+      itemsToLoad = apt.serviceDetails.map(s => ({
+        id: s._id || ('srv_' + Date.now() + Math.random()),
+        serviceId: s._id || null,
+        name: s.serviceName || 'Service',
+        price: Number(s.price) || 0,
+        quantity: 1,
+        type: 'service'
+      }));
+    }
+
+    if (apt.packageDetails?._id || apt.packageId) {
+      const pkgObj = packages.find(p => String(p._id) === String(apt.packageDetails?._id || apt.packageId));
+      itemsToLoad.push({
+        id: apt.packageDetails?._id || ('pkg_' + Date.now()),
+        packageId: apt.packageDetails?._id || apt.packageId,
+        name: `📦 ${apt.packageDetails?.packageName || pkgObj?.packageName || 'Service Package'}`,
+        price: Number(apt.packageDetails?.packagePrice || pkgObj?.packagePrice || pkgObj?.price || 0),
+        quantity: 1,
+        type: 'package'
+      });
+    }
+
+    if (itemsToLoad.length === 0) {
+      itemsToLoad = [{
+        id: 'apt_' + apt._id,
+        serviceId: null,
+        name: 'Appointment Service',
+        price: Number(apt.totalAmount) || 0,
+        quantity: 1,
+        type: 'custom'
+      }];
+    }
+
+    setBillItems(itemsToLoad);
+    setLinkedAppointmentId(apt._id);
+
+    // 4. Resolve Time slot & Promo Code
+    let formattedSlot = '';
+    if (typeof apt.timeSlot === 'string') {
+      formattedSlot = apt.timeSlot;
+    } else if (apt.timeSlot && typeof apt.timeSlot === 'object') {
+      if (apt.timeSlot.start && apt.timeSlot.end && apt.timeSlot.end !== 'TBD') {
+        formattedSlot = `${apt.timeSlot.start} - ${apt.timeSlot.end}`;
+      } else if (apt.timeSlot.start) {
+        formattedSlot = apt.timeSlot.start;
+      }
+    }
+    setAppointmentTimeSlot(formattedSlot || null);
+
+    if (apt.promoCode) {
+      setSelectedPromoCode(apt.promoCode);
+    } else {
+      setSelectedPromoCode('');
+    }
+
+    setShowUnbilledModal(false);
+    setShowHistoryModal(false);
+
+    showToast(`Loaded booking for ${apt.customerDetails?.name || 'Customer'}. Review and generate bill.`, 'success');
+
+    // Smooth scroll to top of billing grid
+    window.scrollTo({ top: 100, behavior: 'smooth' });
   };
 
   const handleSendWhatsAppBill = async (billId, phone) => {
@@ -306,6 +412,7 @@ function Billing() {
     fetchPackages();
     fetchStaff();
     fetchDiscounts();
+    fetchUnbilledAppointments();
   }, [selectedSalonId]);
 
   // Pre-fill form when navigated from Appointments page
@@ -703,6 +810,17 @@ function Billing() {
     return custName.includes(query) || custPhone.includes(query) || staffName.includes(query) || payMethod.includes(query) || invNo.includes(query);
   });
 
+  const filteredUnbilled = unbilledAppointments.filter(apt => {
+    const query = unbilledSearch.toLowerCase().trim();
+    if (!query) return true;
+    const custName = (apt.customerDetails?.name || '').toLowerCase();
+    const custPhone = (apt.customerDetails?.phone || '').toLowerCase();
+    const staffName = (apt.staffDetails?.name || '').toLowerCase();
+    const srvNames = (apt.serviceDetails || []).map(s => (s.serviceName || '').toLowerCase()).join(' ');
+    const pkgName = (apt.packageDetails?.packageName || '').toLowerCase();
+    return custName.includes(query) || custPhone.includes(query) || staffName.includes(query) || srvNames.includes(query) || pkgName.includes(query);
+  });
+
   const handleGenerateBill = async () => {
     if (isSubmitting) return;
 
@@ -792,6 +910,7 @@ function Billing() {
       setAppointmentTimeSlot(null);
 
       fetchDiscounts();
+      fetchUnbilledAppointments();
 
       // Auto trigger print dialog after small delay so DOM updates
       setTimeout(() => {
@@ -817,6 +936,37 @@ function Billing() {
       <div className="billing-header">
         <h1>Billing & Payment</h1>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              fetchUnbilledAppointments();
+              setShowUnbilledModal(true);
+            }}
+            style={{
+              background: unbilledAppointments.length > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255,255,255,0.05)',
+              color: unbilledAppointments.length > 0 ? '#fbbf24' : '#94a3b8',
+              border: unbilledAppointments.length > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.1)',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="View completed bookings awaiting bill generation"
+          >
+            <Zap size={16} /> Pending Bookings
+            {unbilledAppointments.length > 0 && (
+              <span style={{
+                background: '#f59e0b',
+                color: '#000',
+                padding: '1px 7px',
+                borderRadius: '10px',
+                fontSize: '11px',
+                fontWeight: 700
+              }}>
+                {unbilledAppointments.length}
+              </span>
+            )}
+          </button>
           <button
             className="btn-secondary"
             onClick={fetchBillingHistory}
@@ -851,6 +1001,85 @@ function Billing() {
           )}
         </div>
       </div>
+
+      {/* Unbilled / Pending Bookings Banner */}
+      {unbilledAppointments.length > 0 && (
+        <div className="unbilled-banner">
+          <div className="unbilled-banner-header">
+            <div className="unbilled-banner-title">
+              <div className="unbilled-badge-icon">
+                <Zap size={18} />
+              </div>
+              <div>
+                <h3>Pending Bookings Awaiting Bill ({unbilledAppointments.length})</h3>
+                <span>These completed bookings were deferred with "Pay Later". Click <strong>Bill Now</strong> to load items and generate invoice.</span>
+              </div>
+            </div>
+            {unbilledAppointments.length > 3 && (
+              <button
+                onClick={() => setShowUnbilledModal(true)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#fbbf24',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                View All ({unbilledAppointments.length})
+              </button>
+            )}
+          </div>
+
+          <div className="unbilled-cards-grid">
+            {unbilledAppointments.slice(0, 3).map((apt) => {
+              const srvNames = (apt.serviceDetails || []).map(s => s.serviceName).join(', ') ||
+                (apt.packageDetails?.packageName ? `📦 ${apt.packageDetails.packageName}` : 'Service');
+              const formattedDate = apt.date ? new Date(apt.date).toLocaleDateString() : '';
+              const timeStr = typeof apt.timeSlot === 'string' ? apt.timeSlot : (apt.timeSlot?.start || '');
+              const normStatus = apt.status || 'Completed';
+
+              return (
+                <div key={apt._id} className="unbilled-card">
+                  <div className="unbilled-card-header">
+                    <div>
+                      <div className="unbilled-card-cust">{apt.customerDetails?.name || 'Customer'}</div>
+                      <div className="unbilled-card-phone">{apt.customerDetails?.phone || 'No phone'}</div>
+                    </div>
+                    <span className={`unbilled-status-pill ${normStatus.toLowerCase() === 'completed' ? 'completed' : 'pending'}`}>
+                      {normStatus}
+                    </span>
+                  </div>
+
+                  <div className="unbilled-card-details">
+                    <div className="unbilled-card-services" title={srvNames}>
+                      ✨ {srvNames}
+                    </div>
+                    <div className="unbilled-card-meta">
+                      <span>👤 {apt.staffDetails?.name || 'Staff'}</span>
+                      <span>📅 {formattedDate} {timeStr ? `• ${timeStr}` : ''}</span>
+                    </div>
+                  </div>
+
+                  <div className="unbilled-card-footer">
+                    <div className="unbilled-card-amount">₹{apt.totalAmount || 0}</div>
+                    <button
+                      className="btn-bill-now"
+                      onClick={() => handleLoadUnbilledAppointment(apt)}
+                      title="Load booking to Invoice form"
+                    >
+                      <Zap size={14} /> Bill Now
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="billing-grid">
         {/* Left Side - Selection */}
@@ -1370,7 +1599,9 @@ function Billing() {
                     Billing & Payments History
                   </h2>
                   <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                    Showing all past bills and payment transactions ({filteredHistory.length} total)
+                    {historyActiveTab === 'bills'
+                      ? `Showing all generated bills and payment transactions (${filteredHistory.length} total)`
+                      : `Showing all completed bookings awaiting bill generation (${filteredUnbilled.length} total)`}
                   </span>
                 </div>
               </div>
@@ -1393,15 +1624,363 @@ function Billing() {
               </button>
             </div>
 
+            {/* Modal Tabs */}
+            <div className="history-modal-tabs">
+              <button
+                type="button"
+                className={`history-modal-tab ${historyActiveTab === 'bills' ? 'active' : ''}`}
+                onClick={() => setHistoryActiveTab('bills')}
+              >
+                <FileText size={16} /> Generated Invoices ({historyList.length})
+              </button>
+              <button
+                type="button"
+                className={`history-modal-tab ${historyActiveTab === 'unbilled' ? 'active' : ''}`}
+                onClick={() => setHistoryActiveTab('unbilled')}
+              >
+                <Zap size={16} /> Pending Bookings Awaiting Bill ({unbilledAppointments.length})
+              </button>
+            </div>
+
             {/* Modal Search Bar */}
+            <div style={{ padding: '16px 24px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Search size={18} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
+                {historyActiveTab === 'bills' ? (
+                  <input
+                    type="text"
+                    placeholder="Search history by Customer, Staff, Phone, Invoice No, or Payment Method..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 40px',
+                      background: '#0f0f17',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Search pending bookings by Customer, Phone, Staff, or Service..."
+                    value={unbilledSearch}
+                    onChange={(e) => setUnbilledSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px 10px 40px',
+                      background: '#0f0f17',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* History Table Body */}
+            <div style={{ padding: '0 24px 24px', overflowY: 'auto', flex: 1 }}>
+              {historyActiveTab === 'bills' ? (
+                loadingHistory ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                    Loading billing history...
+                  </div>
+                ) : filteredHistory.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                    No billing history found matching your search.
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Invoice #</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Served By</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Service</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Total Amount</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Method</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHistory.map((b) => (
+                        <tr key={b._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
+                          <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
+                            {new Date(b.createdAt).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 8px', fontWeight: 500, color: '#c084fc' }}>
+                            {b.invoiceNumber || b._id?.substring(0, 8) || 'INV'}
+                          </td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <div style={{ fontWeight: 500, color: '#fff' }}>{b.customerDetails?.name || 'Walk-in Customer'}</div>
+                            {b.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{b.customerDetails.phone}</div>}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
+                            {b.staffDetails?.name || 'Staff'}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+                            {(b.services || []).map(s => s.serviceName || s.serviceId?.serviceName || 'Service').join(', ') || 'Service'}
+                          </td>
+                          <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                            ₹{b.totalAmount || b.paidAmount || 0}
+                          </td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                color: '#cbd5e1'
+                              }}
+                            >
+                              {b.paymentMethod || 'Cash'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => handlePrintHistoryBill(b)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '6px 10px',
+                                  background: 'rgba(192, 132, 252, 0.15)',
+                                  border: '1px solid rgba(192, 132, 252, 0.3)',
+                                  color: '#c084fc',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  fontWeight: 500
+                                }}
+                                title="Print Receipt"
+                              >
+                                <Printer size={14} /> Receipt
+                              </button>
+                              <button
+                                onClick={() => handleSendWhatsAppBill(b._id, b.customerDetails?.phone)}
+                                disabled={sendingWhatsAppId === b._id}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '6px 10px',
+                                  background: '#25D366',
+                                  border: 'none',
+                                  color: '#fff',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  fontWeight: 500,
+                                  opacity: sendingWhatsAppId === b._id ? 0.7 : 1
+                                }}
+                                title="Send WhatsApp Bill via Meta Cloud API"
+                              >
+                                <WhatsAppIcon />
+                              </button>
+                              <button
+                                onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '6px 10px',
+                                  background: 'rgba(37, 211, 102, 0.15)',
+                                  border: '1px solid rgba(37, 211, 102, 0.4)',
+                                  color: '#4ade80',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  fontWeight: 500
+                                }}
+                                title="Open Direct Chat on WhatsApp Web"
+                              >
+                                Web WA
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              ) : (
+                /* Unbilled Tab */
+                loadingUnbilled ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                    Loading pending bookings...
+                  </div>
+                ) : filteredUnbilled.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                    No pending bookings found awaiting bill generation.
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Staff</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Services</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Amount</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Status</th>
+                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUnbilled.map((apt) => {
+                        const srvNames = (apt.serviceDetails || []).map(s => s.serviceName).join(', ') ||
+                          (apt.packageDetails?.packageName ? `📦 ${apt.packageDetails.packageName}` : 'Service');
+                        const formattedDate = apt.date ? new Date(apt.date).toLocaleDateString() : '';
+                        const timeStr = typeof apt.timeSlot === 'string' ? apt.timeSlot : (apt.timeSlot?.start || '');
+                        const normStatus = apt.status || 'Completed';
+
+                        return (
+                          <tr key={apt._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
+                            <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
+                              {formattedDate} {timeStr ? <div style={{ fontSize: '11px', color: '#71717a' }}>{timeStr}</div> : null}
+                            </td>
+                            <td style={{ padding: '12px 8px' }}>
+                              <div style={{ fontWeight: 500, color: '#fff' }}>{apt.customerDetails?.name || 'Walk-in Customer'}</div>
+                              {apt.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{apt.customerDetails.phone}</div>}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
+                              {apt.staffDetails?.name || 'Staff'}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#c084fc', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {srvNames}
+                            </td>
+                            <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                              ₹{apt.totalAmount || 0}
+                            </td>
+                            <td style={{ padding: '12px 8px' }}>
+                              <span className={`unbilled-status-pill ${normStatus.toLowerCase() === 'completed' ? 'completed' : 'pending'}`}>
+                                {normStatus}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button
+                                className="btn-bill-now"
+                                onClick={() => handleLoadUnbilledAppointment(apt)}
+                                title="Load booking to Invoice form"
+                              >
+                                <Zap size={14} /> Bill Now
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Unbilled Bookings Modal */}
+      {showUnbilledModal && (
+        <div
+          className="history-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowUnbilledModal(false)}
+        >
+          <div
+            className="history-modal-content"
+            style={{
+              background: '#181825',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '950px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#12121c'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    color: '#fbbf24'
+                  }}
+                >
+                  <Zap size={22} />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '18px', color: '#fff', fontWeight: 600 }}>
+                    Pending Bookings Awaiting Bill
+                  </h2>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                    Select any completed booking to load its services and generate the invoice ({filteredUnbilled.length} total)
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowUnbilledModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#a1a1aa',
+                  borderRadius: '8px',
+                  padding: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
             <div style={{ padding: '16px 24px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <Search size={18} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
                 <input
                   type="text"
-                  placeholder="Search history by Customer, Staff, Phone, Invoice No, or Payment Method..."
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Search pending bookings by Customer, Phone, Staff, or Service..."
+                  value={unbilledSearch}
+                  onChange={(e) => setUnbilledSearch(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '10px 12px 10px 40px',
@@ -1416,133 +1995,71 @@ function Billing() {
               </div>
             </div>
 
-            {/* History Table Body */}
             <div style={{ padding: '0 24px 24px', overflowY: 'auto', flex: 1 }}>
-              {loadingHistory ? (
+              {loadingUnbilled ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-                  Loading billing history...
+                  Loading pending bookings...
                 </div>
-              ) : filteredHistory.length === 0 ? (
+              ) : filteredUnbilled.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-                  No billing history found matching your search.
+                  No pending bookings found awaiting bill generation.
                 </div>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Invoice #</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Served By</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Service</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Total Amount</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Method</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Staff</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Services</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Amount</th>
+                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Status</th>
                       <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredHistory.map((b) => (
-                      <tr key={b._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
-                        <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
-                          {new Date(b.createdAt).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px 8px', fontWeight: 500, color: '#c084fc' }}>
-                          {b.invoiceNumber || b._id?.substring(0, 8) || 'INV'}
-                        </td>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div style={{ fontWeight: 500, color: '#fff' }}>{b.customerDetails?.name || 'Walk-in Customer'}</div>
-                          {b.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{b.customerDetails.phone}</div>}
-                        </td>
-                        <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
-                          {b.staffDetails?.name || 'Staff'}
-                        </td>
-                        <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
-                          {(b.services || []).map(s => s.serviceName || s.serviceId?.serviceName || 'Service').join(', ') || 'Service'}
-                        </td>
-                        <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
-                          ₹{b.totalAmount || b.paidAmount || 0}
-                        </td>
-                        <td style={{ padding: '12px 8px' }}>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 500,
-                              background: 'rgba(255, 255, 255, 0.08)',
-                              color: '#cbd5e1'
-                            }}
-                          >
-                            {b.paymentMethod || 'Cash'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    {filteredUnbilled.map((apt) => {
+                      const srvNames = (apt.serviceDetails || []).map(s => s.serviceName).join(', ') ||
+                        (apt.packageDetails?.packageName ? `📦 ${apt.packageDetails.packageName}` : 'Service');
+                      const formattedDate = apt.date ? new Date(apt.date).toLocaleDateString() : '';
+                      const timeStr = typeof apt.timeSlot === 'string' ? apt.timeSlot : (apt.timeSlot?.start || '');
+                      const normStatus = apt.status || 'Completed';
+
+                      return (
+                        <tr key={apt._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
+                          <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
+                            {formattedDate} {timeStr ? <div style={{ fontSize: '11px', color: '#71717a' }}>{timeStr}</div> : null}
+                          </td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <div style={{ fontWeight: 500, color: '#fff' }}>{apt.customerDetails?.name || 'Walk-in Customer'}</div>
+                            {apt.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{apt.customerDetails.phone}</div>}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
+                            {apt.staffDetails?.name || 'Staff'}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#c084fc', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {srvNames}
+                          </td>
+                          <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                            ₹{apt.totalAmount || 0}
+                          </td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <span className={`unbilled-status-pill ${normStatus.toLowerCase() === 'completed' ? 'completed' : 'pending'}`}>
+                              {normStatus}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <button
-                              onClick={() => handlePrintHistoryBill(b)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '6px 10px',
-                                background: 'rgba(192, 132, 252, 0.15)',
-                                border: '1px solid rgba(192, 132, 252, 0.3)',
-                                color: '#c084fc',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                              }}
-                              title="Print Receipt"
+                              className="btn-bill-now"
+                              onClick={() => handleLoadUnbilledAppointment(apt)}
+                              title="Load booking and generate bill"
                             >
-                              <Printer size={14} /> Receipt
+                              <Zap size={14} /> Bill Now
                             </button>
-                            <button
-                              onClick={() => handleSendWhatsAppBill(b._id, b.customerDetails?.phone)}
-                              disabled={sendingWhatsAppId === b._id}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '6px 10px',
-                                background: '#25D366',
-                                border: 'none',
-                                color: '#fff',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                fontWeight: 500,
-                                opacity: sendingWhatsAppId === b._id ? 0.7 : 1
-                              }}
-                              title="Send WhatsApp Bill via Meta Cloud API"
-                            >
-                              <WhatsAppIcon /> 
-                              {/* {sendingWhatsAppId === b._id ? 'Sending...' : 'WhatsApp'} */}
-                            </button>
-                            <button
-                              onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '6px 10px',
-                                background: 'rgba(37, 211, 102, 0.15)',
-                                border: '1px solid rgba(37, 211, 102, 0.4)',
-                                color: '#4ade80',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                              }}
-                              title="Open Direct Chat on WhatsApp Web"
-                            >
-                              Web WA
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
