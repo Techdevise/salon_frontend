@@ -374,13 +374,133 @@ function Appointments() {
     }
   };
 
-  const applyPromoToAmount = (baseAmount, promoCode) => {
+  const getPromoLabel = (d) => {
+    const valueStr = d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`;
+    let timeStr = '';
+    if (d.isOneDayOffer || (d.startDate && d.endDate && new Date(d.startDate).toDateString() === new Date(d.endDate).toDateString())) {
+      if (d.startTime && d.endTime) {
+        timeStr = ` • ${d.startTime}-${d.endTime}`;
+      }
+    } else if (d.startTime && d.startTime !== '00:00') {
+      timeStr = ` • ${d.startTime}`;
+    }
+    const minStr = d.minOrderAmount ? ` • Min ₹${d.minOrderAmount}` : '';
+    return `🏷️ ${d.promoCode} (${valueStr}${timeStr}${minStr})`;
+  };
+
+  const getDiscountDateRange = (discount) => {
+    if (!discount) return { startDateTime: null, endDateTime: null };
+
+    let startDateTime = null;
+    let endDateTime = null;
+
+    if (discount.startDate) {
+      const dStart = new Date(discount.startDate);
+      if (!isNaN(dStart.getTime())) {
+        const yr = dStart.getFullYear();
+        const mo = dStart.getMonth();
+        const day = dStart.getDate();
+
+        let hrs = 0;
+        let mins = 0;
+        if (discount.startTime && typeof discount.startTime === 'string' && discount.startTime.includes(':')) {
+          const clean = discount.startTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] || 0;
+          mins = parts[1] || 0;
+          if (discount.startTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.startTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        } else {
+          hrs = dStart.getHours();
+          mins = dStart.getMinutes();
+        }
+        startDateTime = new Date(yr, mo, day, hrs, mins, 0, 0);
+      }
+    }
+
+    if (discount.endDate) {
+      const dEnd = new Date(discount.endDate);
+      if (!isNaN(dEnd.getTime())) {
+        const yr = dEnd.getFullYear();
+        const mo = dEnd.getMonth();
+        const day = dEnd.getDate();
+
+        let hrs = 23;
+        let mins = 59;
+        let secs = 59;
+        let ms = 999;
+
+        if (discount.endTime && typeof discount.endTime === 'string' && discount.endTime.includes(':')) {
+          const clean = discount.endTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] !== undefined ? parts[0] : 23;
+          mins = parts[1] !== undefined ? parts[1] : 59;
+          if (discount.endTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.endTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        }
+        endDateTime = new Date(yr, mo, day, hrs, mins, secs, ms);
+      }
+    }
+
+    return { startDateTime, endDateTime };
+  };
+
+  const isPromoValidForTarget = (discount, targetDateStr, targetTimeStr, customerId) => {
+    if (!discount || discount.isActive === false) return false;
+
+    // Check single customer usage
+    if (customerId && Array.isArray(discount.usedBy) && discount.usedBy.some(id => String(id?._id || id) === String(customerId))) {
+      return false;
+    }
+
+    // Check total usage limit
+    if (discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit)) {
+      return false;
+    }
+
+    const { startDateTime, endDateTime } = getDiscountDateRange(discount);
+
+    // Determine target check time
+    if (targetDateStr) {
+      const [yr, mo, day] = targetDateStr.split('-').map(Number);
+      if (targetTimeStr && typeof targetTimeStr === 'string' && targetTimeStr.includes(':')) {
+        let h = 0, m = 0;
+        const isPM = targetTimeStr.toLowerCase().includes('pm');
+        const isAM = targetTimeStr.toLowerCase().includes('am');
+        const clean = targetTimeStr.replace(/[^\d:]/g, '');
+        const parts = clean.split(':').map(Number);
+        h = parts[0] || 0;
+        m = parts[1] || 0;
+        if (isPM && h < 12) h += 12;
+        if (isAM && h === 12) h = 0;
+        const checkDateTime = new Date(yr, mo - 1, day, h, m, 0, 0);
+
+        if (startDateTime && checkDateTime < startDateTime) return false;
+        if (endDateTime && checkDateTime > endDateTime) return false;
+        return true;
+      } else {
+        // If time is not selected yet, check if valid anytime on that date
+        const startOfDay = new Date(yr, mo - 1, day, 0, 0, 0, 0);
+        const endOfDay = new Date(yr, mo - 1, day, 23, 59, 59, 999);
+
+        if (startDateTime && startDateTime > endOfDay) return false;
+        if (endDateTime && endDateTime < startOfDay) return false;
+        return true;
+      }
+    }
+
+    const now = new Date();
+    if (startDateTime && now < startDateTime) return false;
+    if (endDateTime && now > endDateTime) return false;
+
+    return true;
+  };
+
+  const applyPromoToAmount = (baseAmount, promoCode, targetDateStr, targetTimeStr, customerId) => {
     if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
     const disc = discountsList.find(d => d.promoCode === promoCode);
     if (!disc) return baseAmount;
-    const now = new Date();
-    if (disc.startDate && now < new Date(disc.startDate)) return baseAmount;
-    if (disc.endDate && now > new Date(disc.endDate)) return baseAmount;
+    if (!isPromoValidForTarget(disc, targetDateStr, targetTimeStr, customerId)) return baseAmount;
     const limit = disc.usageLimit;
     const used = Number(disc.usedCount || 0);
     if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) return baseAmount;
@@ -397,7 +517,7 @@ function Appointments() {
     return Math.max(0, baseAmount - discAmt);
   };
 
-  const calculateTotalWithPromo = (servicesList, packageId, promoCode) => {
+  const calculateTotalWithPromo = (servicesList, packageId, promoCode, targetDateStr, targetTimeStr, customerId) => {
     let base = (servicesList || []).reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     if (packageId) {
       const pkg = packagesList.find(p => p._id === packageId);
@@ -405,7 +525,7 @@ function Appointments() {
         base += Number(pkg.packagePrice || pkg.price || 0);
       }
     }
-    return applyPromoToAmount(base, promoCode);
+    return applyPromoToAmount(base, promoCode, targetDateStr, targetTimeStr, customerId);
   };
 
   const handleAddService = (serviceId) => {
@@ -418,7 +538,7 @@ function Appointments() {
     setSelectedServices(next);
     setFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.date, prev.startTime, prev.customerId)
     }));
 
     const cat = (service.category || '').toLowerCase();
@@ -435,7 +555,7 @@ function Appointments() {
     setSelectedServices(next);
     setFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.date, prev.startTime, prev.customerId)
     }));
 
     const hasHairTreatment = next.some(s => {
@@ -458,7 +578,7 @@ function Appointments() {
     setWalkInSelectedServices(next);
     setWalkInFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, walkInDate, prev.startTime, prev.customerId)
     }));
 
     const cat = (service.category || '').toLowerCase();
@@ -475,7 +595,7 @@ function Appointments() {
     setWalkInSelectedServices(next);
     setWalkInFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, walkInDate, prev.startTime, prev.customerId)
     }));
 
     const hasHairTreatment = next.some(s => {
@@ -506,9 +626,15 @@ function Appointments() {
     const { name, value } = e.target;
     let updatedData = { ...formData, [name]: value };
 
-    if (name === 'packageId') {
-      updatedData.packageId = value;
-      updatedData.totalAmount = calculateTotalWithPromo(selectedServices, value, selectedPromoCode);
+    if (name === 'packageId' || name === 'date' || name === 'startTime') {
+      updatedData.totalAmount = calculateTotalWithPromo(
+        selectedServices,
+        updatedData.packageId,
+        selectedPromoCode,
+        updatedData.date,
+        updatedData.startTime,
+        updatedData.customerId
+      );
     }
     setFormData(updatedData);
   };
@@ -678,9 +804,15 @@ function Appointments() {
     }
     const updatedWalkIn = { ...walkInFormData, [name]: value };
 
-    if (name === 'packageId') {
-      updatedWalkIn.packageId = value;
-      updatedWalkIn.totalAmount = calculateTotalWithPromo(walkInSelectedServices, value, walkInSelectedPromoCode);
+    if (name === 'packageId' || name === 'startTime') {
+      updatedWalkIn.totalAmount = calculateTotalWithPromo(
+        walkInSelectedServices,
+        updatedWalkIn.packageId,
+        walkInSelectedPromoCode,
+        walkInDate,
+        updatedWalkIn.startTime,
+        updatedWalkIn.customerId
+      );
     }
     setWalkInFormData(updatedWalkIn);
   };
@@ -1593,21 +1725,18 @@ function Appointments() {
                       return;
                     }
 
-                    const now = new Date();
-                    if (disc && disc.startDate && now < new Date(disc.startDate)) {
-                      setWalkInError(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
+                    if (disc && !isPromoValidForTarget(disc, walkInDate, walkInFormData.startTime, currentWalkInCust?._id)) {
+                      const startStr = disc.startDate ? new Date(disc.startDate).toLocaleDateString() : '';
+                      const endStr = disc.endDate ? new Date(disc.endDate).toLocaleDateString() : '';
+                      const timeStr = disc.startTime && disc.endTime ? ` (${disc.startTime} - ${disc.endTime})` : '';
+                      setWalkInError(`Promo code ${disc.promoCode} is not applicable for ${walkInDate} ${walkInFormData.startTime || ''}. Offer validity: ${startStr} to ${endStr}${timeStr}.`);
                       setWalkInSelectedPromoCode('');
                       setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
-                    if (disc && disc.endDate && now > new Date(disc.endDate)) {
-                      setWalkInError(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
-                      setWalkInSelectedPromoCode('');
-                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
-                      return;
-                    }
+
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
-                      setWalkInError(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
+                      setWalkInError(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required. (Current: ₹${basePrice})`);
                       setWalkInSelectedPromoCode('');
                       setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
@@ -1617,27 +1746,21 @@ function Appointments() {
                     setWalkInSelectedPromoCode(code);
                     setWalkInFormData(prev => ({
                       ...prev,
-                      totalAmount: applyPromoToAmount(basePrice, code)
+                      totalAmount: applyPromoToAmount(basePrice, code, walkInDate, walkInFormData.startTime, currentWalkInCust?._id)
                     }));
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
                   {discountsList
                     .filter(d => {
-                      if (!d || d.isActive === false) return false;
-                      const now = new Date();
-                      if (d.startDate && now < new Date(d.startDate)) return false;
-                      if (d.endDate && now > new Date(d.endDate)) return false;
-                      if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
                       const currentWalkInCust = walkInFormData.customerId
                         ? customerList.find(c => c._id === walkInFormData.customerId)
                         : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
-                      if (currentWalkInCust?._id && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(currentWalkInCust._id))) return false;
-                      return true;
+                      return isPromoValidForTarget(d, walkInDate, walkInFormData.startTime, currentWalkInCust?._id);
                     })
                     .map(d => (
                       <option key={d._id} value={d.promoCode}>
-                        🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
+                        {getPromoLabel(d)}
                       </option>
                     ))}
                 </select>
@@ -1887,21 +2010,18 @@ function Appointments() {
                       return;
                     }
 
-                    const now = new Date();
-                    if (disc && disc.startDate && now < new Date(disc.startDate)) {
-                      setErrorMsg(`Promo code ${disc.promoCode} is not valid yet (Valid from ${new Date(disc.startDate).toLocaleDateString()}).`);
+                    if (disc && !isPromoValidForTarget(disc, formData.date, formData.startTime, formData.customerId)) {
+                      const startStr = disc.startDate ? new Date(disc.startDate).toLocaleDateString() : '';
+                      const endStr = disc.endDate ? new Date(disc.endDate).toLocaleDateString() : '';
+                      const timeStr = disc.startTime && disc.endTime ? ` (${disc.startTime} - ${disc.endTime})` : '';
+                      setErrorMsg(`Promo code ${disc.promoCode} is not applicable for ${formData.date} ${formData.startTime || ''}. Offer validity: ${startStr} to ${endStr}${timeStr}.`);
                       setSelectedPromoCode('');
                       setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
                     }
-                    if (disc && disc.endDate && now > new Date(disc.endDate)) {
-                      setErrorMsg(`Promo code ${disc.promoCode} has expired on ${new Date(disc.endDate).toLocaleDateString()}.`);
-                      setSelectedPromoCode('');
-                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
-                      return;
-                    }
+
                     if (disc && disc.minOrderAmount && basePrice < disc.minOrderAmount) {
-                      setErrorMsg(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required.`);
+                      setErrorMsg(`This promo code is not applicable for this order. Minimum order amount ₹${disc.minOrderAmount} required. (Current: ₹${basePrice})`);
                       setSelectedPromoCode('');
                       setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
@@ -1911,24 +2031,16 @@ function Appointments() {
                     setSelectedPromoCode(code);
                     setFormData(prev => ({
                       ...prev,
-                      totalAmount: applyPromoToAmount(basePrice, code)
+                      totalAmount: applyPromoToAmount(basePrice, code, formData.date, formData.startTime, formData.customerId)
                     }));
                   }}
                 >
                   <option value="">-- No Discount / Promo Code --</option>
                   {discountsList
-                    .filter(d => {
-                      if (!d || d.isActive === false) return false;
-                      const now = new Date();
-                      if (d.startDate && now < new Date(d.startDate)) return false;
-                      if (d.endDate && now > new Date(d.endDate)) return false;
-                      if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
-                      if (formData.customerId && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(formData.customerId))) return false;
-                      return true;
-                    })
+                    .filter(d => isPromoValidForTarget(d, formData.date, formData.startTime, formData.customerId))
                     .map(d => (
                       <option key={d._id} value={d.promoCode}>
-                        🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
+                        {getPromoLabel(d)}
                       </option>
                     ))}
                 </select>

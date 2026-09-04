@@ -662,6 +662,102 @@ function Billing() {
   const tax = Math.max(0, subtotal - discount) * 0.18; // 18% GST on taxable amount
   const grandTotal = Math.max(0, subtotal + tax - discount);
 
+  const getPromoLabel = (d) => {
+    const valueStr = d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`;
+    let timeStr = '';
+    if (d.isOneDayOffer || (d.startDate && d.endDate && new Date(d.startDate).toDateString() === new Date(d.endDate).toDateString())) {
+      if (d.startTime && d.endTime) {
+        timeStr = ` • ${d.startTime}-${d.endTime}`;
+      }
+    } else if (d.startTime && d.startTime !== '00:00') {
+      timeStr = ` • Starts ${d.startTime}`;
+    }
+    const minStr = d.minOrderAmount ? ` • Min ₹${d.minOrderAmount}` : '';
+    return `🏷️ ${d.promoCode} (${valueStr}${timeStr}${minStr})`;
+  };
+
+  const getDiscountDateRange = (discount) => {
+    if (!discount) return { startDateTime: null, endDateTime: null };
+
+    let startDateTime = null;
+    let endDateTime = null;
+
+    if (discount.startDate) {
+      const dStart = new Date(discount.startDate);
+      if (!isNaN(dStart.getTime())) {
+        const yr = dStart.getFullYear();
+        const mo = dStart.getMonth();
+        const day = dStart.getDate();
+
+        let hrs = 0;
+        let mins = 0;
+        if (discount.startTime && typeof discount.startTime === 'string' && discount.startTime.includes(':')) {
+          const clean = discount.startTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] || 0;
+          mins = parts[1] || 0;
+          if (discount.startTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.startTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        } else {
+          hrs = dStart.getHours();
+          mins = dStart.getMinutes();
+        }
+        startDateTime = new Date(yr, mo, day, hrs, mins, 0, 0);
+      }
+    }
+
+    if (discount.endDate) {
+      const dEnd = new Date(discount.endDate);
+      if (!isNaN(dEnd.getTime())) {
+        const yr = dEnd.getFullYear();
+        const mo = dEnd.getMonth();
+        const day = dEnd.getDate();
+
+        let hrs = 23;
+        let mins = 59;
+        let secs = 59;
+        let ms = 999;
+
+        if (discount.endTime && typeof discount.endTime === 'string' && discount.endTime.includes(':')) {
+          const clean = discount.endTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] !== undefined ? parts[0] : 23;
+          mins = parts[1] !== undefined ? parts[1] : 59;
+          if (discount.endTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.endTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        }
+        endDateTime = new Date(yr, mo, day, hrs, mins, secs, ms);
+      }
+    }
+
+    return { startDateTime, endDateTime };
+  };
+
+  const isDiscountActiveNow = (discount, customerId) => {
+    if (!discount || discount.isActive === false) return false;
+
+    // Single customer usage
+    if (customerId && Array.isArray(discount.usedBy) && discount.usedBy.some(id => String(id?._id || id) === String(customerId))) {
+      return false;
+    }
+
+    // Max usage limit
+    if (discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit)) {
+      return false;
+    }
+
+    const now = new Date();
+    const { startDateTime, endDateTime } = getDiscountDateRange(discount);
+
+    // If in the future (has not started yet) -> hidden
+    if (startDateTime && now < startDateTime) return false;
+
+    // If expired in the past -> hidden
+    if (endDateTime && now > endDateTime) return false;
+
+    return true;
+  };
+
   const handlePromoCodeChange = (code) => {
     setSelectedPromoCode(code);
     if (!code) {
@@ -682,14 +778,18 @@ function Billing() {
       }
 
       const now = new Date();
-      if (foundDisc.startDate && now < new Date(foundDisc.startDate)) {
-        showToast(`Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${new Date(foundDisc.startDate).toLocaleDateString()})`, 'error');
+      const { startDateTime, endDateTime } = getDiscountDateRange(foundDisc);
+
+      if (startDateTime && now < startDateTime) {
+        const timeInfo = foundDisc.startTime ? ` at ${foundDisc.startTime}` : '';
+        showToast(`Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${startDateTime.toLocaleDateString()}${timeInfo})`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
       }
-      if (foundDisc.endDate && now > new Date(foundDisc.endDate)) {
-        showToast(`Promo code ${foundDisc.promoCode} has expired on ${new Date(foundDisc.endDate).toLocaleDateString()}`, 'error');
+      if (endDateTime && now > endDateTime) {
+        const timeInfo = foundDisc.endTime ? ` at ${foundDisc.endTime}` : '';
+        showToast(`Promo code ${foundDisc.promoCode} has expired on ${endDateTime.toLocaleDateString()}${timeInfo}`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
@@ -703,7 +803,7 @@ function Billing() {
         return;
       }
       if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
-        showToast(`This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required.`, 'error');
+        showToast(`This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required. (Current: ₹${subtotal})`, 'error');
         setDiscount(0);
         setSelectedPromoCode('');
         return;
@@ -1319,32 +1419,33 @@ function Billing() {
                 <span>₹{tax.toFixed(2)}</span>
               </div>
 
-              <div className="payment-method-row" style={{ marginBottom: '8px' }}>
-                <span>Apply Offer / Discount</span>
-                <div>
-                  <select
-                    value={selectedPromoCode}
-                    onChange={(e) => handlePromoCodeChange(e.target.value)}
-                    className="payment-select"
-                  >
-                    <option value="">-- Select Offer --</option>
-                    {discounts
-                      .filter(d => {
-                        if (!d || d.isActive === false) return false;
-                        const now = new Date();
-                        if (d.startDate && now < new Date(d.startDate)) return false;
-                        if (d.endDate && now > new Date(d.endDate)) return false;
-                        if (d.usageLimit !== null && d.usageLimit !== undefined && d.usageLimit !== '' && Number(d.usedCount || 0) >= Number(d.usageLimit)) return false;
-                        if (selectedCustomer?._id && Array.isArray(d.usedBy) && d.usedBy.some(id => String(id?._id || id) === String(selectedCustomer._id))) return false;
-                        return true;
-                      })
-                      .map(d => (
-                        <option key={d._id} value={d.promoCode}>
-                          🏷️ {d.promoCode} ({d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`})
-                        </option>
-                      ))}
-                  </select>
+              <div className="promo-field-block">
+                <div className="promo-field-header">
+                  <span>🏷️ Apply Offer / Promo Code</span>
+                  {selectedPromoCode && (
+                    <button
+                      type="button"
+                      onClick={() => handlePromoCodeChange('')}
+                      className="promo-clear-btn"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
+                <select
+                  value={selectedPromoCode}
+                  onChange={(e) => handlePromoCodeChange(e.target.value)}
+                  className="promo-select-full"
+                >
+                  <option value="">-- No Offer Applied --</option>
+                  {discounts
+                    .filter(d => isDiscountActiveNow(d, selectedCustomer?._id))
+                    .map(d => (
+                      <option key={d._id} value={d.promoCode}>
+                        {getPromoLabel(d)}
+                      </option>
+                    ))}
+                </select>
               </div>
 
               <div className="summary-row discount-row">
