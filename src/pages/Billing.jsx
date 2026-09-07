@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight, Lock } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
@@ -1252,42 +1252,7 @@ function Billing() {
                   <strong>{selectedCustomer.name}</strong>
                   <p>{selectedCustomer.phone}</p>
                 </div>
-                {linkedAppointmentId ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '12px',
-                        color: '#c084fc',
-                        background: 'rgba(192, 132, 252, 0.12)',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(192, 132, 252, 0.25)',
-                        fontWeight: 500
-                      }}
-                      title="Customer is locked for this appointment booking"
-                    >
-                      <Lock size={12} /> Linked Booking
-                    </span>
-                    <button
-                      className="btn-text"
-                      style={{ fontSize: '12px', color: '#94a3b8' }}
-                      onClick={() => {
-                        setSelectedCustomer(null);
-                        setLinkedAppointmentId(null);
-                        setBillItems([]);
-                        setSelectedPromoCode('');
-                        setAppointmentTimeSlot(null);
-                        showToast('Switched to Direct Billing mode.', 'info');
-                      }}
-                      title="Clear linked booking and start a fresh direct bill"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                ) : (
+                {!linkedAppointmentId && (
                   <button className="btn-text" onClick={() => setSelectedCustomer(null)}>Change</button>
                 )}
               </div>
