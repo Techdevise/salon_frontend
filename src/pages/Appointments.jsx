@@ -374,6 +374,40 @@ function Appointments() {
     }
   };
 
+  const getLoggedInStaffInfo = () => {
+    if (!user || user.role === 'Admin' || user.role === 'Manager') return { staffId: '', staffName: '' };
+    const loggedInId = (user?.id || user?._id)?.toString();
+    const loggedInName = (user?.name || '').trim().toLowerCase();
+    const loggedInEmail = (user?.email || '').trim().toLowerCase();
+
+    const matchedStaff = staffList.find(s => 
+      (loggedInId && s._id?.toString() === loggedInId) ||
+      (loggedInEmail && s.email?.toLowerCase() === loggedInEmail) ||
+      (loggedInName && s.name?.toLowerCase() === loggedInName)
+    );
+
+    return {
+      staffId: matchedStaff?._id || loggedInId || '',
+      staffName: matchedStaff?.name || user?.name || ''
+    };
+  };
+
+  const availableStaffOptions = useMemo(() => {
+    if (!user || user.role === 'Admin' || user.role === 'Manager') return staffList;
+    const loggedInId = (user?.id || user?._id)?.toString();
+    const loggedInName = (user?.name || '').trim().toLowerCase();
+    const loggedInEmail = (user?.email || '').trim().toLowerCase();
+
+    const filtered = staffList.filter(s => 
+      (loggedInId && s._id?.toString() === loggedInId) ||
+      (loggedInEmail && s.email?.toLowerCase() === loggedInEmail) ||
+      (loggedInName && s.name?.toLowerCase() === loggedInName)
+    );
+
+    if (filtered.length > 0) return filtered;
+    return user?.name ? [{ _id: user.id || user._id || 'self', name: user.name, role: user.role }] : staffList;
+  }, [user, staffList]);
+
   const getPromoLabel = (d) => {
     const valueStr = d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`;
     let timeStr = '';
@@ -761,13 +795,14 @@ function Appointments() {
     const today = new Date().toISOString().split('T')[0];
     setWalkInDate(today);
     setAvailableSlots([]);
+    const staffInfo = getLoggedInStaffInfo();
     setWalkInFormData({
       customerId: '',
       customerName: '',
       customerPhone: '',
       serviceId: '',
       packageId: '',
-      staffName: '',
+      staffName: staffInfo.staffName || '',
       startTime: '',
       totalAmount: '',
       notes: ''
@@ -969,8 +1004,9 @@ function Appointments() {
     } else {
       setEditingAppointment(null);
       setSelectedServices([]);
+      const staffInfo = getLoggedInStaffInfo();
       setFormData({
-        customerId: '', staffId: '', serviceId: '', packageId: '',
+        customerId: '', staffId: staffInfo.staffId || '', serviceId: '', packageId: '',
         date: filterDate >= today ? filterDate : today, startTime: '', totalAmount: '', notes: ''
       });
     }
@@ -1346,6 +1382,27 @@ function Appointments() {
   };
 
   const filteredAppointments = appointments.filter((apt) => {
+    if (user?.role && user.role !== 'Admin' && user.role !== 'Manager') {
+      const aptStaffId = (apt.staffDetails?._id || apt.staffId?._id || apt.staffId)?.toString();
+      const aptStaffName = (apt.staffDetails?.name || '').trim().toLowerCase();
+      const loggedInId = (user?.id || user?._id)?.toString();
+      const loggedInName = (user?.name || '').trim().toLowerCase();
+      const loggedInEmail = (user?.email || '').trim().toLowerCase();
+
+      const matchedStaff = staffList.find(s => 
+        (loggedInId && s._id?.toString() === loggedInId) ||
+        (loggedInEmail && s.email?.toLowerCase() === loggedInEmail) ||
+        (loggedInName && s.name?.toLowerCase() === loggedInName)
+      );
+      const targetStaffId = matchedStaff?._id?.toString() || loggedInId;
+
+      const matchesId = targetStaffId && aptStaffId === targetStaffId;
+      const matchesName = (matchedStaff?.name && aptStaffName === matchedStaff.name.toLowerCase()) || (loggedInName && aptStaffName === loggedInName);
+
+      if (!matchesId && !matchesName) {
+        return false;
+      }
+    }
     if (selectedStatusFilter === 'All') return true;
     return normalizeStatus(apt.status, apt.hasBill, apt.paymentStatus).toLowerCase() === selectedStatusFilter.toLowerCase();
   });
@@ -1795,7 +1852,7 @@ function Appointments() {
                   value={walkInFormData.staffName}
                   onChange={handleWalkInChange}
                   placeholder="-- Select Staff --"
-                  options={staffList.map(s => ({
+                  options={availableStaffOptions.map(s => ({
                     value: s.name,
                     label: `${s.name} (${s.role || 'Staff'})`,
                     searchTerms: `${s.name} ${s.role || ''}`
@@ -2100,7 +2157,7 @@ function Appointments() {
                   value={formData.staffId}
                   onChange={handleInputChange}
                   placeholder="-- Assign To Staff --"
-                  options={staffList.map(s => ({
+                  options={availableStaffOptions.map(s => ({
                     value: s._id,
                     label: `${s.name} (${s.role || 'Staff'})`,
                     searchTerms: `${s.name} ${s.role || ''}`

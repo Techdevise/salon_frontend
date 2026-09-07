@@ -78,7 +78,24 @@ function BookingCalendar() {
       { withCredentials: true, headers: { Authorization: `Bearer ${token}` } }
     );
     const activeAppointments = (res.data.data || []).filter(
-      (apt) => (apt.status || '').toLowerCase() !== 'cancelled' && (apt.status || '').toLowerCase() !== 'canceled'
+      (apt) => {
+        const isNotCancelled = (apt.status || '').toLowerCase() !== 'cancelled' && (apt.status || '').toLowerCase() !== 'canceled';
+        if (!isNotCancelled) return false;
+
+        if (user?.role && user.role !== 'Admin' && user.role !== 'Manager') {
+          const aptStaffId = (apt.staffDetails?._id || apt.staffId?._id || apt.staffId)?.toString();
+          const aptStaffName = (apt.staffDetails?.name || '').trim().toLowerCase();
+          const loggedInId = (user?.id || user?._id)?.toString();
+          const loggedInName = (user?.name || '').trim().toLowerCase();
+
+          const matchesId = loggedInId && aptStaffId === loggedInId;
+          const matchesName = loggedInName && aptStaffName === loggedInName;
+          if (!matchesId && !matchesName) {
+            return false;
+          }
+        }
+        return true;
+      }
     );
     return activeAppointments.map((apt) => {
       const lower = (apt.status || '').toLowerCase();
@@ -108,7 +125,7 @@ function BookingCalendar() {
         paymentStatus: apt.paymentStatus || 'Unpaid',
       };
     });
-  }, [selectedSalonId]);
+  }, [selectedSalonId, user]);
 
   const fetchCalendarData = useCallback(async () => {
     setLoading(true);
