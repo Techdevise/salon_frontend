@@ -222,7 +222,16 @@ function Discounts() {
     let endDateTime = null;
 
     if (discount.startDate) {
-      const dStart = new Date(discount.startDate);
+      let dStart;
+      if (typeof discount.startDate === 'string' && discount.startDate.includes('T')) {
+        dStart = new Date(discount.startDate);
+      } else if (typeof discount.startDate === 'string' && discount.startDate.includes('-')) {
+        const parts = discount.startDate.split('-').map(Number);
+        dStart = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else {
+        dStart = new Date(discount.startDate);
+      }
+
       if (!isNaN(dStart.getTime())) {
         const yr = dStart.getFullYear();
         const mo = dStart.getMonth();
@@ -231,22 +240,30 @@ function Discounts() {
         let hrs = 0;
         let mins = 0;
         if (discount.startTime && typeof discount.startTime === 'string' && discount.startTime.includes(':')) {
+          const isPM = discount.startTime.toLowerCase().includes('pm');
+          const isAM = discount.startTime.toLowerCase().includes('am');
           const clean = discount.startTime.replace(/[^\d:]/g, '');
           const parts = clean.split(':').map(Number);
-          hrs = parts[0] || 0;
-          mins = parts[1] || 0;
-          if (discount.startTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
-          if (discount.startTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
-        } else {
-          hrs = dStart.getHours();
-          mins = dStart.getMinutes();
+          hrs = isNaN(parts[0]) ? 0 : parts[0];
+          mins = isNaN(parts[1]) ? 0 : parts[1];
+          if (isPM && hrs < 12) hrs += 12;
+          if (isAM && hrs === 12) hrs = 0;
         }
         startDateTime = new Date(yr, mo, day, hrs, mins, 0, 0);
       }
     }
 
     if (discount.endDate) {
-      const dEnd = new Date(discount.endDate);
+      let dEnd;
+      if (typeof discount.endDate === 'string' && discount.endDate.includes('T')) {
+        dEnd = new Date(discount.endDate);
+      } else if (typeof discount.endDate === 'string' && discount.endDate.includes('-')) {
+        const parts = discount.endDate.split('-').map(Number);
+        dEnd = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else {
+        dEnd = new Date(discount.endDate);
+      }
+
       if (!isNaN(dEnd.getTime())) {
         const yr = dEnd.getFullYear();
         const mo = dEnd.getMonth();
@@ -258,18 +275,40 @@ function Discounts() {
         let ms = 999;
 
         if (discount.endTime && typeof discount.endTime === 'string' && discount.endTime.includes(':')) {
+          const isPM = discount.endTime.toLowerCase().includes('pm');
+          const isAM = discount.endTime.toLowerCase().includes('am');
           const clean = discount.endTime.replace(/[^\d:]/g, '');
           const parts = clean.split(':').map(Number);
-          hrs = parts[0] !== undefined ? parts[0] : 23;
-          mins = parts[1] !== undefined ? parts[1] : 59;
-          if (discount.endTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
-          if (discount.endTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+          hrs = isNaN(parts[0]) ? 23 : parts[0];
+          mins = isNaN(parts[1]) ? 59 : parts[1];
+          if (isPM && hrs < 12) hrs += 12;
+          if (isAM && hrs === 12) hrs = 0;
         }
         endDateTime = new Date(yr, mo, day, hrs, mins, secs, ms);
       }
     }
 
     return { startDateTime, endDateTime };
+  };
+
+  const getDiscountStatus = (discount) => {
+    if (!discount.isActive) {
+      return { label: 'Inactive', className: 'inactive' };
+    }
+    const isLimitReached = discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit);
+    const { startDateTime, endDateTime } = getDiscountDateRange(discount);
+    const now = new Date();
+
+    if (isLimitReached) {
+      return { label: 'Limit Reached', className: 'inactive' };
+    }
+    if (endDateTime && endDateTime < now) {
+      return { label: 'Expired', className: 'inactive' };
+    }
+    if (startDateTime && startDateTime > now) {
+      return { label: 'Upcoming', className: 'upcoming' };
+    }
+    return { label: 'Active', className: 'active' };
   };
 
   const filteredDiscounts = discounts.filter(d =>
@@ -397,17 +436,14 @@ function Discounts() {
                     </td>
                     <td>
                       {(() => {
-                        const isLimitReached = discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit);
-                        const { endDateTime } = getDiscountDateRange(discount);
-                        const isDateExpired = endDateTime ? endDateTime < new Date() : false;
-                        const isExpired = !discount.isActive || isLimitReached || isDateExpired;
+                        const { label, className } = getDiscountStatus(discount);
                         return (
                           <button
-                            className={`status-badge border-0 cursor-pointer ${!isExpired ? 'active' : 'inactive'}`}
+                            className={`status-badge border-0 cursor-pointer ${className}`}
                             onClick={() => handleToggleStatus(discount._id)}
                             title="Click to toggle status"
                           >
-                            {!isExpired ? 'Active' : 'Expired'}
+                            {label}
                           </button>
                         );
                       })()}

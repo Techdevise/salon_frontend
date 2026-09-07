@@ -382,7 +382,7 @@ function Appointments() {
         timeStr = ` • ${d.startTime}-${d.endTime}`;
       }
     } else if (d.startTime && d.startTime !== '00:00') {
-      timeStr = ` • ${d.startTime}`;
+      timeStr = ` • Starts ${d.startTime}`;
     }
     const minStr = d.minOrderAmount ? ` • Min ₹${d.minOrderAmount}` : '';
     return `🏷️ ${d.promoCode} (${valueStr}${timeStr}${minStr})`;
@@ -445,7 +445,7 @@ function Appointments() {
     return { startDateTime, endDateTime };
   };
 
-  const isPromoValidForTarget = (discount, targetDateStr, targetTimeStr, customerId) => {
+  const isDiscountActiveNow = (discount, customerId) => {
     if (!discount || discount.isActive === false) return false;
 
     // Check single customer usage
@@ -458,49 +458,23 @@ function Appointments() {
       return false;
     }
 
+    const now = new Date();
     const { startDateTime, endDateTime } = getDiscountDateRange(discount);
 
-    // Determine target check time
-    if (targetDateStr) {
-      const [yr, mo, day] = targetDateStr.split('-').map(Number);
-      if (targetTimeStr && typeof targetTimeStr === 'string' && targetTimeStr.includes(':')) {
-        let h = 0, m = 0;
-        const isPM = targetTimeStr.toLowerCase().includes('pm');
-        const isAM = targetTimeStr.toLowerCase().includes('am');
-        const clean = targetTimeStr.replace(/[^\d:]/g, '');
-        const parts = clean.split(':').map(Number);
-        h = parts[0] || 0;
-        m = parts[1] || 0;
-        if (isPM && h < 12) h += 12;
-        if (isAM && h === 12) h = 0;
-        const checkDateTime = new Date(yr, mo - 1, day, h, m, 0, 0);
-
-        if (startDateTime && checkDateTime < startDateTime) return false;
-        if (endDateTime && checkDateTime > endDateTime) return false;
-        return true;
-      } else {
-        // If time is not selected yet, check if valid anytime on that date
-        const startOfDay = new Date(yr, mo - 1, day, 0, 0, 0, 0);
-        const endOfDay = new Date(yr, mo - 1, day, 23, 59, 59, 999);
-
-        if (startDateTime && startDateTime > endOfDay) return false;
-        if (endDateTime && endDateTime < startOfDay) return false;
-        return true;
-      }
-    }
-
-    const now = new Date();
+    // If in the future (has not started yet) -> hidden
     if (startDateTime && now < startDateTime) return false;
+
+    // If expired in the past -> hidden
     if (endDateTime && now > endDateTime) return false;
 
     return true;
   };
 
-  const applyPromoToAmount = (baseAmount, promoCode, targetDateStr, targetTimeStr, customerId) => {
+  const applyPromoToAmount = (baseAmount, promoCode, customerId) => {
     if (!promoCode || !baseAmount || isNaN(baseAmount)) return baseAmount;
     const disc = discountsList.find(d => d.promoCode === promoCode);
     if (!disc) return baseAmount;
-    if (!isPromoValidForTarget(disc, targetDateStr, targetTimeStr, customerId)) return baseAmount;
+    if (!isDiscountActiveNow(disc, customerId)) return baseAmount;
     const limit = disc.usageLimit;
     const used = Number(disc.usedCount || 0);
     if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) return baseAmount;
@@ -517,7 +491,7 @@ function Appointments() {
     return Math.max(0, baseAmount - discAmt);
   };
 
-  const calculateTotalWithPromo = (servicesList, packageId, promoCode, targetDateStr, targetTimeStr, customerId) => {
+  const calculateTotalWithPromo = (servicesList, packageId, promoCode, customerId) => {
     let base = (servicesList || []).reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     if (packageId) {
       const pkg = packagesList.find(p => p._id === packageId);
@@ -525,7 +499,7 @@ function Appointments() {
         base += Number(pkg.packagePrice || pkg.price || 0);
       }
     }
-    return applyPromoToAmount(base, promoCode, targetDateStr, targetTimeStr, customerId);
+    return applyPromoToAmount(base, promoCode, customerId);
   };
 
   const handleAddService = (serviceId) => {
@@ -538,7 +512,7 @@ function Appointments() {
     setSelectedServices(next);
     setFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.date, prev.startTime, prev.customerId)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.customerId)
     }));
 
     const cat = (service.category || '').toLowerCase();
@@ -555,7 +529,7 @@ function Appointments() {
     setSelectedServices(next);
     setFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.date, prev.startTime, prev.customerId)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, selectedPromoCode, prev.customerId)
     }));
 
     const hasHairTreatment = next.some(s => {
@@ -576,9 +550,13 @@ function Appointments() {
 
     const next = [...walkInSelectedServices, service];
     setWalkInSelectedServices(next);
+    const currentWalkInCust = walkInFormData.customerId
+      ? customerList.find(c => c._id === walkInFormData.customerId)
+      : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
+
     setWalkInFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, walkInDate, prev.startTime, prev.customerId)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, currentWalkInCust?._id)
     }));
 
     const cat = (service.category || '').toLowerCase();
@@ -593,9 +571,13 @@ function Appointments() {
   const handleWalkInRemoveService = (serviceId) => {
     const next = walkInSelectedServices.filter(s => s._id !== serviceId);
     setWalkInSelectedServices(next);
+    const currentWalkInCust = walkInFormData.customerId
+      ? customerList.find(c => c._id === walkInFormData.customerId)
+      : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
+
     setWalkInFormData(prev => ({
       ...prev,
-      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, walkInDate, prev.startTime, prev.customerId)
+      totalAmount: calculateTotalWithPromo(next, prev.packageId, walkInSelectedPromoCode, currentWalkInCust?._id)
     }));
 
     const hasHairTreatment = next.some(s => {
@@ -626,13 +608,11 @@ function Appointments() {
     const { name, value } = e.target;
     let updatedData = { ...formData, [name]: value };
 
-    if (name === 'packageId' || name === 'date' || name === 'startTime') {
+    if (name === 'packageId' || name === 'customerId') {
       updatedData.totalAmount = calculateTotalWithPromo(
         selectedServices,
         updatedData.packageId,
         selectedPromoCode,
-        updatedData.date,
-        updatedData.startTime,
         updatedData.customerId
       );
     }
@@ -804,14 +784,16 @@ function Appointments() {
     }
     const updatedWalkIn = { ...walkInFormData, [name]: value };
 
-    if (name === 'packageId' || name === 'startTime') {
+    if (name === 'packageId' || name === 'customerId' || name === 'customerPhone' || name === 'customerName') {
+      const currentWalkInCust = updatedWalkIn.customerId
+        ? customerList.find(c => c._id === updatedWalkIn.customerId)
+        : customerList.find(c => (updatedWalkIn.customerPhone && c.phone === updatedWalkIn.customerPhone) || (updatedWalkIn.customerName && c.name?.toLowerCase() === updatedWalkIn.customerName?.toLowerCase()));
+
       updatedWalkIn.totalAmount = calculateTotalWithPromo(
         walkInSelectedServices,
         updatedWalkIn.packageId,
         walkInSelectedPromoCode,
-        walkInDate,
-        updatedWalkIn.startTime,
-        updatedWalkIn.customerId
+        currentWalkInCust?._id
       );
     }
     setWalkInFormData(updatedWalkIn);
@@ -1715,8 +1697,28 @@ function Appointments() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Apply Offer / Promo Code (Optional)</label>
+              <div className="promo-field-block">
+                <div className="promo-field-header">
+                  <span>🏷️ Apply Offer / Promo Code (Optional)</span>
+                  {walkInSelectedPromoCode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalkInSelectedPromoCode('');
+                        setWalkInError('');
+                        let basePrice = walkInSelectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                        if (walkInFormData.packageId) {
+                          const p = packagesList.find(item => item._id === walkInFormData.packageId);
+                          if (p) basePrice += Number(p.packagePrice || p.price || 0);
+                        }
+                        setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      }}
+                      className="promo-clear-btn"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
                 <select
                   value={walkInSelectedPromoCode}
                   onChange={(e) => {
@@ -1725,6 +1727,13 @@ function Appointments() {
                     if (walkInFormData.packageId) {
                       const p = packagesList.find(item => item._id === walkInFormData.packageId);
                       if (p) basePrice += Number(p.packagePrice || p.price || 0);
+                    }
+
+                    if (!code) {
+                      setWalkInSelectedPromoCode('');
+                      setWalkInError('');
+                      setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
                     }
 
                     const disc = discountsList.find(d => d.promoCode === code);
@@ -1739,11 +1748,8 @@ function Appointments() {
                       return;
                     }
 
-                    if (disc && !isPromoValidForTarget(disc, walkInDate, walkInFormData.startTime, currentWalkInCust?._id)) {
-                      const startStr = disc.startDate ? new Date(disc.startDate).toLocaleDateString() : '';
-                      const endStr = disc.endDate ? new Date(disc.endDate).toLocaleDateString() : '';
-                      const timeStr = disc.startTime && disc.endTime ? ` (${disc.startTime} - ${disc.endTime})` : '';
-                      setWalkInError(`Promo code ${disc.promoCode} is not applicable for ${walkInDate} ${walkInFormData.startTime || ''}. Offer validity: ${startStr} to ${endStr}${timeStr}.`);
+                    if (disc && !isDiscountActiveNow(disc, currentWalkInCust?._id)) {
+                      setWalkInError(`Promo code ${disc.promoCode} is not currently active.`);
                       setWalkInSelectedPromoCode('');
                       setWalkInFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
@@ -1760,17 +1766,18 @@ function Appointments() {
                     setWalkInSelectedPromoCode(code);
                     setWalkInFormData(prev => ({
                       ...prev,
-                      totalAmount: applyPromoToAmount(basePrice, code, walkInDate, walkInFormData.startTime, currentWalkInCust?._id)
+                      totalAmount: applyPromoToAmount(basePrice, code, currentWalkInCust?._id)
                     }));
                   }}
+                  className="promo-select-full"
                 >
-                  <option value="">-- No Discount / Promo Code --</option>
+                  <option value="">-- No Offer Applied --</option>
                   {discountsList
                     .filter(d => {
                       const currentWalkInCust = walkInFormData.customerId
                         ? customerList.find(c => c._id === walkInFormData.customerId)
                         : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
-                      return isPromoValidForTarget(d, walkInDate, walkInFormData.startTime, currentWalkInCust?._id);
+                      return isDiscountActiveNow(d, currentWalkInCust?._id);
                     })
                     .map(d => (
                       <option key={d._id} value={d.promoCode}>
@@ -2004,8 +2011,28 @@ function Appointments() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Apply Offer / Promo Code (Optional)</label>
+              <div className="promo-field-block">
+                <div className="promo-field-header">
+                  <span>🏷️ Apply Offer / Promo Code (Optional)</span>
+                  {selectedPromoCode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPromoCode('');
+                        setErrorMsg('');
+                        let basePrice = selectedServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+                        if (formData.packageId) {
+                          const p = packagesList.find(item => item._id === formData.packageId);
+                          if (p) basePrice += Number(p.packagePrice || p.price || 0);
+                        }
+                        setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      }}
+                      className="promo-clear-btn"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
                 <select
                   value={selectedPromoCode}
                   onChange={(e) => {
@@ -2016,6 +2043,13 @@ function Appointments() {
                       if (p) basePrice += Number(p.packagePrice || p.price || 0);
                     }
 
+                    if (!code) {
+                      setSelectedPromoCode('');
+                      setErrorMsg('');
+                      setFormData(prev => ({ ...prev, totalAmount: basePrice }));
+                      return;
+                    }
+
                     const disc = discountsList.find(d => d.promoCode === code);
                     if (formData.customerId && disc && Array.isArray(disc.usedBy) && disc.usedBy.some(id => String(id?._id || id) === String(formData.customerId))) {
                       setErrorMsg(`Promo code ${disc.promoCode} has already been used by this customer. A customer can only apply this promo code once.`);
@@ -2024,11 +2058,8 @@ function Appointments() {
                       return;
                     }
 
-                    if (disc && !isPromoValidForTarget(disc, formData.date, formData.startTime, formData.customerId)) {
-                      const startStr = disc.startDate ? new Date(disc.startDate).toLocaleDateString() : '';
-                      const endStr = disc.endDate ? new Date(disc.endDate).toLocaleDateString() : '';
-                      const timeStr = disc.startTime && disc.endTime ? ` (${disc.startTime} - ${disc.endTime})` : '';
-                      setErrorMsg(`Promo code ${disc.promoCode} is not applicable for ${formData.date} ${formData.startTime || ''}. Offer validity: ${startStr} to ${endStr}${timeStr}.`);
+                    if (disc && !isDiscountActiveNow(disc, formData.customerId)) {
+                      setErrorMsg(`Promo code ${disc.promoCode} is not currently active.`);
                       setSelectedPromoCode('');
                       setFormData(prev => ({ ...prev, totalAmount: basePrice }));
                       return;
@@ -2045,13 +2076,14 @@ function Appointments() {
                     setSelectedPromoCode(code);
                     setFormData(prev => ({
                       ...prev,
-                      totalAmount: applyPromoToAmount(basePrice, code, formData.date, formData.startTime, formData.customerId)
+                      totalAmount: applyPromoToAmount(basePrice, code, formData.customerId)
                     }));
                   }}
+                  className="promo-select-full"
                 >
-                  <option value="">-- No Discount / Promo Code --</option>
+                  <option value="">-- No Offer Applied --</option>
                   {discountsList
-                    .filter(d => isPromoValidForTarget(d, formData.date, formData.startTime, formData.customerId))
+                    .filter(d => isDiscountActiveNow(d, formData.customerId))
                     .map(d => (
                       <option key={d._id} value={d.promoCode}>
                         {getPromoLabel(d)}
