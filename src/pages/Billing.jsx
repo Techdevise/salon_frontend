@@ -408,6 +408,27 @@ function Billing() {
   const [pendingCustomerState, setPendingCustomerState] = useState(null);
   const [linkedAppointmentId, setLinkedAppointmentId] = useState(null);
   const [appointmentTimeSlot, setAppointmentTimeSlot] = useState(null);
+  const [todayAppointments, setTodayAppointments] = useState([]);
+
+  const fetchTodayAppointments = async () => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      const token = localStorage.getItem('token');
+      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
+      const res = await axios.get(`/api/appointment/date?date=${todayStr}${salonParam}`, {
+        withCredentials: true,
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setTodayAppointments(res.data?.data || []);
+    } catch (err) {
+      console.error("Failed to load today appointments", err);
+      setTodayAppointments([]);
+    }
+  };
 
   useEffect(() => {
     setSelectedCustomer(null);
@@ -417,7 +438,59 @@ function Billing() {
     fetchStaff();
     fetchDiscounts();
     fetchUnbilledAppointments();
+    fetchTodayAppointments();
   }, [selectedSalonId]);
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      fetchTodayAppointments();
+    }
+  }, [selectedCustomer?._id, selectedCustomer?.phone]);
+
+  // Track services already taken or booked today by the selected customer
+  const todayBookedServiceIdsForCustomer = useMemo(() => {
+    if (!selectedCustomer || !todayAppointments.length) return new Set();
+    const custId = selectedCustomer._id ? String(selectedCustomer._id) : '';
+    const custPhone = (selectedCustomer.phone || '').replace(/\D/g, '');
+    const custName = (selectedCustomer.name || '').trim().toLowerCase();
+
+    const customerVisits = todayAppointments.filter(apt => {
+      // If currently billing a specific linked appointment, exclude that appointment itself
+      if (linkedAppointmentId && (String(apt._id) === String(linkedAppointmentId) || String(apt.appointmentId) === String(linkedAppointmentId))) {
+        return false;
+      }
+      const aptCustId = (apt.customerId?._id || apt.customerId || apt.customerDetails?._id)?.toString();
+      const aptPhone = (apt.customerDetails?.phone || apt.customerId?.phone || '').replace(/\D/g, '');
+      const aptName = (apt.customerDetails?.name || apt.customerId?.name || '').trim().toLowerCase();
+      const isCancelled = (apt.status || '').toLowerCase() === 'cancelled' || (apt.status || '').toLowerCase() === 'canceled';
+
+      if (isCancelled) return false;
+
+      const idMatch = custId && !custId.startsWith('temp_') && aptCustId && aptCustId === custId;
+      const phoneMatch = custPhone && aptPhone && (custPhone === aptPhone || custPhone.endsWith(aptPhone) || aptPhone.endsWith(custPhone));
+      const nameMatch = custName && aptName && custName === aptName;
+
+      return idMatch || phoneMatch || nameMatch;
+    });
+
+    const bookedIds = new Set();
+    customerVisits.forEach(apt => {
+      (apt.serviceDetails || []).forEach(s => {
+        if (s?.serviceId) bookedIds.add(String(s.serviceId));
+        if (s?._id) bookedIds.add(String(s._id));
+        if (s?.serviceName) bookedIds.add(s.serviceName.toLowerCase().trim());
+      });
+      (apt.services || []).forEach(s => {
+        const sid = typeof s === 'object' ? s?._id?.toString() : s?.toString();
+        if (sid) bookedIds.add(sid);
+        if (s?.serviceName) bookedIds.add(s.serviceName.toLowerCase().trim());
+      });
+      if (apt.serviceName) {
+        bookedIds.add(apt.serviceName.toLowerCase().trim());
+      }
+    });
+    return bookedIds;
+  }, [selectedCustomer, todayAppointments, linkedAppointmentId]);
 
   // Pre-fill form when navigated from Appointments page
   useEffect(() => {
@@ -566,6 +639,17 @@ function Billing() {
       const serviceObj = services.find(s => s._id === selectedService);
       if (!serviceObj) return;
 
+      const isAlreadyBookedToday = todayBookedServiceIdsForCustomer.has(String(serviceObj._id)) || 
+                                   todayBookedServiceIdsForCustomer.has(serviceObj.serviceName.toLowerCase().trim());
+      if (isAlreadyBookedToday) {
+        setMessage({
+          text: `⚠️ Customer "${selectedCustomer?.name || 'Customer'}" already took/booked service "${serviceObj.serviceName}" today. Duplicate services on the same date are not allowed.`,
+          type: 'error'
+        });
+        setSelectedService('');
+        return;
+      }
+
       const alreadyAdded = billItems.some(item =>
         item.serviceId === serviceObj._id ||
         item.id === serviceObj._id ||
@@ -626,6 +710,14 @@ function Billing() {
 
       if (isNaN(priceNum) || priceNum < 0) {
         setMessage({ text: 'Please enter a valid price', type: 'error' });
+        return;
+      }
+
+      if (todayBookedServiceIdsForCustomer.has(trimmedName.toLowerCase())) {
+        setMessage({
+          text: `⚠️ Customer "${selectedCustomer?.name || 'Customer'}" already took/booked service "${trimmedName}" today. Duplicate services on the same date are not allowed.`,
+          type: 'error'
+        });
         return;
       }
 
@@ -1349,12 +1441,20 @@ function Billing() {
                       item.id === s._id ||
                       (item.name && item.name.toLowerCase().trim() === s.serviceName.toLowerCase().trim())
                     );
+                    const isAlreadyBookedToday = todayBookedServiceIdsForCustomer.has(String(s._id)) || 
+                                                 todayBookedServiceIdsForCustomer.has(s.serviceName.toLowerCase().trim());
                     return {
                       value: s._id,
-                      label: `${s.serviceName} - ₹${s.price}`,
-                      sublabel: s.category || '',
+                      label: isAlreadyAdded
+                        ? `✓ ${s.serviceName} - ₹${s.price} (Added)`
+                        : isAlreadyBookedToday
+                        ? `🚫 ${s.serviceName} - ₹${s.price} (Already booked today)`
+                        : `${s.serviceName} - ₹${s.price}`,
+                      sublabel: isAlreadyBookedToday 
+                        ? 'Already booked for this customer on this date' 
+                        : (s.category || ''),
                       searchTerms: `${s.serviceName} ${s.category || ''} ${s.price}`,
-                      disabled: isAlreadyAdded
+                      disabled: isAlreadyAdded || isAlreadyBookedToday
                     };
                   })}
                 />

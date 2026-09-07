@@ -542,6 +542,12 @@ function Appointments() {
     if (!service) return;
     if (selectedServices.some(s => s._id === serviceId)) return;
 
+    if (bookedServiceIdsForSelectedCustomer.has(serviceId.toString())) {
+      setErrorMsg(`Customer already has a booking for "${service.serviceName}" on this date.`);
+      return;
+    }
+    setErrorMsg('');
+
     const next = [...selectedServices, service];
     setSelectedServices(next);
     setFormData(prev => ({
@@ -581,6 +587,12 @@ function Appointments() {
     const service = serviceList.find(s => s._id === serviceId);
     if (!service) return;
     if (walkInSelectedServices.some(s => s._id === serviceId)) return;
+
+    if (walkInBookedServiceIdsForCustomer.has(serviceId.toString())) {
+      setWalkInError(`Customer already has a booking for "${service.serviceName}" on this date.`);
+      return;
+    }
+    setWalkInError('');
 
     const next = [...walkInSelectedServices, service];
     setWalkInSelectedServices(next);
@@ -683,6 +695,8 @@ function Appointments() {
     error: ''
   });
 
+  const [modalDateAppointments, setModalDateAppointments] = useState([]);
+
   // Generate available time slots based on salon hours, booked appointments & slot duration
   const generateAvailableSlots = async (date, staffName, slotDurationMins = 30) => {
     setSlotsLoading(true);
@@ -717,6 +731,7 @@ function Appointments() {
         { withCredentials: true, headers: { Authorization: `Bearer ${token}` } }
       );
       const bookedApts = res.data.data || [];
+      setModalDateAppointments(bookedApts);
 
       // Filter slots for the selected staff member
       const matchedStaff = staffList.find(s => s.name === staffName);
@@ -781,6 +796,55 @@ function Appointments() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWalkInModal, walkInDate, walkInFormData.staffName, showModal, formData.date, formData.staffId, cancelModalData.show, cancelModalData.mode, cancelModalData.rescheduleDate, selectedSalonId]);
+
+  // Track services already booked by selected customer on the booking date
+  const bookedServiceIdsForSelectedCustomer = useMemo(() => {
+    if (!formData.customerId || !modalDateAppointments.length) return new Set();
+    const customerApts = modalDateAppointments.filter(apt => {
+      const aptCustId = (apt.customerId?._id || apt.customerId || apt.customerDetails?._id)?.toString();
+      const isCancelled = (apt.status || '').toLowerCase() === 'cancelled' || (apt.status || '').toLowerCase() === 'canceled';
+      return !isCancelled && aptCustId === formData.customerId.toString();
+    });
+
+    const bookedIds = new Set();
+    customerApts.forEach(apt => {
+      (apt.serviceDetails || []).forEach(s => {
+        if (s?._id) bookedIds.add(s._id.toString());
+      });
+      (apt.services || []).forEach(s => {
+        const sid = typeof s === 'object' ? s?._id?.toString() : s?.toString();
+        if (sid) bookedIds.add(sid);
+      });
+    });
+    return bookedIds;
+  }, [formData.customerId, modalDateAppointments]);
+
+  const walkInBookedServiceIdsForCustomer = useMemo(() => {
+    const currentWalkInCust = walkInFormData.customerId
+      ? customerList.find(c => c._id === walkInFormData.customerId)
+      : customerList.find(c => (walkInFormData.customerPhone && c.phone === walkInFormData.customerPhone) || (walkInFormData.customerName && c.name?.toLowerCase() === walkInFormData.customerName?.toLowerCase()));
+
+    const targetCustId = currentWalkInCust?._id?.toString();
+    if (!targetCustId || !modalDateAppointments.length) return new Set();
+
+    const customerApts = modalDateAppointments.filter(apt => {
+      const aptCustId = (apt.customerId?._id || apt.customerId || apt.customerDetails?._id)?.toString();
+      const isCancelled = (apt.status || '').toLowerCase() === 'cancelled' || (apt.status || '').toLowerCase() === 'canceled';
+      return !isCancelled && aptCustId === targetCustId;
+    });
+
+    const bookedIds = new Set();
+    customerApts.forEach(apt => {
+      (apt.serviceDetails || []).forEach(s => {
+        if (s?._id) bookedIds.add(s._id.toString());
+      });
+      (apt.services || []).forEach(s => {
+        const sid = typeof s === 'object' ? s?._id?.toString() : s?.toString();
+        if (sid) bookedIds.add(sid);
+      });
+    });
+    return bookedIds;
+  }, [walkInFormData.customerId, walkInFormData.customerPhone, walkInFormData.customerName, customerList, modalDateAppointments]);
 
   const openWalkInModal = () => {
     fetchOptions();
@@ -857,6 +921,14 @@ function Appointments() {
     if (walkInSelectedServices.length === 0 && !walkInFormData.packageId) {
       setWalkInError('Please select at least one Service or Package.');
       return;
+    }
+
+    if (walkInSelectedServices.length > 0) {
+      const conflict = walkInSelectedServices.find(s => walkInBookedServiceIdsForCustomer.has(s._id.toString()));
+      if (conflict) {
+        setWalkInError(`Customer already has a booking for "${conflict.serviceName}" on this date.`);
+        return;
+      }
     }
 
     setWalkInLoading(true);
@@ -1044,6 +1116,15 @@ function Appointments() {
       setErrorMsg('Please select a time slot.');
       setFormLoading(false);
       return;
+    }
+
+    if (formData.customerId && selectedServices.length > 0) {
+      const conflict = selectedServices.find(s => bookedServiceIdsForSelectedCustomer.has(s._id.toString()));
+      if (conflict) {
+        setErrorMsg(`Customer already has a booking for "${conflict.serviceName}" on this date.`);
+        setFormLoading(false);
+        return;
+      }
     }
 
     try {
@@ -1666,12 +1747,17 @@ function Appointments() {
                     placeholder={walkInSelectedServices.length === 0 ? "-- Choose Service to Add --" : "+ Add another service..."}
                     options={serviceList.map(s => {
                       const isSelected = walkInSelectedServices.some(item => item._id === s._id);
+                      const isAlreadyBooked = walkInBookedServiceIdsForCustomer.has(s._id.toString());
                       return {
                         value: s._id,
-                        label: isSelected ? `✓ ${s.serviceName} - ₹${s.price} (Added)` : `${s.serviceName} - ₹${s.price}`,
-                        sublabel: s.category || '',
+                        label: isSelected
+                          ? `✓ ${s.serviceName} - ₹${s.price} (Added)`
+                          : isAlreadyBooked
+                          ? `🚫 ${s.serviceName} - ₹${s.price} (Already booked today)`
+                          : `${s.serviceName} - ₹${s.price}`,
+                        sublabel: isAlreadyBooked ? 'Already booked for this customer on this date' : (s.category || ''),
                         searchTerms: `${s.serviceName} ${s.category || ''}`,
-                        disabled: isSelected
+                        disabled: isSelected || isAlreadyBooked
                       };
                     })}
                   />
@@ -1979,12 +2065,17 @@ function Appointments() {
                     placeholder={selectedServices.length === 0 ? "-- Choose Service to Add --" : "+ Add another service..."}
                     options={serviceList.map(s => {
                       const isSelected = selectedServices.some(item => item._id === s._id);
+                      const isAlreadyBooked = bookedServiceIdsForSelectedCustomer.has(s._id.toString());
                       return {
                         value: s._id,
-                        label: isSelected ? `✓ ${s.serviceName} - ₹${s.price} (Added)` : `${s.serviceName} - ₹${s.price}`,
-                        sublabel: s.category || '',
+                        label: isSelected
+                          ? `✓ ${s.serviceName} - ₹${s.price} (Added)`
+                          : isAlreadyBooked
+                          ? `🚫 ${s.serviceName} - ₹${s.price} (Already booked today)`
+                          : `${s.serviceName} - ₹${s.price}`,
+                        sublabel: isAlreadyBooked ? 'Already booked for this customer on this date' : (s.category || ''),
                         searchTerms: `${s.serviceName} ${s.category || ''}`,
-                        disabled: isSelected
+                        disabled: isSelected || isAlreadyBooked
                       };
                     })}
                   />
