@@ -19,16 +19,27 @@ function BookingCalendar() {
   const [error, setError] = useState('');
 
   // ── helpers ────────────────────────────────────────────────────────────────
-  const toDateStr = (d) => d.toISOString().split('T')[0];
+  const toDateStr = (d) => {
+    if (!d) return '';
+    if (typeof d === 'string') {
+      const clean = d.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+    }
+    const dateObj = d instanceof Date ? d : new Date(d);
+    if (isNaN(dateObj.getTime())) return '';
+    const yr = dateObj.getFullYear();
+    const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${day}`;
+  };
 
   const getWeekDays = (base = currentDate) => {
-    const start = new Date(base);
+    const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
     const day = start.getDay();
     const diff = day === 0 ? -6 : 1 - day; // Mon–Sun
     start.setDate(start.getDate() + diff);
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
       return d;
     });
   };
@@ -39,22 +50,20 @@ function BookingCalendar() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
-    // pad with prev-month days so calendar starts on Monday
+    // pad with prev-month days so calendar starts on Monday (Mon=0, ..., Sun=6)
     const startPad = (firstDay.getDay() + 6) % 7;
     const days = [];
     for (let i = startPad; i > 0; i--) {
-      const d = new Date(firstDay);
-      d.setDate(d.getDate() - i);
+      const d = new Date(year, month, 1 - i);
       days.push({ date: d, currentMonth: false });
     }
     for (let d = 1; d <= lastDay.getDate(); d++) {
       days.push({ date: new Date(year, month, d), currentMonth: true });
     }
-    // pad end so grid is always 6 weeks
-    while (days.length % 7 !== 0) {
+    // pad end so grid is always complete rows of 7 and at least 35 days (up to 42 for 6-week months)
+    while (days.length % 7 !== 0 || days.length < 35) {
       const last = days[days.length - 1].date;
-      const next = new Date(last);
-      next.setDate(next.getDate() + 1);
+      const next = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
       days.push({ date: next, currentMonth: false });
     }
     return days;
@@ -135,19 +144,33 @@ function BookingCalendar() {
 
   // ── navigation ─────────────────────────────────────────────────────────────
   const handlePrev = () => {
-    const d = new Date(currentDate);
-    if (viewMode === 'daily') d.setDate(d.getDate() - 1);
-    else if (viewMode === 'weekly') d.setDate(d.getDate() - 7);
-    else d.setMonth(d.getMonth() - 1);
-    setCurrentDate(d);
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      if (viewMode === 'daily') {
+        d.setDate(d.getDate() - 1);
+      } else if (viewMode === 'weekly') {
+        d.setDate(d.getDate() - 7);
+      } else {
+        d.setDate(1); // prevent month-skipping overflow on 31st
+        d.setMonth(d.getMonth() - 1);
+      }
+      return d;
+    });
   };
 
   const handleNext = () => {
-    const d = new Date(currentDate);
-    if (viewMode === 'daily') d.setDate(d.getDate() + 1);
-    else if (viewMode === 'weekly') d.setDate(d.getDate() + 7);
-    else d.setMonth(d.getMonth() + 1);
-    setCurrentDate(d);
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      if (viewMode === 'daily') {
+        d.setDate(d.getDate() + 1);
+      } else if (viewMode === 'weekly') {
+        d.setDate(d.getDate() + 7);
+      } else {
+        d.setDate(1); // prevent month-skipping overflow on 31st
+        d.setMonth(d.getMonth() + 1);
+      }
+      return d;
+    });
   };
 
   const padZero = (n) => n.toString().padStart(2, '0');
@@ -252,7 +275,7 @@ function BookingCalendar() {
                 const dateStr = toDateStr(date);
                 const cellApps = appointments.filter((a) => {
                   if (!a.date || !a.time) return false;
-                  const appDate = toDateStr(new Date(a.date));
+                  const appDate = toDateStr(a.date);
                   const raw = a.time.split(' ')[0];
                   let h = parseInt(raw.split(':')[0]);
                   if (a.time.includes('PM') && h !== 12) h += 12;
@@ -302,7 +325,7 @@ function BookingCalendar() {
             const isToday = dateStr === toDateStr(new Date());
             const dayApts = appointments.filter((a) => {
               if (!a.date) return false;
-              return toDateStr(new Date(a.date)) === dateStr;
+              return toDateStr(a.date) === dateStr;
             });
 
             // Group by status for dot display

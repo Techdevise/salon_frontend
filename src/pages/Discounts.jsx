@@ -215,6 +215,63 @@ function Discounts() {
     }
   };
 
+  const getDiscountDateRange = (discount) => {
+    if (!discount) return { startDateTime: null, endDateTime: null };
+
+    let startDateTime = null;
+    let endDateTime = null;
+
+    if (discount.startDate) {
+      const dStart = new Date(discount.startDate);
+      if (!isNaN(dStart.getTime())) {
+        const yr = dStart.getFullYear();
+        const mo = dStart.getMonth();
+        const day = dStart.getDate();
+
+        let hrs = 0;
+        let mins = 0;
+        if (discount.startTime && typeof discount.startTime === 'string' && discount.startTime.includes(':')) {
+          const clean = discount.startTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] || 0;
+          mins = parts[1] || 0;
+          if (discount.startTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.startTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        } else {
+          hrs = dStart.getHours();
+          mins = dStart.getMinutes();
+        }
+        startDateTime = new Date(yr, mo, day, hrs, mins, 0, 0);
+      }
+    }
+
+    if (discount.endDate) {
+      const dEnd = new Date(discount.endDate);
+      if (!isNaN(dEnd.getTime())) {
+        const yr = dEnd.getFullYear();
+        const mo = dEnd.getMonth();
+        const day = dEnd.getDate();
+
+        let hrs = 23;
+        let mins = 59;
+        let secs = 59;
+        let ms = 999;
+
+        if (discount.endTime && typeof discount.endTime === 'string' && discount.endTime.includes(':')) {
+          const clean = discount.endTime.replace(/[^\d:]/g, '');
+          const parts = clean.split(':').map(Number);
+          hrs = parts[0] !== undefined ? parts[0] : 23;
+          mins = parts[1] !== undefined ? parts[1] : 59;
+          if (discount.endTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
+          if (discount.endTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+        }
+        endDateTime = new Date(yr, mo, day, hrs, mins, secs, ms);
+      }
+    }
+
+    return { startDateTime, endDateTime };
+  };
+
   const filteredDiscounts = discounts.filter(d =>
     d.promoCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -341,14 +398,8 @@ function Discounts() {
                     <td>
                       {(() => {
                         const isLimitReached = discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit);
-                        
-                        let endDateTime = discount.endDate ? new Date(discount.endDate) : null;
-                        if (endDateTime && endDateTime.getHours() === 0 && endDateTime.getMinutes() === 0 && endDateTime.getSeconds() === 0) {
-                          endDateTime = new Date(endDateTime);
-                          endDateTime.setHours(23, 59, 59, 999);
-                        }
-                        
-                        const isDateExpired = endDateTime && endDateTime < new Date();
+                        const { endDateTime } = getDiscountDateRange(discount);
+                        const isDateExpired = endDateTime ? endDateTime < new Date() : false;
                         const isExpired = !discount.isActive || isLimitReached || isDateExpired;
                         return (
                           <button
