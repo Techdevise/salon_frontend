@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight } from 'lucide-react';
+import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
 import '../styles/Billing.css';
 import { useSelector } from 'react-redux';
@@ -222,12 +222,16 @@ function Billing() {
   const [searchCustomer, setSearchCustomer] = useState('');
 
   const [billItems, setBillItems] = useState([]);
-  const [itemType, setItemType] = useState('service'); // 'service' | 'package' | 'custom'
+  const [itemType, setItemType] = useState('service'); // 'service' | 'package' | 'custom' | 'other'
 
   const [selectedService, setSelectedService] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [customServiceName, setCustomServiceName] = useState('');
   const [customServicePrice, setCustomServicePrice] = useState('');
+  const [isAddingCustomService, setIsAddingCustomService] = useState(false);
+
+  const [otherItemName, setOtherItemName] = useState('');
+  const [otherItemPrice, setOtherItemPrice] = useState('');
 
   const [discount, setDiscount] = useState(0);
   const [selectedPromoCode, setSelectedPromoCode] = useState('');
@@ -556,7 +560,7 @@ function Billing() {
     c.phone.includes(searchCustomer)
   );
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (itemType === 'service') {
       if (!selectedService) return;
       const serviceObj = services.find(s => s._id === selectedService);
@@ -618,6 +622,12 @@ function Billing() {
     } else if (itemType === 'custom') {
       if (!customServiceName.trim() || !customServicePrice) return;
       const trimmedName = customServiceName.trim();
+      const priceNum = Number(customServicePrice);
+
+      if (isNaN(priceNum) || priceNum < 0) {
+        setMessage({ text: 'Please enter a valid price', type: 'error' });
+        return;
+      }
 
       const alreadyAdded = billItems.some(item =>
         item.name && item.name.toLowerCase().trim() === trimmedName.toLowerCase()
@@ -631,17 +641,108 @@ function Billing() {
         return;
       }
 
+      setIsAddingCustomService(true);
+      setMessage({ text: '', type: '' });
+
+      try {
+        const activeSalonId = selectedSalonId || user?.salonId;
+        let serviceToUse = services.find(
+          s => s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase()
+        );
+
+        if (!serviceToUse) {
+          const res = await axios.post('/api/service/create', {
+            serviceName: trimmedName,
+            price: priceNum,
+            duration: 30,
+            category: 'Custom',
+            ...(activeSalonId && { salonId: activeSalonId })
+          }, { withCredentials: true });
+
+          serviceToUse = res.data?.data;
+          if (serviceToUse) {
+            setServices(prev => [serviceToUse, ...prev]);
+          }
+        }
+
+        const serviceId = serviceToUse?._id || ('srv_' + Date.now());
+        const finalName = serviceToUse?.serviceName || trimmedName;
+        const finalPrice = Number(serviceToUse?.price ?? priceNum);
+
+        setBillItems(prev => [...prev, {
+          id: serviceId,
+          serviceId: serviceId,
+          name: finalName,
+          price: finalPrice,
+          quantity: 1,
+          type: 'service'
+        }]);
+
+        setCustomServiceName('');
+        setCustomServicePrice('');
+        showToast(`✨ Service "${finalName}" added to bill and saved to Services catalog!`, 'success');
+        fetchServices();
+      } catch (err) {
+        console.error("Error creating custom service:", err);
+        if (err.response?.data?.message?.toLowerCase().includes('already exists')) {
+          await fetchServices();
+          const matched = services.find(s => s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase());
+          const serviceId = matched?._id || ('srv_' + Date.now());
+          setBillItems(prev => [...prev, {
+            id: serviceId,
+            serviceId: serviceId,
+            name: matched?.serviceName || trimmedName,
+            price: Number(matched?.price ?? priceNum),
+            quantity: 1,
+            type: 'service'
+          }]);
+          setCustomServiceName('');
+          setCustomServicePrice('');
+          showToast(`✨ Service "${trimmedName}" added to bill from catalog!`, 'success');
+        } else {
+          setMessage({
+            text: err.response?.data?.message || 'Failed to save custom service to catalog',
+            type: 'error'
+          });
+        }
+      } finally {
+        setIsAddingCustomService(false);
+      }
+    } else if (itemType === 'other') {
+      if (!otherItemName.trim() || !otherItemPrice) return;
+      const trimmedName = otherItemName.trim();
+      const priceNum = Number(otherItemPrice);
+
+      if (isNaN(priceNum) || priceNum < 0) {
+        setMessage({ text: 'Please enter a valid price', type: 'error' });
+        return;
+      }
+
+      const alreadyAdded = billItems.some(item =>
+        item.name && item.name.toLowerCase().trim() === trimmedName.toLowerCase()
+      );
+
+      if (alreadyAdded) {
+        setMessage({
+          text: `⚠️ Item "${trimmedName}" is already added to the bill. Duplicate items cannot be added.`,
+          type: 'error'
+        });
+        return;
+      }
+
       const customId = 'custom_' + Date.now();
-      setBillItems([...billItems, {
+      setBillItems(prev => [...prev, {
         id: customId,
         serviceId: null,
         name: trimmedName,
-        price: Number(customServicePrice),
+        price: priceNum,
         quantity: 1,
         type: 'custom'
       }]);
-      setCustomServiceName('');
-      setCustomServicePrice('');
+
+      setOtherItemName('');
+      setOtherItemPrice('');
+      showToast(`Added "${trimmedName}" to bill.`, 'success');
     }
   };
 
@@ -1151,7 +1252,44 @@ function Billing() {
                   <strong>{selectedCustomer.name}</strong>
                   <p>{selectedCustomer.phone}</p>
                 </div>
-                <button className="btn-text" onClick={() => setSelectedCustomer(null)}>Change</button>
+                {linkedAppointmentId ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '12px',
+                        color: '#c084fc',
+                        background: 'rgba(192, 132, 252, 0.12)',
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(192, 132, 252, 0.25)',
+                        fontWeight: 500
+                      }}
+                      title="Customer is locked for this appointment booking"
+                    >
+                      <Lock size={12} /> Linked Booking
+                    </span>
+                    <button
+                      className="btn-text"
+                      style={{ fontSize: '12px', color: '#94a3b8' }}
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setLinkedAppointmentId(null);
+                        setBillItems([]);
+                        setSelectedPromoCode('');
+                        setAppointmentTimeSlot(null);
+                        showToast('Switched to Direct Billing mode.', 'info');
+                      }}
+                      title="Clear linked booking and start a fresh direct bill"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn-text" onClick={() => setSelectedCustomer(null)}>Change</button>
+                )}
               </div>
             )}
           </div>
@@ -1212,6 +1350,23 @@ function Billing() {
                 }}
               >
                 ✨ Custom Service
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary ${itemType === 'other' ? 'active' : ''}`}
+                onClick={() => setItemType('other')}
+                style={{
+                  background: itemType === 'other' ? '#7c3aed' : '#1e293b',
+                  color: '#fff',
+                  border: itemType === 'other' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500'
+                }}
+              >
+                ⚡ Others
               </button>
             </div>
 
@@ -1283,12 +1438,12 @@ function Billing() {
               </div>
             )}
 
-            {/* Custom Service Inputs */}
+            {/* Custom Service Inputs (Saves to catalog & adds to bill) */}
             {itemType === 'custom' && (
               <div className="service-add-row" style={{ flexWrap: 'wrap' }}>
                 <input
                   type="text"
-                  placeholder="Enter Custom Service Name"
+                  placeholder="Enter Custom Service Name (Saves to Catalog)"
                   value={customServiceName}
                   onChange={(e) => setCustomServiceName(e.target.value)}
                   className="service-select"
@@ -1305,9 +1460,40 @@ function Billing() {
                 <button
                   className="btn-primary"
                   onClick={handleAddItem}
-                  disabled={!customServiceName.trim() || !customServicePrice}
+                  disabled={!customServiceName.trim() || !customServicePrice || isAddingCustomService}
+                  style={{ height: '44px', whiteSpace: 'nowrap' }}
                 >
-                  <Plus size={18} /> Add Custom
+                  <Plus size={18} /> {isAddingCustomService ? 'Saving...' : 'Add Custom'}
+                </button>
+              </div>
+            )}
+
+            {/* Others Inputs (One-off item, not saved to catalog) */}
+            {itemType === 'other' && (
+              <div className="service-add-row" style={{ flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Enter Custom / Other Item Name"
+                  value={otherItemName}
+                  onChange={(e) => setOtherItemName(e.target.value)}
+                  className="service-select"
+                  style={{ minWidth: '180px', flex: 2 }}
+                />
+                <input
+                  type="number"
+                  placeholder="Price (₹)"
+                  value={otherItemPrice}
+                  onChange={(e) => setOtherItemPrice(e.target.value)}
+                  className="service-select"
+                  style={{ width: '110px', flex: 1 }}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={handleAddItem}
+                  disabled={!otherItemName.trim() || !otherItemPrice}
+                  style={{ height: '44px', whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={18} /> Add to Bill
                 </button>
               </div>
             )}
