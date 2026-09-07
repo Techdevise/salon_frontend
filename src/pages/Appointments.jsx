@@ -896,6 +896,10 @@ function Appointments() {
         throw new Error("Salon requires at least one staff and service/package record in database.");
       }
 
+      const recurringGroupId = selectedRecurringIntervals.length > 0
+        ? `rg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        : null;
+
       const payload = {
         customerId: targetCustomerId,
         staffId: targetStaffId,
@@ -906,6 +910,7 @@ function Appointments() {
         timeSlot: { start: walkInFormData.startTime || 'TBD', end: "TBD" },
         totalAmount: Number(walkInFormData.totalAmount) || 0,
         notes: walkInFormData.notes ? `${serviceNoteText} ${walkInFormData.notes}` : serviceNoteText,
+        recurringGroupId: recurringGroupId,
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
@@ -924,7 +929,9 @@ function Appointments() {
             ...payload,
             date: recDate,
             timeSlot: { start: recTime, end: 'TBD' },
-            notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`
+            notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`,
+            recurringGroupId: recurringGroupId,
+            parentAppointmentId: createdApt?._id || null
           };
           try {
             await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
@@ -1046,6 +1053,10 @@ function Appointments() {
 
       const serviceNoteText = noteParts.join(' ');
 
+      const recurringGroupId = selectedRecurringIntervals.length > 0
+        ? `rg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+        : null;
+
       const payload = {
         customerId: formData.customerId,
         staffId: formData.staffId,
@@ -1056,6 +1067,7 @@ function Appointments() {
         timeSlot: { start: formData.startTime, end: "TBD" },
         totalAmount: Number(formData.totalAmount) || 0,
         notes: formData.notes ? `${serviceNoteText} ${formData.notes}` : serviceNoteText,
+        recurringGroupId: recurringGroupId,
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
 
@@ -1079,7 +1091,9 @@ function Appointments() {
               ...payload,
               date: recDate,
               timeSlot: { start: recTime, end: 'TBD' },
-              notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`
+              notes: payload.notes ? `[Recurring: ${interval.replace('_', ' ')}] ${payload.notes}` : `[Recurring: ${interval.replace('_', ' ')}]`,
+              recurringGroupId: recurringGroupId,
+              parentAppointmentId: createdApt?._id || null
             };
             try {
               await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
