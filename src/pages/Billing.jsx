@@ -1127,6 +1127,9 @@ function Billing() {
   });
 
   const filteredUnbilled = unbilledAppointments.filter(apt => {
+    const status = (apt.status || '').toLowerCase();
+    if (status !== 'completed') return false;
+
     const query = unbilledSearch.toLowerCase().trim();
     if (!query) return true;
     const custName = (apt.customerDetails?.name || '').toLowerCase();
