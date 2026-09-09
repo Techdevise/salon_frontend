@@ -49,6 +49,7 @@ function RecurringAppointments() {
     serviceId: '',
     staffId: '',
     frequency: 'Weekly',
+    customFrequencyDays: '',
     firstAppointmentDate: '',
     appointmentTime: '',
     endDate: '',
@@ -91,7 +92,13 @@ function RecurringAppointments() {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    // Reset the custom days value whenever the user switches away from "Custom"
+    if (name === 'frequency' && value !== 'Custom') {
+      setFormData({ ...formData, frequency: value, customFrequencyDays: '' });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const openModal = () => {
@@ -99,7 +106,7 @@ function RecurringAppointments() {
     setErrorMsg('');
     const today = new Date().toISOString().split('T')[0];
     setFormData({
-      customerId: '', serviceId: '', staffId: '', frequency: 'Weekly',
+      customerId: '', serviceId: '', staffId: '', frequency: 'Weekly', customFrequencyDays: '',
       firstAppointmentDate: today, appointmentTime: '', endDate: '', notes: ''
     });
     setShowModal(true);
@@ -134,6 +141,15 @@ function RecurringAppointments() {
       return;
     }
 
+    if (formData.frequency === 'Custom') {
+      const days = Number(formData.customFrequencyDays);
+      if (!formData.customFrequencyDays || isNaN(days) || days < 1) {
+        setErrorMsg('Please enter a valid number of days for the custom frequency.');
+        setFormLoading(false);
+        return;
+      }
+    }
+
     if (formData.endDate) {
       if (formData.endDate <= formData.firstAppointmentDate) {
         setErrorMsg('End date cannot be the same as or before the starting date.');
@@ -152,6 +168,7 @@ function RecurringAppointments() {
       // Create recurring booking in the selected salon
       const payload = {
         ...formData,
+        ...(formData.frequency === 'Custom' && { customFrequencyDays: Number(formData.customFrequencyDays) }),
         ...(selectedSalonId && { salonId: selectedSalonId })
       };
       await axios.post('/api/recurring/create', payload, { withCredentials: true });
@@ -248,6 +265,21 @@ function RecurringAppointments() {
     r.serviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Helper to render a friendly frequency label, including custom day intervals
+  const getFrequencyLabel = (item) => {
+    if (item.frequency === 'Daily') {
+      return 'Daily (Every day)';
+    }
+    if (item.frequency === 'Custom' && item.customFrequencyDays) {
+      const d = Number(item.customFrequencyDays);
+      return d === 1 ? 'Daily (Every 1 day)' : `Every ${d} days`;
+    }
+    if (item.frequency === 'Weekly') return 'Weekly (Every 7 days)';
+    if (item.frequency === 'Bi-Weekly' || item.frequency === 'Biweekly') return 'Bi-Weekly (Every 14 days)';
+    if (item.frequency === 'Monthly') return 'Monthly';
+    return item.frequency;
+  };
+
   return (
     <div className="page-container">
       {toast.show && (
@@ -320,7 +352,7 @@ function RecurringAppointments() {
                     <td>
                       <div className="frequency-badge">
                         <Repeat size={14} />
-                        {item.frequency}
+                        {getFrequencyLabel(item)}
                         <div className="time-badge">{item.appointmentTime}</div>
                       </div>
                     </td>
@@ -424,12 +456,61 @@ function RecurringAppointments() {
                 <div className="form-group">
                   <label>Frequency *</label>
                   <select name="frequency" required value={formData.frequency} onChange={handleInputChange}>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Bi-Weekly">Bi-Weekly</option>
-                    <option value="Monthly">Monthly</option>
+                    <option value="Weekly">Weekly (Every 7 days)</option>
+                    <option value="Bi-Weekly">Bi-Weekly (Every 14 days)</option>
+                    <option value="Monthly">Monthly (Every month)</option>
+                    <option value="Daily">Daily (Every 1 day)</option>
+                    <option value="Custom">Custom (e.g. 1 day, 2 days, 3 days...)</option>
                   </select>
                 </div>
               </div>
+
+              {formData.frequency === 'Custom' && (
+                <div className="form-row">
+                  <div className="form-group custom-freq-container">
+                    <label>Repeat Every (days) *</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        name="customFrequencyDays"
+                        min="1"
+                        max="365"
+                        required
+                        placeholder="e.g. 1, 2, 3, 10..."
+                        value={formData.customFrequencyDays}
+                        onChange={handleInputChange}
+                        style={{ maxWidth: '140px' }}
+                      />
+                      <span style={{ color: '#94a3b8', fontSize: '13px' }}>
+                        {Number(formData.customFrequencyDays) === 1 ? 'Day' : 'Days'} between each recurring booking
+                      </span>
+                    </div>
+
+                    <div className="custom-freq-chips">
+                      <span style={{ fontSize: '11px', color: '#71717a', alignSelf: 'center', marginRight: '4px' }}>Quick Presets:</span>
+                      {[1, 2, 3, 4, 5, 7, 10, 14, 15, 21, 30].map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          className={`freq-chip-btn ${Number(formData.customFrequencyDays) === d ? 'active' : ''}`}
+                          onClick={() => setFormData(prev => ({ ...prev, customFrequencyDays: d }))}
+                        >
+                          {d === 1 ? '1 Day (Daily)' : `${d} Days`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {Number(formData.customFrequencyDays) >= 1 && (
+                      <div className="freq-preview-box">
+                        <Repeat size={14} color="#c084fc" />
+                        <span>
+                          ✨ Automatically repeats every <strong>{formData.customFrequencyDays} day{Number(formData.customFrequencyDays) > 1 ? 's' : ''}</strong> starting from <strong>{formData.firstAppointmentDate || 'Starting Date'}</strong> at <strong>{formData.appointmentTime || 'Time'}</strong>.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="form-row">
                 <div className="form-group">

@@ -266,10 +266,21 @@ export const calculateRecurringDateTime = (baseDateStr, baseTimeStr, interval) =
 
   if (interval === '2_hours') {
     dateObj.setHours(dateObj.getHours() + 2);
+  } else if (interval === '1_day') {
+    dateObj.setDate(dateObj.getDate() + 1);
   } else if (interval === '2_days') {
     dateObj.setDate(dateObj.getDate() + 2);
   } else if (interval === '3_days') {
     dateObj.setDate(dateObj.getDate() + 3);
+  } else if (interval === '7_days' || interval === '1_week') {
+    dateObj.setDate(dateObj.getDate() + 7);
+  } else if (typeof interval === 'string' && interval.startsWith('custom_') && interval.endsWith('_days')) {
+    const days = parseInt(interval.replace('custom_', '').replace('_days', ''), 10);
+    if (!isNaN(days) && days > 0) {
+      dateObj.setDate(dateObj.getDate() + days);
+    }
+  } else if (!isNaN(Number(interval)) && Number(interval) > 0) {
+    dateObj.setDate(dateObj.getDate() + Number(interval));
   }
 
   const yyyy = dateObj.getFullYear();
@@ -2475,9 +2486,11 @@ function Appointments() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.5rem' }}>
                     {[
-                      { id: '2_hours', label: '2 Hours' },
+                      { id: '1_day', label: '1 Day (Next Day)' },
                       { id: '2_days', label: '2 Days' },
-                      { id: '3_days', label: '3 Days' }
+                      { id: '3_days', label: '3 Days' },
+                      { id: '7_days', label: '1 Week (7 Days)' },
+                      { id: '2_hours', label: '2 Hours' }
                     ].map((opt) => (
                       <label
                         key={opt.id}
