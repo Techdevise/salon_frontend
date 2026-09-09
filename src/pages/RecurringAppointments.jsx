@@ -118,7 +118,21 @@ function RecurringAppointments() {
     if (!formData.firstAppointmentDate) return '';
     const d = new Date(formData.firstAppointmentDate);
     if (isNaN(d.getTime())) return '';
-    d.setDate(d.getDate() + 1);
+
+    if (formData.frequency === 'Custom') {
+      const stepDays = Math.max(1, Number(formData.customFrequencyDays) || 1);
+      d.setDate(d.getDate() + stepDays);
+    } else if (formData.frequency === 'Weekly') {
+      d.setDate(d.getDate() + 7);
+    } else if (formData.frequency === 'Bi-Weekly') {
+      d.setDate(d.getDate() + 14);
+    } else if (formData.frequency === 'Monthly') {
+      d.setMonth(d.getMonth() + 1);
+    } else if (formData.frequency === 'Daily') {
+      d.setDate(d.getDate() + 1);
+    } else {
+      d.setDate(d.getDate() + 1);
+    }
     return d.toISOString().split('T')[0];
   };
 
@@ -151,8 +165,22 @@ function RecurringAppointments() {
     }
 
     if (formData.endDate) {
-      if (formData.endDate <= formData.firstAppointmentDate) {
-        setErrorMsg('End date cannot be the same as or before the starting date.');
+      const minEndDateStr = getMinEndDate();
+      if (minEndDateStr && formData.endDate < minEndDateStr) {
+        let cycleDesc = 'at least 1 recurrence cycle';
+        if (formData.frequency === 'Custom') {
+          const days = Number(formData.customFrequencyDays) || 1;
+          cycleDesc = `at least ${days} day${days > 1 ? 's' : ''}`;
+        } else if (formData.frequency === 'Weekly') {
+          cycleDesc = 'at least 7 days (1 week)';
+        } else if (formData.frequency === 'Bi-Weekly') {
+          cycleDesc = 'at least 14 days (2 weeks)';
+        } else if (formData.frequency === 'Monthly') {
+          cycleDesc = 'at least 1 month';
+        } else if (formData.frequency === 'Daily') {
+          cycleDesc = 'at least 1 day';
+        }
+        setErrorMsg(`End date cannot be earlier than ${minEndDateStr} (${cycleDesc} after starting date).`);
         setFormLoading(false);
         return;
       }
