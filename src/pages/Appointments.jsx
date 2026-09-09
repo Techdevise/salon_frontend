@@ -1037,6 +1037,8 @@ function Appointments() {
             await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
           } catch (err) {
             console.error(`Error creating recurring appointment (${interval}):`, err);
+            const errReason = err.response?.data?.message || err.message;
+            alert(`Initial walk-in booking created, but recurring appointment (${interval.replace('_', ' ')}) failed: ${errReason}`);
           }
         }
       }
@@ -1209,6 +1211,8 @@ function Appointments() {
               await axios.post('/api/appointment/create', recPayload, { withCredentials: true });
             } catch (err) {
               console.error(`Error creating recurring appointment (${interval}):`, err);
+              const errReason = err.response?.data?.message || err.message;
+              alert(`Initial booking created, but recurring appointment (${interval.replace('_', ' ')}) failed: ${errReason}`);
             }
           }
         }

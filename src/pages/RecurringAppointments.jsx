@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { Repeat, Plus, Search, Trash2, Calendar, User, Clock, Scissors, X, Bell } from 'lucide-react';
 import { WhatsAppIcon } from '../components/WhatsAppIcon';
@@ -56,6 +56,25 @@ function RecurringAppointments() {
     notes: ''
   });
 
+  // Calculate set of service IDs that already have an active recurring series for the selected customer
+  const activeCustomerServiceIds = useMemo(() => {
+    if (!formData.customerId || !recurringList?.length) return new Set();
+    const activeSet = new Set();
+    recurringList.forEach((item) => {
+      const isItemActive = item.isActive !== false && item.status !== 'Cancelled';
+      const itemCustId = typeof item.customerId === 'object' ? item.customerId?._id : item.customerId;
+      if (isItemActive && String(itemCustId) === String(formData.customerId)) {
+        if (Array.isArray(item.services)) {
+          item.services.forEach((s) => {
+            const sId = typeof s === 'object' ? s?._id : s;
+            if (sId) activeSet.add(String(sId));
+          });
+        }
+      }
+    });
+    return activeSet;
+  }, [formData.customerId, recurringList]);
+
   useEffect(() => {
     fetchRecurring();
     fetchOptions();
@@ -98,6 +117,40 @@ function RecurringAppointments() {
       setFormData({ ...formData, frequency: value, customFrequencyDays: '' });
       return;
     }
+
+    if (name === 'customerId') {
+      const activeForNewCust = new Set();
+      recurringList.forEach((item) => {
+        const isItemActive = item.isActive !== false && item.status !== 'Cancelled';
+        const itemCustId = typeof item.customerId === 'object' ? item.customerId?._id : item.customerId;
+        if (isItemActive && String(itemCustId) === String(value)) {
+          if (Array.isArray(item.services)) {
+            item.services.forEach((s) => {
+              const sId = typeof s === 'object' ? s?._id : s;
+              if (sId) activeForNewCust.add(String(sId));
+            });
+          }
+        }
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        customerId: value,
+        serviceId: activeForNewCust.has(String(prev.serviceId)) ? '' : prev.serviceId
+      }));
+      setErrorMsg('');
+      return;
+    }
+
+    if (name === 'serviceId') {
+      if (activeCustomerServiceIds.has(String(value))) {
+        const sObj = services.find((s) => String(s._id) === String(value));
+        setErrorMsg(`Customer already has an active recurring appointment for "${sObj?.serviceName || sObj?.name || 'this service'}". Please choose another service.`);
+      } else {
+        setErrorMsg('');
+      }
+    }
+
     setFormData({ ...formData, [name]: value });
   };
 
@@ -190,6 +243,13 @@ function RecurringAppointments() {
         setFormLoading(false);
         return;
       }
+    }
+
+    if (formData.customerId && formData.serviceId && activeCustomerServiceIds.has(String(formData.serviceId))) {
+      const sObj = services.find((s) => String(s._id) === String(formData.serviceId));
+      setErrorMsg(`This customer already has an active recurring appointment for "${sObj?.serviceName || sObj?.name || 'the selected service'}". Duplicate recurring appointments for the same service are not allowed.`);
+      setFormLoading(false);
+      return;
     }
 
     try {
@@ -468,8 +528,25 @@ function RecurringAppointments() {
                   <label>Service *</label>
                   <select name="serviceId" required value={formData.serviceId} onChange={handleInputChange}>
                     <option value="">-- Select Service --</option>
-                    {services.map(s => <option key={s._id} value={s._id}>{s.serviceName || s.name} - ₹{s.price}</option>)}
+                    {services.map(s => {
+                      const isAlreadyActive = activeCustomerServiceIds.has(String(s._id));
+                      return (
+                        <option
+                          key={s._id}
+                          value={s._id}
+                          disabled={isAlreadyActive}
+                          style={isAlreadyActive ? { color: '#9ca3af', fontStyle: 'italic' } : {}}
+                        >
+                          {s.serviceName || s.name} - ₹{s.price}{isAlreadyActive ? ' 🚫 (Already Active Recurring)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {formData.customerId && activeCustomerServiceIds.size > 0 && (
+                    <small style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      * Services marked with 🚫 (Already Active Recurring) are already scheduled for this customer.
+                    </small>
+                  )}
                 </div>
               </div>
 
