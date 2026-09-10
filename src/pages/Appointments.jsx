@@ -56,21 +56,36 @@ export const normalizeStatus = (status, hasBill = false, paymentStatus = '') => 
 
 export const format24Hour = (timeStr) => {
   if (!timeStr) return 'N/A';
-  const str = timeStr.trim();
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
-    const [h, m] = str.split(':').map(Number);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  }
-  const match = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
-  if (match) {
-    let h = parseInt(match[1], 10);
-    const m = match[2];
-    const period = match[3].toUpperCase();
+  const str = String(timeStr).trim();
+  const match12 = str.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = match12[2];
+    const period = match12[3].toUpperCase();
     if (period === 'AM' && h === 12) h = 0;
-    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'PM' && h < 12) h += 12;
+    return `${h.toString().padStart(2, '0')}:${m}`;
+  }
+  const match24 = str.match(/^(\d{1,2})[:.](\d{2})/);
+  if (match24) {
+    const h = parseInt(match24[1], 10);
+    const m = match24[2];
     return `${h.toString().padStart(2, '0')}:${m}`;
   }
   return timeStr;
+};
+
+export const format12Hour = (timeStr) => {
+  if (!timeStr) return '';
+  const formatted24 = format24Hour(timeStr);
+  if (!formatted24 || formatted24 === 'N/A') return timeStr;
+  const match = formatted24.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${period}`;
 };
 
 const SearchableSelect = ({

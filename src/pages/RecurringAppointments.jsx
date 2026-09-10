@@ -6,6 +6,7 @@ import '../styles/DashboardPages.css';
 import '../styles/RecurringAppointments.css';
 import { useSelector } from 'react-redux';
 import { useConfirm } from '../components/ConfirmModal';
+import { format24Hour, format12Hour } from './Appointments';
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return 'N/A';
@@ -441,7 +442,9 @@ function RecurringAppointments() {
                       <div className="frequency-badge">
                         <Repeat size={14} />
                         {getFrequencyLabel(item)}
-                        <div className="time-badge">{item.appointmentTime}</div>
+                        <div className="time-badge" title={format12Hour(item.appointmentTime || item.timeSlot?.start)}>
+                          {format24Hour(item.appointmentTime || item.timeSlot?.start)}
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -625,6 +628,22 @@ function RecurringAppointments() {
                 <div className="form-group">
                   <label>Starting Time *</label>
                   <input type="time" name="appointmentTime" required value={formData.appointmentTime} onChange={handleInputChange} />
+                  {formData.appointmentTime === '00:00' ? (
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '6px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                      <span>⚠️ <strong>00:00</strong> is 12:00 AM (Midnight).</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, appointmentTime: '12:00' }))}
+                        style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Switch to 12:00 PM (Noon)
+                      </button>
+                    </div>
+                  ) : formData.appointmentTime ? (
+                    <div style={{ marginTop: '5px', fontSize: '12px', color: '#a78bfa' }}>
+                      🕒 Time: <strong>{format12Hour(formData.appointmentTime)}</strong> ({formData.appointmentTime === '12:00' ? '12:00 Noon' : `${formData.appointmentTime} 24-hr`})
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

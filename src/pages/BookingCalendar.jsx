@@ -211,6 +211,24 @@ function BookingCalendar() {
     }
   };
 
+  const parseHour = (timeStr) => {
+    if (!timeStr) return -1;
+    const str = String(timeStr).trim();
+    const match12 = str.match(/^(\d{1,2})[:.](\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (match12) {
+      let h = parseInt(match12[1], 10);
+      const period = match12[3].toUpperCase();
+      if (period === 'AM' && h === 12) h = 0;
+      if (period === 'PM' && h < 12) h += 12;
+      return h;
+    }
+    const match24 = str.match(/^(\d{1,2})[:.](\d{2})/);
+    if (match24) {
+      return parseInt(match24[1], 10);
+    }
+    return -1;
+  };
+
   // ── DAILY VIEW ─────────────────────────────────────────────────────────────
   const renderDailyView = () => {
     const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 08:00 – 20:00
@@ -219,12 +237,7 @@ function BookingCalendar() {
         {hours.map((hour) => {
           const hourApps = appointments.filter((a) => {
             if (!a.time) return false;
-            // handle both "HH:MM" and "HH:MM AM/PM"
-            const raw = a.time.split(' ')[0];
-            let h = parseInt(raw.split(':')[0]);
-            if (a.time.includes('PM') && h !== 12) h += 12;
-            if (a.time.includes('AM') && h === 12) h = 0;
-            return h === hour;
+            return parseHour(a.time) === hour;
           });
 
           return (
@@ -293,11 +306,7 @@ function BookingCalendar() {
                 const cellApps = appointments.filter((a) => {
                   if (!a.date || !a.time) return false;
                   const appDate = toDateStr(a.date);
-                  const raw = a.time.split(' ')[0];
-                  let h = parseInt(raw.split(':')[0]);
-                  if (a.time.includes('PM') && h !== 12) h += 12;
-                  if (a.time.includes('AM') && h === 12) h = 0;
-                  return appDate === dateStr && h === hour;
+                  return appDate === dateStr && parseHour(a.time) === hour;
                 });
 
                 return (
@@ -383,9 +392,9 @@ function BookingCalendar() {
                     <div
                       key={apt._id}
                       className={`month-mini-event status-${statusClass(apt.status)}`}
-                      title={`${apt.customer?.name} — ${apt.service?.serviceName} — ${apt.time} — ${apt.status}`}
+                      title={`${apt.customer?.name} — ${apt.service?.serviceName} — ${format24Hour(apt.time)} — ${apt.status}`}
                     >
-                      {apt.time && <span>{apt.time} </span>}
+                      {apt.time && <span>{format24Hour(apt.time)} </span>}
                       {apt.customer?.name?.split(' ')[0]}
                     </div>
                   ))}
