@@ -75,17 +75,9 @@ export const format24Hour = (timeStr) => {
   return timeStr;
 };
 
+// Backward-compatible 24-hour display helper
 export const format12Hour = (timeStr) => {
-  if (!timeStr) return '';
-  const formatted24 = format24Hour(timeStr);
-  if (!formatted24 || formatted24 === 'N/A') return timeStr;
-  const match = formatted24.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return timeStr;
-  let h = parseInt(match[1], 10);
-  const m = match[2];
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m} ${period}`;
+  return format24Hour(timeStr);
 };
 
 const SearchableSelect = ({

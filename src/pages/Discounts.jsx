@@ -388,12 +388,13 @@ function Discounts() {
                             if (timeStr && timeStr.includes(':')) {
                               const [h, m] = timeStr.split(':');
                               const hr = parseInt(h, 10);
-                              const ampm = hr >= 12 ? 'PM' : 'AM';
-                              const h12 = hr % 12 || 12;
-                              return `${h12}:${m} ${ampm}`;
+                              return `${hr.toString().padStart(2, '0')}:${m}`;
                             }
                             if (dateObj) {
-                              return new Date(dateObj).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              const d = new Date(dateObj);
+                              if (!isNaN(d.getTime())) {
+                                return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                              }
                             }
                             return '';
                           };
@@ -407,7 +408,7 @@ function Discounts() {
                                 <span className="one-day-badge">⚡ 1-Day Offer</span>
                                 <span className="date-main">{new Date(discount.startDate).toLocaleDateString()}</span>
                                 <span className="time-subtext">
-                                  {startTimeStr || '12:00 AM'} – {endTimeStr || '11:59 PM'}
+                                  {startTimeStr || '00:00'} – {endTimeStr || '23:59'}
                                 </span>
                               </div>
                             );
