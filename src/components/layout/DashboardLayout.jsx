@@ -195,7 +195,7 @@ function DashboardLayout() {
       <div className="sidebar">
         <div className="sidebar-header">
           <div className="brand-logo">✂</div>
-          <h2>SalonPro</h2>
+          <h2>We You Salon</h2>
         </div>
 
         {/* Profile Section */}

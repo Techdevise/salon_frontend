@@ -432,7 +432,7 @@ function Subscription() {
                   <img src="/mock_qr_code.png" alt="UPI QR Code" className="w-full height-full object-contain" />
                 </div>
                 <span className="text-center text-xs text-zinc-400">
-                  Pay to: <strong className="text-white">payments@salonpro.com</strong>
+                  Pay to: <strong className="text-white">payments@weyousalon.com</strong>
                 </span>
               </div>
 

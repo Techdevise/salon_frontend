@@ -29,7 +29,7 @@ function Dashboard() {
         WebkitTextFillColor: "transparent",
         fontWeight: 700
       }}>
-        ✂ SalonPro
+        ✂ We You Salon
       </div>
       <h2 style={{ fontSize: "1.6rem", fontWeight: 600 }}>
         Welcome, {user.name || "User"} 👋

@@ -80,7 +80,7 @@ function Register() {
       <div className="auth-left">
         <div className="brand">
           <div className="brand-icon">✂</div>
-          <h1 className="brand-name">SalonPro</h1>
+          <h1 className="brand-name">We You Salon</h1>
           <p className="brand-tagline">Your all-in-one salon management platform.</p>
         </div>
         <div className="decorative-circles">
