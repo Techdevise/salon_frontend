@@ -89,10 +89,10 @@ function Login() {
             </div>
 
             <div className="form-group">
-              <div className="label-row">
+              {/* <div className="label-row">
                 <label htmlFor="password">Password</label>
                 <a href="#" className="forgot-link">Forgot password?</a>
-              </div>
+              </div> */}
               <div className="input-wrapper">
                 <input
                   id="password"
@@ -120,10 +120,10 @@ function Login() {
             </button>
           </form>
 
-          <p className="auth-switch">
+          {/* <p className="auth-switch">
             Don&apos;t have an account?{" "}
             <Link to="/register">Create one</Link>
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

@@ -36,6 +36,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('selectedSalonId'); // prevent stale salon leaking to next login session
     },
     updateProfileImage: (state, action) => {
       if (state.user) {

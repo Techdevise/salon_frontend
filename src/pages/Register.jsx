@@ -15,7 +15,6 @@ function Register() {
     password: "",
     confirmPassword: "",
     role: "Admin",
-    salonName: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +23,7 @@ function Register() {
 
   const handleChange = (e) => {
     let { name, value } = e.target;
-    if (name === 'name' || name === 'salonName') {
+    if (name === 'name') {
       value = value.replace(/[0-9]/g, '');
     }
     setFormData({ ...formData, [name]: value });
@@ -34,8 +33,8 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (/\d/.test(formData.name) || (formData.salonName && /\d/.test(formData.salonName))) {
-      setError("Full Name and Salon Name cannot contain numbers.");
+    if (/\d/.test(formData.name)) {
+      setError("Full Name cannot contain numbers.");
       return;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -46,7 +45,6 @@ function Register() {
     setError("");
     try {
       const { confirmPassword, ...payload } = formData;
-      if (payload.salonName) payload.salonName = payload.salonName.trim();
       const res = await axios.post("/api/auth/register", payload, {
         withCredentials: true,
       });
@@ -95,7 +93,7 @@ function Register() {
         <div className="auth-card">
           <div className="auth-header">
             <h2>Create Account ✨</h2>
-            <p>Register your salon and get started today</p>
+            <p>Create your admin account — add your salon from the dashboard after signing in</p>
           </div>
 
           {error && <div className="auth-error">{error}</div>}
@@ -181,21 +179,6 @@ function Register() {
                     required
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="salonName">Salon Name</label>
-              <div className="input-wrapper">
-                <input
-                  id="salonName"
-                  type="text"
-                  name="salonName"
-                  placeholder="Enter Salon Name"
-                  value={formData.salonName}
-                  onChange={handleChange}
-                  required
-                />
               </div>
             </div>
 

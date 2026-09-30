@@ -303,8 +303,9 @@ export const calculateRecurringDateTime = (baseDateStr, baseTimeStr, interval) =
 };
 
 function Appointments() {
-  const { selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+  const { selectedSalonId, selectedSalonInfo, salonsLoaded } = useSelector((state) => state.salon);
   const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'Admin';
   const confirm = useConfirm();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
@@ -1558,7 +1559,19 @@ function Appointments() {
       </div>
 
       <div className="table-container">
-        {loading ? (
+        {isAdmin && salonsLoaded && !selectedSalonId ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '64px 24px', gap: '16px', textAlign: 'center'
+          }}>
+            <Store size={48} style={{ opacity: 0.35 }} />
+            <h3 style={{ margin: 0, fontSize: '1.2rem', opacity: 0.8 }}>No Salon Added Yet</h3>
+            <p style={{ margin: 0, opacity: 0.55, maxWidth: 380 }}>
+              Your appointments and bookings will appear here once you add your first salon branch.
+              Head to the <strong>Dashboard</strong> and click <strong>"+ Add Salon"</strong> to get started.
+            </p>
+          </div>
+        ) : loading ? (
           <div className="loading-state">Loading appointments...</div>
         ) : (
           <>

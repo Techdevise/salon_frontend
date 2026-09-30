@@ -17,7 +17,7 @@ function DashboardHome() {
   const dispatch = useDispatch();
   const confirm = useConfirm();
   const { user } = useSelector((state) => state.auth);
-  const { salons, selectedSalonId, selectedSalonInfo } = useSelector((state) => state.salon);
+  const { salons, selectedSalonId, selectedSalonInfo, salonsLoaded } = useSelector((state) => state.salon);
   const isAdmin = user?.role === 'Admin';
 
   const [filter, setFilter] = useState('monthly');
@@ -194,21 +194,26 @@ function DashboardHome() {
   useEffect(() => {
     // Reset staff filter when salon changes to avoid stale selection
     setSelectedStaffIdFilter('all');
-    if (selectedSalonId || !isAdmin) {
+    // For Admins: only fetch once salonsLoaded is true (server has confirmed the salon list).
+    // This prevents a stale selectedSalonId from a previous session triggering fetches
+    // before the server-verified salon list replaces it.
+    const adminReady = !isAdmin || salonsLoaded;
+    if (adminReady && (selectedSalonId || !isAdmin)) {
       fetchDashboardData();
       fetchStaffActivities();
       fetchStaffList();
-    } else if (isAdmin && salons.length === 0) {
+    } else if (isAdmin && salonsLoaded && salons.length === 0) {
       setLoading(false);
     }
-  }, [filter, selectedSalonId, salons.length, isAdmin]);
+  }, [filter, selectedSalonId, salons.length, isAdmin, salonsLoaded]);
 
   useEffect(() => {
     setActivityPage(1);
-    if (selectedSalonId || !isAdmin) {
+    const adminReady = !isAdmin || salonsLoaded;
+    if (adminReady && (selectedSalonId || !isAdmin)) {
       fetchStaffActivities();
     }
-  }, [activityFilter, fromDate, toDate, selectedStaffIdFilter, selectedSalonId]);
+  }, [activityFilter, fromDate, toDate, selectedStaffIdFilter, selectedSalonId, salonsLoaded]);
 
   const fetchStaffActivities = async () => {
     setActivityLoading(true);

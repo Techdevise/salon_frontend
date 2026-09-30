@@ -9,8 +9,9 @@ import { format24Hour } from './Appointments';
 
 function BookingCalendar() {
   const { user } = useSelector((state) => state.auth);
-  const { selectedSalonId, salons } = useSelector((state) => state.salon);
+  const { selectedSalonId, salons, salonsLoaded } = useSelector((state) => state.salon);
   const dispatch = useDispatch();
+  const isAdmin = user?.role === 'Admin';
 
   const [viewMode, setViewMode] = useState('daily'); // daily | weekly | monthly
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -128,6 +129,13 @@ function BookingCalendar() {
   }, [selectedSalonId, user]);
 
   const fetchCalendarData = useCallback(async () => {
+    // For Admins: wait until the salon list has been fetched from the server.
+    // If they have no salon selected yet, show empty state — don't error.
+    if (isAdmin && (!salonsLoaded || !selectedSalonId)) {
+      setLoading(false);
+      setAppointments([]);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -153,7 +161,7 @@ function BookingCalendar() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, currentDate, selectedSalonId]);
+  }, [viewMode, currentDate, selectedSalonId, isAdmin, salonsLoaded]);
 
   useEffect(() => {
     fetchCalendarData();
@@ -471,22 +479,40 @@ function BookingCalendar() {
 
       {/* ── Calendar body ── */}
       <div className="calendar-container">
-        {error && (
-          <div className="error-banner" style={{ margin: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <AlertCircle size={16} /> {error}
+        {/* No-salon state: Admin registered but hasn't added a salon yet */}
+        {isAdmin && salonsLoaded && !selectedSalonId ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '64px 24px', gap: '16px', textAlign: 'center'
+          }}>
+            <Store size={48} style={{ opacity: 0.35 }} />
+            <h3 style={{ margin: 0, fontSize: '1.2rem', opacity: 0.8 }}>No Salon Added Yet</h3>
+            <p style={{ margin: 0, opacity: 0.55, maxWidth: 380 }}>
+              Your booking calendar will appear here once you add your first salon branch.
+              Head to the <strong>Dashboard</strong> and click <strong>"+ Add Salon"</strong> to get started.
+            </p>
           </div>
-        )}
-        {loading ? (
-          <div className="loading-state">Loading schedule...</div>
         ) : (
           <>
-            {viewMode === 'daily' && renderDailyView()}
-            {viewMode === 'weekly' && renderWeeklyView()}
-            {viewMode === 'monthly' && renderMonthlyView()}
+            {error && (
+              <div className="error-banner" style={{ margin: '16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={16} /> {error}
+              </div>
+            )}
+            {loading ? (
+              <div className="loading-state">Loading schedule...</div>
+            ) : (
+              <>
+                {viewMode === 'daily' && renderDailyView()}
+                {viewMode === 'weekly' && renderWeeklyView()}
+                {viewMode === 'monthly' && renderMonthlyView()}
+              </>
+            )}
           </>
         )}
       </div>
     </div>
+
   );
 }
 

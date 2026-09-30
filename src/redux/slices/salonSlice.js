@@ -1,14 +1,12 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const initialSelectedSalonId = typeof window !== 'undefined' ? localStorage.getItem('selectedSalonId') : null;
-
 const salonSlice = createSlice({
   name: 'salon',
   initialState: {
-    selectedSalonId: initialSelectedSalonId,
+    selectedSalonId: null,   // always start null — set after server verifies ownership
     selectedSalonInfo: null,
     salons: [],
-    salonsLoaded: false, // tracks if salon list has been fetched
+    salonsLoaded: false,
   },
   reducers: {
     setSalons: (state, action) => {
