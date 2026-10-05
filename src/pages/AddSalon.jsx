@@ -1,22 +1,42 @@
-import { useState } from 'react';
-import axios from 'axios';
-import { X, Store, User, Mail, Phone, MapPin, Clock, Tag, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import '../styles/AddSalon.css';
+import { useState } from "react";
+import axios from "axios";
+import {
+  X,
+  Store,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Clock,
+  Tag,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+} from "lucide-react";
+import "../styles/AddSalon.css";
 
-const CATEGORIES = ['Hair', 'Hair Treatment', 'Skin', 'Nails', 'Spa', 'Makeup', 'Other'];
-const WORKING_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const CATEGORIES = [
+  "Hair",
+  "Hair Treatment",
+  "Skin",
+  "Nails",
+  "Spa",
+  "Makeup",
+  "Other",
+];
+const WORKING_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const initialForm = {
-  salonName: '',
-  ownerName: '',
-  email: '',
-  phone: '',
-  street: '',
-  city: '',
-  state: '',
-  pincode: '',
-  openingTime: '09:00',
-  closingTime: '21:00',
+  salonName: "",
+  ownerName: "",
+  email: "",
+  phone: "",
+  street: "",
+  city: "",
+  state: "",
+  pincode: "",
+  openingTime: "09:00",
+  closingTime: "21:00",
   category: [],
   workingDays: [],
 };
@@ -25,16 +45,16 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
   const [form, setForm] = useState(() => {
     if (editingSalon) {
       return {
-        salonName: editingSalon.salonName || '',
-        ownerName: editingSalon.ownerName || '',
-        email: editingSalon.email || '',
-        phone: editingSalon.phone || '',
-        street: editingSalon.address?.street || '',
-        city: editingSalon.address?.city || '',
-        state: editingSalon.address?.state || '',
-        pincode: editingSalon.address?.pincode || '',
-        openingTime: editingSalon.openingTime || '09:00',
-        closingTime: editingSalon.closingTime || '21:00',
+        salonName: editingSalon.salonName || "",
+        ownerName: editingSalon.ownerName || "",
+        email: editingSalon.email || "",
+        phone: editingSalon.phone || "",
+        street: editingSalon.address?.street || "",
+        city: editingSalon.address?.city || "",
+        state: editingSalon.address?.state || "",
+        pincode: editingSalon.address?.pincode || "",
+        openingTime: editingSalon.openingTime || "09:00",
+        closingTime: editingSalon.closingTime || "21:00",
         category: editingSalon.category || [],
         workingDays: editingSalon.workingDays || [],
       };
@@ -42,37 +62,43 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
     return initialForm;
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   const handleChange = (e) => {
     let { name, value } = e.target;
-    if (name === 'phone') {
-      value = value.replace(/\D/g, '').slice(0, 10);
-    } else if (name === 'pincode') {
-      value = value.replace(/\D/g, '').slice(0, 6);
-    } else if (['salonName', 'ownerName', 'city', 'state'].includes(name)) {
-      value = value.replace(/[0-9]/g, '');
+    if (name === "phone") {
+      value = value.replace(/\D/g, "").slice(0, 10);
+    } else if (name === "pincode") {
+      value = value.replace(/\D/g, "").slice(0, 6);
+    } else if (
+      [
+        // 'salonName', 'ownerName',
+        "city",
+        "state",
+      ].includes(name)
+    ) {
+      value = value.replace(/[0-9]/g, "");
     }
-    setForm(prev => ({ ...prev, [name]: value }));
-    setError('');
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setError("");
   };
 
   const toggleCategory = (cat) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       category: prev.category.includes(cat)
-        ? prev.category.filter(c => c !== cat)
-        : [...prev.category, cat]
+        ? prev.category.filter((c) => c !== cat)
+        : [...prev.category, cat],
     }));
   };
 
   const toggleDay = (day) => {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       workingDays: prev.workingDays.includes(day)
-        ? prev.workingDays.filter(d => d !== day)
-        : [...prev.workingDays, day]
+        ? prev.workingDays.filter((d) => d !== day)
+        : [...prev.workingDays, day],
     }));
   };
 
@@ -88,46 +114,48 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
       !form.state.trim() ||
       !form.pincode.trim()
     ) {
-      setError('All mandatory fields (Salon Name, Owner Name, Email, Phone, Street, City, State, Pincode) are required.');
+      setError(
+        "All mandatory fields (Salon Name, Owner Name, Email, Phone, Street, City, State, Pincode) are required.",
+      );
       return;
     }
 
     if (/\d/.test(form.salonName) || /\d/.test(form.ownerName)) {
-      setError('Salon Name and Owner Name cannot contain numbers.');
+      setError("Salon Name and Owner Name cannot contain numbers.");
       return;
     }
 
     if (form.city && /\d/.test(form.city)) {
-      setError('City name cannot contain numbers.');
+      setError("City name cannot contain numbers.");
       return;
     }
 
     if (form.state && /\d/.test(form.state)) {
-      setError('State name cannot contain numbers.');
+      setError("State name cannot contain numbers.");
       return;
     }
 
     // Phone Boundary Validation (Exactly 10 digits)
-    const phoneDigits = form.phone.replace(/\D/g, '');
+    const phoneDigits = form.phone.replace(/\D/g, "");
     if (phoneDigits.length !== 10) {
-      setError('Phone number must be exactly 10 digits.');
+      setError("Phone number must be exactly 10 digits.");
       return;
     }
 
     // Pincode Boundary Validation (Min 4, Max 6 digits)
     if (form.pincode.trim()) {
-      const cleanPincode = form.pincode.replace(/\D/g, '');
+      const cleanPincode = form.pincode.replace(/\D/g, "");
       if (cleanPincode.length < 4 || cleanPincode.length > 6) {
-        setError('Pincode / Postal Code must be between 4 and 6 digits.');
+        setError("Pincode / Postal Code must be between 4 and 6 digits.");
         return;
       }
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const payload = {
         salonName: form.salonName.trim(),
         ownerName: form.ownerName.trim(),
@@ -137,18 +165,18 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
           street: form.street,
           city: form.city,
           state: form.state,
-          pincode: form.pincode
+          pincode: form.pincode,
         },
         openingTime: form.openingTime,
         closingTime: form.closingTime,
         category: form.category,
-        workingDays: form.workingDays
+        workingDays: form.workingDays,
       };
 
       if (editingSalon) {
         const res = await axios.put(`/api/salon/${editingSalon._id}`, payload, {
           withCredentials: true,
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (res.data.success) {
@@ -159,9 +187,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
           }, 1800);
         }
       } else {
-        const res = await axios.post('/api/salon/add', payload, {
+        const res = await axios.post("/api/salon/add", payload, {
           withCredentials: true,
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (res.data.success) {
@@ -173,22 +201,36 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.message || (editingSalon ? 'An error occurred while updating the salon' : 'An error occurred while adding the salon'));
+      setError(
+        err.response?.data?.message ||
+          (editingSalon
+            ? "An error occurred while updating the salon"
+            : "An error occurred while adding the salon"),
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="salon-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="salon-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="salon-modal">
         {/* Header */}
         <div className="salon-modal-header">
           <div className="salon-modal-title">
-            <div className="modal-title-icon"><Store size={22} /></div>
+            <div className="modal-title-icon">
+              <Store size={22} />
+            </div>
             <div>
-              <h2>{editingSalon ? 'Edit Salon Details' : 'Add New Salon'}</h2>
-              <p>{editingSalon ? 'For Admin — modify salon details' : 'For Admin — register a new salon branch'}</p>
+              <h2>{editingSalon ? "Edit Salon Details" : "Add New Salon"}</h2>
+              <p>
+                {editingSalon
+                  ? "For Admin — modify salon details"
+                  : "For Admin — register a new salon branch"}
+              </p>
             </div>
           </div>
           <button className="modal-close-btn" onClick={onClose} type="button">
@@ -202,8 +244,16 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
             <div className="success-icon-wrap">
               <CheckCircle size={56} />
             </div>
-            <h3>{editingSalon ? 'Salon Successfully Updated! 🎉' : 'Salon Successfully Added! 🎉'}</h3>
-            <p>{editingSalon ? 'The salon branch details have been updated.' : 'A new salon branch has been created.'}</p>
+            <h3>
+              {editingSalon
+                ? "Salon Successfully Updated! 🎉"
+                : "Salon Successfully Added! 🎉"}
+            </h3>
+            <p>
+              {editingSalon
+                ? "The salon branch details have been updated."
+                : "A new salon branch has been created."}
+            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="salon-modal-form">
@@ -219,7 +269,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
               <h4 className="section-label">Basic Information</h4>
               <div className="form-grid-2">
                 <div className="form-field">
-                  <label><Store size={14} /> Salon Name *</label>
+                  <label>
+                    <Store size={14} /> Salon Name *
+                  </label>
                   <input
                     type="text"
                     name="salonName"
@@ -230,7 +282,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                   />
                 </div>
                 <div className="form-field">
-                  <label><User size={14} /> Owner Name *</label>
+                  <label>
+                    <User size={14} /> Owner Name *
+                  </label>
                   <input
                     type="text"
                     name="ownerName"
@@ -241,7 +295,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                   />
                 </div>
                 <div className="form-field">
-                  <label><Mail size={14} /> Email *</label>
+                  <label>
+                    <Mail size={14} /> Email *
+                  </label>
                   <input
                     type="email"
                     name="email"
@@ -252,7 +308,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                   />
                 </div>
                 <div className="form-field">
-                  <label><Phone size={14} /> Phone *</label>
+                  <label>
+                    <Phone size={14} /> Phone *
+                  </label>
                   <input
                     type="tel"
                     name="phone"
@@ -268,7 +326,9 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
 
             {/* Address */}
             <div className="form-section">
-              <h4 className="section-label"><MapPin size={14} /> Address *</h4>
+              <h4 className="section-label">
+                <MapPin size={14} /> Address *
+              </h4>
               <div className="form-grid-2">
                 <div className="form-field full-span">
                   <label>Street *</label>
@@ -283,30 +343,65 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
                 </div>
                 <div className="form-field">
                   <label>City *</label>
-                  <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="New York" required />
+                  <input
+                    type="text"
+                    name="city"
+                    value={form.city}
+                    onChange={handleChange}
+                    placeholder="New York"
+                    required
+                  />
                 </div>
                 <div className="form-field">
                   <label>State *</label>
-                  <input type="text" name="state" value={form.state} onChange={handleChange} placeholder="NY" required />
+                  <input
+                    type="text"
+                    name="state"
+                    value={form.state}
+                    onChange={handleChange}
+                    placeholder="NY"
+                    required
+                  />
                 </div>
                 <div className="form-field">
                   <label>Pincode / Postal Code *</label>
-                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange} placeholder="e.g. 110001" minLength={4} maxLength={6} required />
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={form.pincode}
+                    onChange={handleChange}
+                    placeholder="e.g. 110001"
+                    minLength={4}
+                    maxLength={6}
+                    required
+                  />
                 </div>
               </div>
             </div>
 
             {/* Working Hours */}
             <div className="form-section">
-              <h4 className="section-label"><Clock size={14} /> Working Hours</h4>
+              <h4 className="section-label">
+                <Clock size={14} /> Working Hours
+              </h4>
               <div className="form-grid-2">
                 <div className="form-field">
                   <label>Opening Time</label>
-                  <input type="time" name="openingTime" value={form.openingTime} onChange={handleChange} />
+                  <input
+                    type="time"
+                    name="openingTime"
+                    value={form.openingTime}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div className="form-field">
                   <label>Closing Time</label>
-                  <input type="time" name="closingTime" value={form.closingTime} onChange={handleChange} />
+                  <input
+                    type="time"
+                    name="closingTime"
+                    value={form.closingTime}
+                    onChange={handleChange}
+                  />
                 </div>
               </div>
             </div>
@@ -315,11 +410,11 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
             <div className="form-section">
               <h4 className="section-label">Working Days</h4>
               <div className="chip-group">
-                {WORKING_DAYS.map(day => (
+                {WORKING_DAYS.map((day) => (
                   <button
                     key={day}
                     type="button"
-                    className={`chip ${form.workingDays.includes(day) ? 'chip-active' : ''}`}
+                    className={`chip ${form.workingDays.includes(day) ? "chip-active" : ""}`}
                     onClick={() => toggleDay(day)}
                   >
                     {day}
@@ -330,13 +425,15 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
 
             {/* Service Categories */}
             <div className="form-section">
-              <h4 className="section-label"><Tag size={14} /> Service Categories</h4>
+              <h4 className="section-label">
+                <Tag size={14} /> Service Categories
+              </h4>
               <div className="chip-group">
-                {CATEGORIES.map(cat => (
+                {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     type="button"
-                    className={`chip ${form.category.includes(cat) ? 'chip-active' : ''}`}
+                    className={`chip ${form.category.includes(cat) ? "chip-active" : ""}`}
                     onClick={() => toggleCategory(cat)}
                   >
                     {cat}
@@ -345,18 +442,39 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
               </div>
             </div>
 
-
-
             {/* Submit */}
             <div className="salon-modal-footer">
-              <button type="button" className="btn-cancel" onClick={onClose} disabled={loading}>
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={onClose}
+                disabled={loading}
+              >
                 Cancel
               </button>
-              <button type="submit" className="btn-add-salon" disabled={loading}>
+              <button
+                type="submit"
+                className="btn-add-salon"
+                disabled={loading}
+              >
                 {loading ? (
-                  editingSalon ? <><Loader size={16} className="spin-icon" /> Updating...</> : <><Loader size={16} className="spin-icon" /> Adding...</>
+                  editingSalon ? (
+                    <>
+                      <Loader size={16} className="spin-icon" /> Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Loader size={16} className="spin-icon" /> Adding...
+                    </>
+                  )
+                ) : editingSalon ? (
+                  <>
+                    <CheckCircle size={16} /> Update Salon
+                  </>
                 ) : (
-                  editingSalon ? <><CheckCircle size={16} /> Update Salon</> : <><Store size={16} /> Add Salon</>
+                  <>
+                    <Store size={16} /> Add Salon
+                  </>
                 )}
               </button>
             </div>
