@@ -120,10 +120,10 @@ function AddSalon({ onClose, onSalonAdded, editingSalon, onSalonUpdated }) {
       return;
     }
 
-    if (/\d/.test(form.salonName) || /\d/.test(form.ownerName)) {
-      setError("Salon Name and Owner Name cannot contain numbers.");
-      return;
-    }
+    // if (/\d/.test(form.salonName) || /\d/.test(form.ownerName)) {
+    //   setError("Salon Name and Owner Name cannot contain numbers.");
+    //   return;
+    // }
 
     if (form.city && /\d/.test(form.city)) {
       setError("City name cannot contain numbers.");
