@@ -1,25 +1,35 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import axios from 'axios';
-import { useLocation } from 'react-router-dom';
-import { Search, Plus, Trash2, IndianRupee, Printer, Clock, X, Eye, FileText, ChevronDown, Calendar, Zap, Sparkles, ArrowRight } from 'lucide-react';
-import { WhatsAppIcon } from '../components/WhatsAppIcon';
-import '../styles/Billing.css';
-import { useSelector } from 'react-redux';
-import { useConfirm } from '../components/ConfirmModal';
+import { useState, useEffect, useMemo, useRef } from "react";
+import axios from "axios";
+import { useLocation } from "react-router-dom";
+import {
+  Search,
+  Plus,
+  Trash2,
+  Printer,
+  Clock,
+  X,
+  FileText,
+  ChevronDown,
+  Zap,
+} from "lucide-react";
+import { WhatsAppIcon } from "../components/WhatsAppIcon";
+import "../styles/Billing.css";
+import { useSelector } from "react-redux";
+import { useConfirm } from "../components/ConfirmModal";
 
 const SearchableSelect = ({
   options = [],
-  value = '',
+  value = "",
   onChange,
-  placeholder = '-- Select --',
-  searchPlaceholder = 'Search...',
+  placeholder = "-- Select --",
+  searchPlaceholder = "Search...",
   required = false,
   name,
   disabled = false,
-  className = ''
+  className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -29,8 +39,8 @@ const SearchableSelect = ({
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -39,29 +49,43 @@ const SearchableSelect = ({
     }
   }, [isOpen]);
 
-  const selectedOption = options.find((opt) => String(opt.value) === String(value));
+  const selectedOption = options.find(
+    (opt) => String(opt.value) === String(value),
+  );
 
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return options;
     const q = searchQuery.trim().toLowerCase();
     return options.filter((opt) => {
-      const label = (opt.label || '').toLowerCase();
-      const sublabel = (opt.sublabel || '').toLowerCase();
-      const searchTerms = (opt.searchTerms || '').toLowerCase();
-      return label.includes(q) || sublabel.includes(q) || searchTerms.includes(q);
+      const label = (opt.label || "").toLowerCase();
+      const sublabel = (opt.sublabel || "").toLowerCase();
+      const searchTerms = (opt.searchTerms || "").toLowerCase();
+      return (
+        label.includes(q) || sublabel.includes(q) || searchTerms.includes(q)
+      );
     });
   }, [options, searchQuery]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', flex: 1 }}>
+    <div
+      ref={containerRef}
+      style={{ position: "relative", width: "100%", flex: 1 }}
+    >
       {required && (
         <input
           type="text"
-          value={value || ''}
-          onChange={() => { }}
+          value={value || ""}
+          onChange={() => {}}
           required={required}
           tabIndex={-1}
-          style={{ opacity: 0, position: 'absolute', width: '100%', height: 0, bottom: 0, pointerEvents: 'none' }}
+          style={{
+            opacity: 0,
+            position: "absolute",
+            width: "100%",
+            height: 0,
+            bottom: 0,
+            pointerEvents: "none",
+          }}
         />
       )}
 
@@ -69,50 +93,84 @@ const SearchableSelect = ({
         className={`searchable-select-trigger ${className}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: '#0f0f17',
-          border: isOpen ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '8px',
-          padding: '12px 14px',
-          color: selectedOption ? '#fff' : '#94a3b8',
-          fontSize: '14px',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          userSelect: 'none',
-          boxSizing: 'border-box',
-          minHeight: '44px',
-          transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: isOpen ? '0 0 0 2px rgba(192, 132, 252, 0.2)' : 'none'
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "#0f0f17",
+          border: isOpen
+            ? "1px solid #c084fc"
+            : "1px solid rgba(255, 255, 255, 0.1)",
+          borderRadius: "8px",
+          padding: "12px 14px",
+          color: selectedOption ? "#fff" : "#94a3b8",
+          fontSize: "14px",
+          cursor: disabled ? "not-allowed" : "pointer",
+          userSelect: "none",
+          boxSizing: "border-box",
+          minHeight: "44px",
+          transition: "border-color 0.2s, box-shadow 0.2s",
+          boxShadow: isOpen ? "0 0 0 2px rgba(192, 132, 252, 0.2)" : "none",
         }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: selectedOption ? 500 : 400 }}>
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontWeight: selectedOption ? 500 : 400,
+          }}
+        >
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown size={16} style={{ color: '#94a3b8', marginLeft: '8px', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        <ChevronDown
+          size={16}
+          style={{
+            color: "#94a3b8",
+            marginLeft: "8px",
+            flexShrink: 0,
+            transform: isOpen ? "rotate(180deg)" : "none",
+            transition: "transform 0.2s",
+          }}
+        />
       </div>
 
       {isOpen && (
         <div
           className="searchable-select-menu"
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
+            position: "absolute",
+            top: "calc(100% + 4px)",
             left: 0,
             right: 0,
             zIndex: 9999,
-            background: '#181825',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
-            overflow: 'hidden',
-            maxHeight: '260px',
-            display: 'flex',
-            flexDirection: 'column'
+            background: "#181825",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "8px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+            overflow: "hidden",
+            maxHeight: "260px",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <div style={{ padding: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', background: '#12121c', position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <div
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+              background: "#12121c",
+              position: "relative",
+            }}
+          >
+            <Search
+              size={14}
+              style={{
+                position: "absolute",
+                left: "18px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#94a3b8",
+              }}
+            />
             <input
               ref={inputRef}
               type="text"
@@ -121,39 +179,46 @@ const SearchableSelect = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: '100%',
-                padding: '0.5rem 0.75rem 0.5rem 2.2rem',
-                fontSize: '0.85rem',
-                background: '#0f0f17',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '6px',
-                color: '#fff',
-                outline: 'none',
-                boxSizing: 'border-box'
+                width: "100%",
+                padding: "0.5rem 0.75rem 0.5rem 2.2rem",
+                fontSize: "0.85rem",
+                background: "#0f0f17",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                borderRadius: "6px",
+                color: "#fff",
+                outline: "none",
+                boxSizing: "border-box",
               }}
             />
           </div>
 
-          <div style={{ overflowY: 'auto', flex: 1, maxHeight: '200px' }}>
+          <div style={{ overflowY: "auto", flex: 1, maxHeight: "200px" }}>
             <div
               onClick={() => {
-                onChange({ target: { name, value: '' } });
+                onChange({ target: { name, value: "" } });
                 setIsOpen(false);
-                setSearchQuery('');
+                setSearchQuery("");
               }}
               style={{
-                padding: '0.65rem 0.9rem',
-                cursor: 'pointer',
-                color: '#94a3b8',
-                fontSize: '0.88rem',
-                borderBottom: '1px solid rgba(255,255,255,0.05)'
+                padding: "0.65rem 0.9rem",
+                cursor: "pointer",
+                color: "#94a3b8",
+                fontSize: "0.88rem",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
               }}
             >
               {placeholder}
             </div>
 
             {filteredOptions.length === 0 ? (
-              <div style={{ padding: '0.75rem 0.9rem', color: '#64748b', fontSize: '0.85rem', textAlign: 'center' }}>
+              <div
+                style={{
+                  padding: "0.75rem 0.9rem",
+                  color: "#64748b",
+                  fontSize: "0.85rem",
+                  textAlign: "center",
+                }}
+              >
                 No matching results
               </div>
             ) : (
@@ -164,34 +229,49 @@ const SearchableSelect = ({
                     if (opt.disabled) return;
                     onChange({ target: { name, value: opt.value } });
                     setIsOpen(false);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
                   style={{
-                    padding: '0.65rem 0.9rem',
-                    cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                    padding: "0.65rem 0.9rem",
+                    cursor: opt.disabled ? "not-allowed" : "pointer",
                     opacity: opt.disabled ? 0.45 : 1,
-                    color: opt.disabled ? '#64748b' : String(value) === String(opt.value) ? '#c084fc' : '#fff',
-                    background: String(value) === String(opt.value) ? 'rgba(124, 58, 237, 0.15)' : 'transparent',
-                    fontSize: '0.88rem',
-                    transition: 'background 0.15s',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '2px',
-                    borderLeft: String(value) === String(opt.value) ? '3px solid #c084fc' : '3px solid transparent'
+                    color: opt.disabled
+                      ? "#64748b"
+                      : String(value) === String(opt.value)
+                        ? "#c084fc"
+                        : "#fff",
+                    background:
+                      String(value) === String(opt.value)
+                        ? "rgba(124, 58, 237, 0.15)"
+                        : "transparent",
+                    fontSize: "0.88rem",
+                    transition: "background 0.15s",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                    borderLeft:
+                      String(value) === String(opt.value)
+                        ? "3px solid #c084fc"
+                        : "3px solid transparent",
                   }}
                   onMouseEnter={(e) => {
                     if (!opt.disabled && String(value) !== String(opt.value)) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                      e.currentTarget.style.background =
+                        "rgba(255, 255, 255, 0.06)";
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!opt.disabled && String(value) !== String(opt.value)) {
-                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.background = "transparent";
                     }
                   }}
                 >
                   <span style={{ fontWeight: 500 }}>{opt.label}</span>
-                  {opt.sublabel && <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{opt.sublabel}</span>}
+                  {opt.sublabel && (
+                    <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                      {opt.sublabel}
+                    </span>
+                  )}
                 </div>
               ))
             )}
@@ -205,11 +285,17 @@ const SearchableSelect = ({
 function Billing() {
   const confirm = useConfirm();
   const location = useLocation();
-  const { selectedSalonId, selectedSalonInfo, salons } = useSelector((state) => state.salon);
+  const { selectedSalonId, selectedSalonInfo, salons } = useSelector(
+    (state) => state.salon,
+  );
   const { user } = useSelector((state) => state.auth);
 
-  const currentSalon = selectedSalonInfo || (salons || []).find(s => s._id === selectedSalonId) || (user?.salonId && typeof user.salonId === 'object' ? user.salonId : null);
-  const currentSalonName = currentSalon?.salonName || currentSalon?.name || (user?.salonName) || 'Salon';
+  const currentSalon =
+    selectedSalonInfo ||
+    (salons || []).find((s) => s._id === selectedSalonId) ||
+    (user?.salonId && typeof user.salonId === "object" ? user.salonId : null);
+  const currentSalonName =
+    currentSalon?.salonName || currentSalon?.name || user?.salonName || "Salon";
 
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
@@ -218,51 +304,61 @@ function Billing() {
   const [discounts, setDiscounts] = useState([]);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [searchCustomer, setSearchCustomer] = useState('');
+  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
 
   const [billItems, setBillItems] = useState([]);
-  const [itemType, setItemType] = useState('service'); // 'service' | 'package' | 'custom' | 'other'
+  const [itemType, setItemType] = useState("service"); // 'service' | 'package' | 'custom' | 'other'
 
-  const [selectedService, setSelectedService] = useState('');
-  const [selectedPackageId, setSelectedPackageId] = useState('');
-  const [customServiceName, setCustomServiceName] = useState('');
-  const [customServicePrice, setCustomServicePrice] = useState('');
+  const [selectedService, setSelectedService] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [customServiceName, setCustomServiceName] = useState("");
+  const [customServicePrice, setCustomServicePrice] = useState("");
   const [isAddingCustomService, setIsAddingCustomService] = useState(false);
 
-  const [otherItemName, setOtherItemName] = useState('');
-  const [otherItemPrice, setOtherItemPrice] = useState('');
+  const [otherItemName, setOtherItemName] = useState("");
+  const [otherItemPrice, setOtherItemPrice] = useState("");
 
   const [discount, setDiscount] = useState(0);
-  const [selectedPromoCode, setSelectedPromoCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [applyTax, setApplyTax] = useState(true);
+  const [selectedPromoCode, setSelectedPromoCode] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
+  const [message, setMessage] = useState({ text: "", type: "" });
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [historySearch, setHistorySearch] = useState('');
-  const [historyActiveTab, setHistoryActiveTab] = useState('bills'); // 'bills' | 'unbilled'
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyActiveTab, setHistoryActiveTab] = useState("bills"); // 'bills' | 'unbilled'
   const [sendingWhatsAppId, setSendingWhatsAppId] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
 
   // Unbilled / Pending Bookings State
   const [unbilledAppointments, setUnbilledAppointments] = useState([]);
   const [loadingUnbilled, setLoadingUnbilled] = useState(false);
   const [showUnbilledModal, setShowUnbilledModal] = useState(false);
-  const [unbilledSearch, setUnbilledSearch] = useState('');
+  const [unbilledSearch, setUnbilledSearch] = useState("");
 
-  const showToast = (text, type = 'success') => {
+  const showToast = (text, type = "success") => {
     setToast({ show: true, message: text, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 5000);
+    setTimeout(
+      () => setToast({ show: false, message: "", type: "success" }),
+      5000,
+    );
   };
 
   const fetchUnbilledAppointments = async () => {
     try {
       setLoadingUnbilled(true);
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/appointment/unbilled${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/appointment/unbilled${salonParam}`, {
+        withCredentials: true,
+      });
       setUnbilledAppointments(res.data?.data || []);
     } catch (err) {
       console.error("Failed to load unbilled appointments", err);
@@ -276,16 +372,24 @@ function Billing() {
     if (!apt) return;
 
     // 1. Resolve Customer
-    const custId = apt.customerDetails?._id || apt.customerId?._id || (typeof apt.customerId === 'string' ? apt.customerId : null);
-    const matchedCust = customers.find(c => String(c._id) === String(custId)) || {
-      _id: custId || ('temp_' + Date.now()),
-      name: apt.customerDetails?.name || 'Customer',
-      phone: apt.customerDetails?.phone || ''
+    const custId =
+      apt.customerDetails?._id ||
+      apt.customerId?._id ||
+      (typeof apt.customerId === "string" ? apt.customerId : null);
+    const matchedCust = customers.find(
+      (c) => String(c._id) === String(custId),
+    ) || {
+      _id: custId || "temp_" + Date.now(),
+      name: apt.customerDetails?.name || "Customer",
+      phone: apt.customerDetails?.phone || "",
     };
     setSelectedCustomer(matchedCust);
 
     // 2. Resolve Staff
-    const staffId = apt.staffDetails?._id || apt.staffId?._id || (typeof apt.staffId === 'string' ? apt.staffId : '');
+    const staffId =
+      apt.staffDetails?._id ||
+      apt.staffId?._id ||
+      (typeof apt.staffId === "string" ? apt.staffId : "");
     if (staffId) {
       setSelectedStaffId(staffId);
     }
@@ -293,48 +397,62 @@ function Billing() {
     // 3. Resolve Items
     let itemsToLoad = [];
     if (Array.isArray(apt.serviceDetails) && apt.serviceDetails.length > 0) {
-      itemsToLoad = apt.serviceDetails.map(s => ({
-        id: s._id || ('srv_' + Date.now() + Math.random()),
+      itemsToLoad = apt.serviceDetails.map((s) => ({
+        id: s._id || "srv_" + Date.now() + Math.random(),
         serviceId: s._id || null,
-        name: s.serviceName || 'Service',
+        name: s.serviceName || "Service",
         price: Number(s.price) || 0,
         quantity: 1,
-        type: 'service'
+        type: "service",
       }));
     }
 
     if (apt.packageDetails?._id || apt.packageId) {
-      const pkgObj = packages.find(p => String(p._id) === String(apt.packageDetails?._id || apt.packageId));
+      const pkgObj = packages.find(
+        (p) =>
+          String(p._id) === String(apt.packageDetails?._id || apt.packageId),
+      );
       itemsToLoad.push({
-        id: apt.packageDetails?._id || ('pkg_' + Date.now()),
+        id: apt.packageDetails?._id || "pkg_" + Date.now(),
         packageId: apt.packageDetails?._id || apt.packageId,
-        name: `📦 ${apt.packageDetails?.packageName || pkgObj?.packageName || 'Service Package'}`,
-        price: Number(apt.packageDetails?.packagePrice || pkgObj?.packagePrice || pkgObj?.price || 0),
+        name: `📦 ${apt.packageDetails?.packageName || pkgObj?.packageName || "Service Package"}`,
+        price: Number(
+          apt.packageDetails?.packagePrice ||
+            pkgObj?.packagePrice ||
+            pkgObj?.price ||
+            0,
+        ),
         quantity: 1,
-        type: 'package'
+        type: "package",
       });
     }
 
     if (itemsToLoad.length === 0) {
-      itemsToLoad = [{
-        id: 'apt_' + apt._id,
-        serviceId: null,
-        name: 'Appointment Service',
-        price: Number(apt.totalAmount) || 0,
-        quantity: 1,
-        type: 'custom'
-      }];
+      itemsToLoad = [
+        {
+          id: "apt_" + apt._id,
+          serviceId: null,
+          name: "Appointment Service",
+          price: Number(apt.totalAmount) || 0,
+          quantity: 1,
+          type: "custom",
+        },
+      ];
     }
 
     setBillItems(itemsToLoad);
     setLinkedAppointmentId(apt._id);
 
     // 4. Resolve Time slot & Promo Code
-    let formattedSlot = '';
-    if (typeof apt.timeSlot === 'string') {
+    let formattedSlot = "";
+    if (typeof apt.timeSlot === "string") {
       formattedSlot = apt.timeSlot;
-    } else if (apt.timeSlot && typeof apt.timeSlot === 'object') {
-      if (apt.timeSlot.start && apt.timeSlot.end && apt.timeSlot.end !== 'TBD') {
+    } else if (apt.timeSlot && typeof apt.timeSlot === "object") {
+      if (
+        apt.timeSlot.start &&
+        apt.timeSlot.end &&
+        apt.timeSlot.end !== "TBD"
+      ) {
         formattedSlot = `${apt.timeSlot.start} - ${apt.timeSlot.end}`;
       } else if (apt.timeSlot.start) {
         formattedSlot = apt.timeSlot.start;
@@ -345,39 +463,51 @@ function Billing() {
     if (apt.promoCode) {
       setSelectedPromoCode(apt.promoCode);
     } else {
-      setSelectedPromoCode('');
+      setSelectedPromoCode("");
     }
 
     setShowUnbilledModal(false);
     setShowHistoryModal(false);
 
-    showToast(`Loaded booking for ${apt.customerDetails?.name || 'Customer'}. Review and generate bill.`, 'success');
+    showToast(
+      `Loaded booking for ${apt.customerDetails?.name || "Customer"}. Review and generate bill.`,
+      "success",
+    );
 
     // Smooth scroll to top of billing grid
-    window.scrollTo({ top: 100, behavior: 'smooth' });
+    window.scrollTo({ top: 100, behavior: "smooth" });
   };
 
   const handleSendWhatsAppBill = async (billId, phone) => {
     if (!billId) {
-      showToast('No generated bill found to send on WhatsApp', 'error');
+      showToast("No generated bill found to send on WhatsApp", "error");
       return;
     }
     if (!phone) {
-      showToast('Customer phone number is missing', 'error');
+      showToast("Customer phone number is missing", "error");
       return;
     }
     try {
       setSendingWhatsAppId(billId);
-      const res = await axios.post(`/api/billing/${billId}/send-whatsapp`, {}, { withCredentials: true });
+      const res = await axios.post(
+        `/api/billing/${billId}/send-whatsapp`,
+        {},
+        { withCredentials: true },
+      );
       if (res.data?.success) {
-        showToast(res.data.message || 'WhatsApp bill sent successfully!', 'success');
+        showToast(
+          res.data.message || "WhatsApp bill sent successfully!",
+          "success",
+        );
       } else {
-        showToast(res.data?.message || 'Failed to send WhatsApp bill', 'error');
+        showToast(res.data?.message || "Failed to send WhatsApp bill", "error");
       }
     } catch (err) {
       console.error(err);
-      const errMsg = err.response?.data?.message || 'Failed to send WhatsApp bill via API. Try using WhatsApp Web.';
-      showToast(errMsg, 'error');
+      const errMsg =
+        err.response?.data?.message ||
+        "Failed to send WhatsApp bill via API. Try using WhatsApp Web.";
+      showToast(errMsg, "error");
     } finally {
       setSendingWhatsAppId(null);
     }
@@ -385,23 +515,30 @@ function Billing() {
 
   const openWhatsAppWeb = (phone, billSnapshot) => {
     if (!phone) return;
-    const cleanPhone = String(phone).replace(/\D/g, '');
-    const formattedPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+    const cleanPhone = String(phone).replace(/\D/g, "");
+    const formattedPhone =
+      cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone;
 
-    const itemsText = (billSnapshot?.items || billSnapshot?.services || []).map(i => {
-      const name = i.name || i.serviceName || 'Service';
-      const qty = i.quantity || 1;
-      const price = i.price || 0;
-      return `• ${name} - ₹${price}${qty > 1 ? ` (x${qty})` : ''}`;
-    }).join('%0A');
+    const itemsText = (billSnapshot?.items || billSnapshot?.services || [])
+      .map((i) => {
+        const name = i.name || i.serviceName || "Service";
+        const qty = i.quantity || 1;
+        const price = i.price || 0;
+        return `• ${name} - ₹${price}${qty > 1 ? ` (x${qty})` : ""}`;
+      })
+      .join("%0A");
 
-    const invNo = billSnapshot?.invoiceNo || billSnapshot?.invoiceNumber || 'INV';
+    const invNo =
+      billSnapshot?.invoiceNo || billSnapshot?.invoiceNumber || "INV";
     const total = billSnapshot?.grandTotal || billSnapshot?.totalAmount || 0;
-    const custName = billSnapshot?.customer?.name || billSnapshot?.customerDetails?.name || 'Customer';
+    const custName =
+      billSnapshot?.customer?.name ||
+      billSnapshot?.customerDetails?.name ||
+      "Customer";
 
     const text = `🧾 *SALON BILL RECEIPT*%0A--------------------------------%0A*Invoice No:* ${invNo}%0A*Customer:* ${encodeURIComponent(custName)}%0A%0A*Services:*%0A${itemsText}%0A%0A--------------------------------%0A*Grand Total:* ₹${total}%0A%0AThank you for visiting! ✨`;
 
-    window.open(`https://wa.me/${formattedPhone}?text=${text}`, '_blank');
+    window.open(`https://wa.me/${formattedPhone}?text=${text}`, "_blank");
   };
 
   // For pre-filling from Appointments page
@@ -414,15 +551,18 @@ function Billing() {
     try {
       const now = new Date();
       const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
       const todayStr = `${year}-${month}-${day}`;
-      const token = localStorage.getItem('token');
-      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/appointment/date?date=${todayStr}${salonParam}`, {
-        withCredentials: true,
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const token = localStorage.getItem("token");
+      const salonParam = selectedSalonId ? `&salonId=${selectedSalonId}` : "";
+      const res = await axios.get(
+        `/api/appointment/date?date=${todayStr}${salonParam}`,
+        {
+          withCredentials: true,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
       setTodayAppointments(res.data?.data || []);
     } catch (err) {
       console.error("Failed to load today appointments", err);
@@ -450,38 +590,63 @@ function Billing() {
   // Track services already taken or booked today by the selected customer
   const todayBookedServiceIdsForCustomer = useMemo(() => {
     if (!selectedCustomer || !todayAppointments.length) return new Set();
-    const custId = selectedCustomer._id ? String(selectedCustomer._id) : '';
-    const custPhone = (selectedCustomer.phone || '').replace(/\D/g, '');
-    const custName = (selectedCustomer.name || '').trim().toLowerCase();
+    const custId = selectedCustomer._id ? String(selectedCustomer._id) : "";
+    const custPhone = (selectedCustomer.phone || "").replace(/\D/g, "");
+    const custName = (selectedCustomer.name || "").trim().toLowerCase();
 
-    const customerVisits = todayAppointments.filter(apt => {
+    const customerVisits = todayAppointments.filter((apt) => {
       // If currently billing a specific linked appointment, exclude that appointment itself
-      if (linkedAppointmentId && (String(apt._id) === String(linkedAppointmentId) || String(apt.appointmentId) === String(linkedAppointmentId))) {
+      if (
+        linkedAppointmentId &&
+        (String(apt._id) === String(linkedAppointmentId) ||
+          String(apt.appointmentId) === String(linkedAppointmentId))
+      ) {
         return false;
       }
-      const aptCustId = (apt.customerId?._id || apt.customerId || apt.customerDetails?._id)?.toString();
-      const aptPhone = (apt.customerDetails?.phone || apt.customerId?.phone || '').replace(/\D/g, '');
-      const aptName = (apt.customerDetails?.name || apt.customerId?.name || '').trim().toLowerCase();
-      const isCancelled = (apt.status || '').toLowerCase() === 'cancelled' || (apt.status || '').toLowerCase() === 'canceled';
+      const aptCustId = (
+        apt.customerId?._id ||
+        apt.customerId ||
+        apt.customerDetails?._id
+      )?.toString();
+      const aptPhone = (
+        apt.customerDetails?.phone ||
+        apt.customerId?.phone ||
+        ""
+      ).replace(/\D/g, "");
+      const aptName = (apt.customerDetails?.name || apt.customerId?.name || "")
+        .trim()
+        .toLowerCase();
+      const isCancelled =
+        (apt.status || "").toLowerCase() === "cancelled" ||
+        (apt.status || "").toLowerCase() === "canceled";
 
       if (isCancelled) return false;
 
-      const idMatch = custId && !custId.startsWith('temp_') && aptCustId && aptCustId === custId;
-      const phoneMatch = custPhone && aptPhone && (custPhone === aptPhone || custPhone.endsWith(aptPhone) || aptPhone.endsWith(custPhone));
+      const idMatch =
+        custId &&
+        !custId.startsWith("temp_") &&
+        aptCustId &&
+        aptCustId === custId;
+      const phoneMatch =
+        custPhone &&
+        aptPhone &&
+        (custPhone === aptPhone ||
+          custPhone.endsWith(aptPhone) ||
+          aptPhone.endsWith(custPhone));
       const nameMatch = custName && aptName && custName === aptName;
 
       return idMatch || phoneMatch || nameMatch;
     });
 
     const bookedIds = new Set();
-    customerVisits.forEach(apt => {
-      (apt.serviceDetails || []).forEach(s => {
+    customerVisits.forEach((apt) => {
+      (apt.serviceDetails || []).forEach((s) => {
         if (s?.serviceId) bookedIds.add(String(s.serviceId));
         if (s?._id) bookedIds.add(String(s._id));
         if (s?.serviceName) bookedIds.add(s.serviceName.toLowerCase().trim());
       });
-      (apt.services || []).forEach(s => {
-        const sid = typeof s === 'object' ? s?._id?.toString() : s?.toString();
+      (apt.services || []).forEach((s) => {
+        const sid = typeof s === "object" ? s?._id?.toString() : s?.toString();
         if (sid) bookedIds.add(sid);
         if (s?.serviceName) bookedIds.add(s.serviceName.toLowerCase().trim());
       });
@@ -498,7 +663,12 @@ function Billing() {
     if (!state?.fromAppointment) return;
 
     // Pre-fill bill items from appointment services
-    const itemsToSet = (state.items && state.items.length) ? state.items : (state.billItems && state.billItems.length) ? state.billItems : [];
+    const itemsToSet =
+      state.items && state.items.length
+        ? state.items
+        : state.billItems && state.billItems.length
+          ? state.billItems
+          : [];
     if (itemsToSet.length) {
       setBillItems(itemsToSet);
     }
@@ -511,9 +681,9 @@ function Billing() {
     // Store customer info and set selected customer immediately
     if (state.customerId || state.customerName) {
       setSelectedCustomer({
-        _id: state.customerId || ('temp_' + Date.now()),
-        name: state.customerName || 'Customer',
-        phone: state.customerPhone || ''
+        _id: state.customerId || "temp_" + Date.now(),
+        name: state.customerName || "Customer",
+        phone: state.customerPhone || "",
       });
       setPendingCustomerState(state);
     }
@@ -534,7 +704,10 @@ function Billing() {
     }
 
     // Show a helpful toast
-    showToast(`📋 Appointment services pre-filled for ${state.customerName || 'Customer'}.`, 'success');
+    showToast(
+      `📋 Appointment services pre-filled for ${state.customerName || "Customer"}.`,
+      "success",
+    );
 
     // Clear the navigation state so refreshing doesn't re-trigger
     window.history.replaceState({}, document.title);
@@ -547,10 +720,12 @@ function Billing() {
     if (!pendingCustomerState || customers.length === 0) return;
 
     const { customerId, customerName, customerPhone } = pendingCustomerState;
-    const matched = customers.find(c =>
-      (customerId && (c._id === customerId || String(c._id) === String(customerId))) ||
-      (customerPhone && c.phone === customerPhone) ||
-      (customerName && c.name?.toLowerCase() === customerName?.toLowerCase())
+    const matched = customers.find(
+      (c) =>
+        (customerId &&
+          (c._id === customerId || String(c._id) === String(customerId))) ||
+        (customerPhone && c.phone === customerPhone) ||
+        (customerName && c.name?.toLowerCase() === customerName?.toLowerCase()),
     );
 
     if (matched) {
@@ -560,10 +735,12 @@ function Billing() {
 
   const fetchDiscounts = async () => {
     try {
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/discount${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/discount${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
-        setDiscounts(res.data.data.filter(d => d.isActive));
+        setDiscounts(res.data.data.filter((d) => d.isActive));
       }
     } catch (err) {
       console.error("Failed to load discounts", err);
@@ -572,8 +749,10 @@ function Billing() {
 
   const fetchCustomers = async () => {
     try {
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/customer${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/customer${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
         setCustomers(res.data.data);
       }
@@ -584,8 +763,10 @@ function Billing() {
 
   const fetchServices = async () => {
     try {
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/service/all${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/service/all${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
         setServices(res.data.data);
       }
@@ -596,8 +777,10 @@ function Billing() {
 
   const fetchPackages = async () => {
     try {
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/service-package${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/service-package${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
         setPackages(res.data.data);
       }
@@ -608,15 +791,19 @@ function Billing() {
 
   const fetchStaff = async () => {
     try {
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/staff/all${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/staff/all${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
         setStaffList(res.data.data);
 
         // Auto-select staff member matching logged in user
         if (user) {
           const matchedStaff = res.data.data.find(
-            s => s.email?.toLowerCase() === user.email?.toLowerCase() || s.name?.toLowerCase() === user.name?.toLowerCase()
+            (s) =>
+              s.email?.toLowerCase() === user.email?.toLowerCase() ||
+              s.name?.toLowerCase() === user.name?.toLowerCase(),
           );
           if (matchedStaff) {
             setSelectedStaffId(matchedStaff._id);
@@ -628,244 +815,307 @@ function Billing() {
     }
   };
 
-  const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(searchCustomer.toLowerCase()) ||
-    c.phone.includes(searchCustomer)
+  const filteredCustomers = customers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchCustomer.toLowerCase()) ||
+      c.phone.includes(searchCustomer),
   );
 
   const handleAddItem = async () => {
-    if (itemType === 'service') {
+    if (itemType === "service") {
       if (!selectedService) return;
-      const serviceObj = services.find(s => s._id === selectedService);
+      const serviceObj = services.find((s) => s._id === selectedService);
       if (!serviceObj) return;
 
-      const isAlreadyBookedToday = todayBookedServiceIdsForCustomer.has(String(serviceObj._id)) || 
-                                   todayBookedServiceIdsForCustomer.has(serviceObj.serviceName.toLowerCase().trim());
+      const isAlreadyBookedToday =
+        todayBookedServiceIdsForCustomer.has(String(serviceObj._id)) ||
+        todayBookedServiceIdsForCustomer.has(
+          serviceObj.serviceName.toLowerCase().trim(),
+        );
       if (isAlreadyBookedToday) {
         setMessage({
-          text: `⚠️ Customer "${selectedCustomer?.name || 'Customer'}" already took/booked service "${serviceObj.serviceName}" today. Duplicate services on the same date are not allowed.`,
-          type: 'error'
+          text: `⚠️ Customer "${selectedCustomer?.name || "Customer"}" already took/booked service "${serviceObj.serviceName}" today. Duplicate services on the same date are not allowed.`,
+          type: "error",
         });
-        setSelectedService('');
+        setSelectedService("");
         return;
       }
 
-      const alreadyAdded = billItems.some(item =>
-        item.serviceId === serviceObj._id ||
-        item.id === serviceObj._id ||
-        (item.name && item.name.toLowerCase().trim() === serviceObj.serviceName.toLowerCase().trim())
+      const alreadyAdded = billItems.some(
+        (item) =>
+          item.serviceId === serviceObj._id ||
+          item.id === serviceObj._id ||
+          (item.name &&
+            item.name.toLowerCase().trim() ===
+              serviceObj.serviceName.toLowerCase().trim()),
       );
 
       if (alreadyAdded) {
         setMessage({
           text: `⚠️ Service "${serviceObj.serviceName}" is already added to the bill. Duplicate services cannot be added.`,
-          type: 'error'
+          type: "error",
         });
-        setSelectedService('');
+        setSelectedService("");
         return;
       }
 
-      setBillItems([...billItems, {
-        id: serviceObj._id,
-        serviceId: serviceObj._id,
-        name: serviceObj.serviceName,
-        price: serviceObj.price,
-        quantity: 1,
-        type: 'service'
-      }]);
-      setSelectedService('');
-    } else if (itemType === 'package') {
+      setBillItems([
+        ...billItems,
+        {
+          id: serviceObj._id,
+          serviceId: serviceObj._id,
+          name: serviceObj.serviceName,
+          price: serviceObj.price,
+          quantity: 1,
+          type: "service",
+        },
+      ]);
+      setSelectedService("");
+    } else if (itemType === "package") {
       if (!selectedPackageId) return;
-      const pkgObj = packages.find(p => p._id === selectedPackageId);
+      const pkgObj = packages.find((p) => p._id === selectedPackageId);
       if (!pkgObj) return;
 
-      const alreadyAdded = billItems.some(item =>
-        item.packageId === pkgObj._id ||
-        item.id === pkgObj._id ||
-        (item.name && item.name.toLowerCase().trim().includes(pkgObj.packageName.toLowerCase().trim()))
+      const alreadyAdded = billItems.some(
+        (item) =>
+          item.packageId === pkgObj._id ||
+          item.id === pkgObj._id ||
+          (item.name &&
+            item.name
+              .toLowerCase()
+              .trim()
+              .includes(pkgObj.packageName.toLowerCase().trim())),
       );
 
       if (alreadyAdded) {
         setMessage({
           text: `⚠️ Package "${pkgObj.packageName}" is already added to the bill. Duplicate packages cannot be added.`,
-          type: 'error'
+          type: "error",
         });
-        setSelectedPackageId('');
+        setSelectedPackageId("");
         return;
       }
 
-      setBillItems([...billItems, {
-        id: pkgObj._id,
-        packageId: pkgObj._id,
-        name: `📦 ${pkgObj.packageName}`,
-        price: pkgObj.packagePrice || pkgObj.price || 0,
-        quantity: 1,
-        type: 'package'
-      }]);
-      setSelectedPackageId('');
-    } else if (itemType === 'custom') {
+      setBillItems([
+        ...billItems,
+        {
+          id: pkgObj._id,
+          packageId: pkgObj._id,
+          name: `📦 ${pkgObj.packageName}`,
+          price: pkgObj.packagePrice || pkgObj.price || 0,
+          quantity: 1,
+          type: "package",
+        },
+      ]);
+      setSelectedPackageId("");
+    } else if (itemType === "custom") {
       if (!customServiceName.trim() || !customServicePrice) return;
       const trimmedName = customServiceName.trim();
       const priceNum = Number(customServicePrice);
 
       if (isNaN(priceNum) || priceNum < 0) {
-        setMessage({ text: 'Please enter a valid price', type: 'error' });
+        setMessage({ text: "Please enter a valid price", type: "error" });
         return;
       }
 
       if (todayBookedServiceIdsForCustomer.has(trimmedName.toLowerCase())) {
         setMessage({
-          text: `⚠️ Customer "${selectedCustomer?.name || 'Customer'}" already took/booked service "${trimmedName}" today. Duplicate services on the same date are not allowed.`,
-          type: 'error'
+          text: `⚠️ Customer "${selectedCustomer?.name || "Customer"}" already took/booked service "${trimmedName}" today. Duplicate services on the same date are not allowed.`,
+          type: "error",
         });
         return;
       }
 
-      const alreadyAdded = billItems.some(item =>
-        item.name && item.name.toLowerCase().trim() === trimmedName.toLowerCase()
+      const alreadyAdded = billItems.some(
+        (item) =>
+          item.name &&
+          item.name.toLowerCase().trim() === trimmedName.toLowerCase(),
       );
 
       if (alreadyAdded) {
         setMessage({
           text: `⚠️ Custom service "${trimmedName}" is already added to the bill. Duplicate services cannot be added.`,
-          type: 'error'
+          type: "error",
         });
         return;
       }
 
       setIsAddingCustomService(true);
-      setMessage({ text: '', type: '' });
+      setMessage({ text: "", type: "" });
 
       try {
         const activeSalonId = selectedSalonId || user?.salonId;
         let serviceToUse = services.find(
-          s => s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase()
+          (s) =>
+            s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase(),
         );
 
         if (!serviceToUse) {
-          const res = await axios.post('/api/service/create', {
-            serviceName: trimmedName,
-            price: priceNum,
-            duration: 30,
-            category: 'Custom',
-            ...(activeSalonId && { salonId: activeSalonId })
-          }, { withCredentials: true });
+          const res = await axios.post(
+            "/api/service/create",
+            {
+              serviceName: trimmedName,
+              price: priceNum,
+              duration: 30,
+              category: "Custom",
+              ...(activeSalonId && { salonId: activeSalonId }),
+            },
+            { withCredentials: true },
+          );
 
           serviceToUse = res.data?.data;
           if (serviceToUse) {
-            setServices(prev => [serviceToUse, ...prev]);
+            setServices((prev) => [serviceToUse, ...prev]);
           }
         }
 
-        const serviceId = serviceToUse?._id || ('srv_' + Date.now());
+        const serviceId = serviceToUse?._id || "srv_" + Date.now();
         const finalName = serviceToUse?.serviceName || trimmedName;
         const finalPrice = Number(serviceToUse?.price ?? priceNum);
 
-        setBillItems(prev => [...prev, {
-          id: serviceId,
-          serviceId: serviceId,
-          name: finalName,
-          price: finalPrice,
-          quantity: 1,
-          type: 'service'
-        }]);
+        setBillItems((prev) => [
+          ...prev,
+          {
+            id: serviceId,
+            serviceId: serviceId,
+            name: finalName,
+            price: finalPrice,
+            quantity: 1,
+            type: "service",
+          },
+        ]);
 
-        setCustomServiceName('');
-        setCustomServicePrice('');
-        showToast(`✨ Service "${finalName}" added to bill and saved to Services catalog!`, 'success');
+        setCustomServiceName("");
+        setCustomServicePrice("");
+        showToast(
+          `✨ Service "${finalName}" added to bill and saved to Services catalog!`,
+          "success",
+        );
         fetchServices();
       } catch (err) {
         console.error("Error creating custom service:", err);
-        if (err.response?.data?.message?.toLowerCase().includes('already exists')) {
+        if (
+          err.response?.data?.message?.toLowerCase().includes("already exists")
+        ) {
           await fetchServices();
-          const matched = services.find(s => s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase());
-          const serviceId = matched?._id || ('srv_' + Date.now());
-          setBillItems(prev => [...prev, {
-            id: serviceId,
-            serviceId: serviceId,
-            name: matched?.serviceName || trimmedName,
-            price: Number(matched?.price ?? priceNum),
-            quantity: 1,
-            type: 'service'
-          }]);
-          setCustomServiceName('');
-          setCustomServicePrice('');
-          showToast(`✨ Service "${trimmedName}" added to bill from catalog!`, 'success');
+          const matched = services.find(
+            (s) =>
+              s.serviceName?.toLowerCase().trim() === trimmedName.toLowerCase(),
+          );
+          const serviceId = matched?._id || "srv_" + Date.now();
+          setBillItems((prev) => [
+            ...prev,
+            {
+              id: serviceId,
+              serviceId: serviceId,
+              name: matched?.serviceName || trimmedName,
+              price: Number(matched?.price ?? priceNum),
+              quantity: 1,
+              type: "service",
+            },
+          ]);
+          setCustomServiceName("");
+          setCustomServicePrice("");
+          showToast(
+            `✨ Service "${trimmedName}" added to bill from catalog!`,
+            "success",
+          );
         } else {
           setMessage({
-            text: err.response?.data?.message || 'Failed to save custom service to catalog',
-            type: 'error'
+            text:
+              err.response?.data?.message ||
+              "Failed to save custom service to catalog",
+            type: "error",
           });
         }
       } finally {
         setIsAddingCustomService(false);
       }
-    } else if (itemType === 'other') {
+    } else if (itemType === "other") {
       if (!otherItemName.trim() || !otherItemPrice) return;
       const trimmedName = otherItemName.trim();
       const priceNum = Number(otherItemPrice);
 
       if (isNaN(priceNum) || priceNum < 0) {
-        setMessage({ text: 'Please enter a valid price', type: 'error' });
+        setMessage({ text: "Please enter a valid price", type: "error" });
         return;
       }
 
-      const alreadyAdded = billItems.some(item =>
-        item.name && item.name.toLowerCase().trim() === trimmedName.toLowerCase()
+      const alreadyAdded = billItems.some(
+        (item) =>
+          item.name &&
+          item.name.toLowerCase().trim() === trimmedName.toLowerCase(),
       );
 
       if (alreadyAdded) {
         setMessage({
           text: `⚠️ Item "${trimmedName}" is already added to the bill. Duplicate items cannot be added.`,
-          type: 'error'
+          type: "error",
         });
         return;
       }
 
-      const customId = 'custom_' + Date.now();
-      setBillItems(prev => [...prev, {
-        id: customId,
-        serviceId: null,
-        name: trimmedName,
-        price: priceNum,
-        quantity: 1,
-        type: 'custom'
-      }]);
+      const customId = "custom_" + Date.now();
+      setBillItems((prev) => [
+        ...prev,
+        {
+          id: customId,
+          serviceId: null,
+          name: trimmedName,
+          price: priceNum,
+          quantity: 1,
+          type: "custom",
+        },
+      ]);
 
-      setOtherItemName('');
-      setOtherItemPrice('');
-      showToast(`Added "${trimmedName}" to bill.`, 'success');
+      setOtherItemName("");
+      setOtherItemPrice("");
+      showToast(`Added "${trimmedName}" to bill.`, "success");
     }
   };
 
   const handleRemoveItem = (id) => {
-    setBillItems(billItems.filter(item => item.id !== id));
+    setBillItems(billItems.filter((item) => item.id !== id));
   };
 
   const handleQuantityChange = (id, newQty) => {
     if (newQty < 1) return;
-    setBillItems(billItems.map(item =>
-      item.id === id ? { ...item, quantity: newQty } : item
-    ));
+    setBillItems(
+      billItems.map((item) =>
+        item.id === id ? { ...item, quantity: newQty } : item,
+      ),
+    );
   };
 
   const [lastBill, setLastBill] = useState(null);
 
-  const subtotal = billItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const tax = Math.max(0, subtotal - discount) * 0.18; // 18% GST on taxable amount
+  const subtotal = billItems.reduce(
+    (acc, item) => acc + item.price * item.quantity,
+    0,
+  );
+  const tax = applyTax ? Math.max(0, subtotal - discount) * 0.18 : 0; // 18% GST on taxable amount
   const grandTotal = Math.max(0, subtotal + tax - discount);
 
   const getPromoLabel = (d) => {
-    const valueStr = d.discountType === 'Percentage' ? `${d.discountValue}% Off` : `₹${d.discountValue} Off`;
-    let timeStr = '';
-    if (d.isOneDayOffer || (d.startDate && d.endDate && new Date(d.startDate).toDateString() === new Date(d.endDate).toDateString())) {
+    const valueStr =
+      d.discountType === "Percentage"
+        ? `${d.discountValue}% Off`
+        : `₹${d.discountValue} Off`;
+    let timeStr = "";
+    if (
+      d.isOneDayOffer ||
+      (d.startDate &&
+        d.endDate &&
+        new Date(d.startDate).toDateString() ===
+          new Date(d.endDate).toDateString())
+    ) {
       if (d.startTime && d.endTime) {
         timeStr = ` • ${d.startTime}-${d.endTime}`;
       }
-    } else if (d.startTime && d.startTime !== '00:00') {
+    } else if (d.startTime && d.startTime !== "00:00") {
       timeStr = ` • Starts ${d.startTime}`;
     }
-    const minStr = d.minOrderAmount ? ` • Min ₹${d.minOrderAmount}` : '';
+    const minStr = d.minOrderAmount ? ` • Min ₹${d.minOrderAmount}` : "";
     return `🏷️ ${d.promoCode} (${valueStr}${timeStr}${minStr})`;
   };
 
@@ -884,13 +1134,19 @@ function Billing() {
 
         let hrs = 0;
         let mins = 0;
-        if (discount.startTime && typeof discount.startTime === 'string' && discount.startTime.includes(':')) {
-          const clean = discount.startTime.replace(/[^\d:]/g, '');
-          const parts = clean.split(':').map(Number);
+        if (
+          discount.startTime &&
+          typeof discount.startTime === "string" &&
+          discount.startTime.includes(":")
+        ) {
+          const clean = discount.startTime.replace(/[^\d:]/g, "");
+          const parts = clean.split(":").map(Number);
           hrs = parts[0] || 0;
           mins = parts[1] || 0;
-          if (discount.startTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
-          if (discount.startTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+          if (discount.startTime.toLowerCase().includes("pm") && hrs < 12)
+            hrs += 12;
+          if (discount.startTime.toLowerCase().includes("am") && hrs === 12)
+            hrs = 0;
         } else {
           hrs = dStart.getHours();
           mins = dStart.getMinutes();
@@ -911,13 +1167,19 @@ function Billing() {
         let secs = 59;
         let ms = 999;
 
-        if (discount.endTime && typeof discount.endTime === 'string' && discount.endTime.includes(':')) {
-          const clean = discount.endTime.replace(/[^\d:]/g, '');
-          const parts = clean.split(':').map(Number);
+        if (
+          discount.endTime &&
+          typeof discount.endTime === "string" &&
+          discount.endTime.includes(":")
+        ) {
+          const clean = discount.endTime.replace(/[^\d:]/g, "");
+          const parts = clean.split(":").map(Number);
           hrs = parts[0] !== undefined ? parts[0] : 23;
           mins = parts[1] !== undefined ? parts[1] : 59;
-          if (discount.endTime.toLowerCase().includes('pm') && hrs < 12) hrs += 12;
-          if (discount.endTime.toLowerCase().includes('am') && hrs === 12) hrs = 0;
+          if (discount.endTime.toLowerCase().includes("pm") && hrs < 12)
+            hrs += 12;
+          if (discount.endTime.toLowerCase().includes("am") && hrs === 12)
+            hrs = 0;
         }
         endDateTime = new Date(yr, mo, day, hrs, mins, secs, ms);
       }
@@ -930,12 +1192,21 @@ function Billing() {
     if (!discount || discount.isActive === false) return false;
 
     // Single customer usage
-    if (customerId && Array.isArray(discount.usedBy) && discount.usedBy.some(id => String(id?._id || id) === String(customerId))) {
+    if (
+      customerId &&
+      Array.isArray(discount.usedBy) &&
+      discount.usedBy.some((id) => String(id?._id || id) === String(customerId))
+    ) {
       return false;
     }
 
     // Max usage limit
-    if (discount.usageLimit !== null && discount.usageLimit !== undefined && discount.usageLimit !== '' && Number(discount.usedCount || 0) >= Number(discount.usageLimit)) {
+    if (
+      discount.usageLimit !== null &&
+      discount.usageLimit !== undefined &&
+      discount.usageLimit !== "" &&
+      Number(discount.usedCount || 0) >= Number(discount.usageLimit)
+    ) {
       return false;
     }
 
@@ -957,15 +1228,20 @@ function Billing() {
       setDiscount(0);
       return;
     }
-    const foundDisc = discounts.find(d => d.promoCode === code);
+    const foundDisc = discounts.find((d) => d.promoCode === code);
     if (foundDisc) {
       // Check if this specific customer has already used this promo code
       if (selectedCustomer?._id && Array.isArray(foundDisc.usedBy)) {
-        const isAlreadyUsed = foundDisc.usedBy.some(id => String(id?._id || id) === String(selectedCustomer._id));
+        const isAlreadyUsed = foundDisc.usedBy.some(
+          (id) => String(id?._id || id) === String(selectedCustomer._id),
+        );
         if (isAlreadyUsed) {
-          showToast(`Promo code ${foundDisc.promoCode} has already been used by ${selectedCustomer.name || 'this customer'}. A customer can only apply this promo code once.`, 'error');
+          showToast(
+            `Promo code ${foundDisc.promoCode} has already been used by ${selectedCustomer.name || "this customer"}. A customer can only apply this promo code once.`,
+            "error",
+          );
           setDiscount(0);
-          setSelectedPromoCode('');
+          setSelectedPromoCode("");
           return;
         }
       }
@@ -974,37 +1250,59 @@ function Billing() {
       const { startDateTime, endDateTime } = getDiscountDateRange(foundDisc);
 
       if (startDateTime && now < startDateTime) {
-        const timeInfo = foundDisc.startTime ? ` at ${foundDisc.startTime}` : '';
-        showToast(`Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${startDateTime.toLocaleDateString()}${timeInfo})`, 'error');
+        const timeInfo = foundDisc.startTime
+          ? ` at ${foundDisc.startTime}`
+          : "";
+        showToast(
+          `Promo code ${foundDisc.promoCode} is not valid yet (Valid from ${startDateTime.toLocaleDateString()}${timeInfo})`,
+          "error",
+        );
         setDiscount(0);
-        setSelectedPromoCode('');
+        setSelectedPromoCode("");
         return;
       }
       if (endDateTime && now > endDateTime) {
-        const timeInfo = foundDisc.endTime ? ` at ${foundDisc.endTime}` : '';
-        showToast(`Promo code ${foundDisc.promoCode} has expired on ${endDateTime.toLocaleDateString()}${timeInfo}`, 'error');
+        const timeInfo = foundDisc.endTime ? ` at ${foundDisc.endTime}` : "";
+        showToast(
+          `Promo code ${foundDisc.promoCode} has expired on ${endDateTime.toLocaleDateString()}${timeInfo}`,
+          "error",
+        );
         setDiscount(0);
-        setSelectedPromoCode('');
+        setSelectedPromoCode("");
         return;
       }
       const limit = foundDisc.usageLimit;
       const used = Number(foundDisc.usedCount || 0);
-      if (limit !== null && limit !== undefined && limit !== '' && used >= Number(limit)) {
-        showToast(`Promo code ${foundDisc.promoCode} usage limit reached (${limit} max limit)`, 'error');
+      if (
+        limit !== null &&
+        limit !== undefined &&
+        limit !== "" &&
+        used >= Number(limit)
+      ) {
+        showToast(
+          `Promo code ${foundDisc.promoCode} usage limit reached (${limit} max limit)`,
+          "error",
+        );
         setDiscount(0);
-        setSelectedPromoCode('');
+        setSelectedPromoCode("");
         return;
       }
       if (foundDisc.minOrderAmount && subtotal < foundDisc.minOrderAmount) {
-        showToast(`This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required. (Current: ₹${subtotal})`, 'error');
+        showToast(
+          `This promo code is not applicable for this order. Minimum bill amount ₹${foundDisc.minOrderAmount} required. (Current: ₹${subtotal})`,
+          "error",
+        );
         setDiscount(0);
-        setSelectedPromoCode('');
+        setSelectedPromoCode("");
         return;
       }
       let discAmt = 0;
-      if (foundDisc.discountType === 'Percentage') {
+      if (foundDisc.discountType === "Percentage") {
         discAmt = (subtotal * foundDisc.discountValue) / 100;
-        if (foundDisc.maxDiscountAmount && discAmt > foundDisc.maxDiscountAmount) {
+        if (
+          foundDisc.maxDiscountAmount &&
+          discAmt > foundDisc.maxDiscountAmount
+        ) {
           discAmt = foundDisc.maxDiscountAmount;
         }
       } else {
@@ -1012,7 +1310,7 @@ function Billing() {
       }
       discAmt = Math.min(discAmt, subtotal);
       setDiscount(discAmt);
-      showToast(`Applied ${foundDisc.promoCode} (-₹${discAmt})`, 'success');
+      showToast(`Applied ${foundDisc.promoCode} (-₹${discAmt})`, "success");
     }
   };
 
@@ -1023,14 +1321,16 @@ function Billing() {
     }
   }, [subtotal, selectedCustomer]);
 
-  const selectedStaff = staffList.find(s => s._id === selectedStaffId);
+  const selectedStaff = staffList.find((s) => s._id === selectedStaffId);
 
   const fetchBillingHistory = async () => {
     try {
       setLoadingHistory(true);
       setShowHistoryModal(true);
-      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : '';
-      const res = await axios.get(`/api/billing${salonParam}`, { withCredentials: true });
+      const salonParam = selectedSalonId ? `?salonId=${selectedSalonId}` : "";
+      const res = await axios.get(`/api/billing${salonParam}`, {
+        withCredentials: true,
+      });
       if (res.data?.data) {
         setHistoryList(res.data.data);
       }
@@ -1043,7 +1343,7 @@ function Billing() {
 
   const triggerPrint = () => {
     const originalTitle = document.title;
-    document.title = ' ';
+    document.title = " ";
     window.print();
     setTimeout(() => {
       document.title = originalTitle;
@@ -1055,59 +1355,80 @@ function Billing() {
     const dAmount = Number(bill.discountAmount || 0);
     const taxable = Math.max(0, sTotal - dAmount);
     let taxAmt = 0;
-    if (bill.taxAmount !== undefined && bill.taxAmount !== null && Number(bill.taxAmount) > 0) {
+    const explicitNoTax =
+      (bill.tax !== undefined && bill.tax !== null && Number(bill.tax) === 0) ||
+      bill.taxApplied === false;
+    if (explicitNoTax) {
+      taxAmt = 0;
+    } else if (
+      bill.taxAmount !== undefined &&
+      bill.taxAmount !== null &&
+      Number(bill.taxAmount) > 0
+    ) {
       taxAmt = Number(bill.taxAmount);
-    } else if (bill.tax !== undefined && bill.tax !== null && Number(bill.tax) > 0) {
+    } else if (
+      bill.tax !== undefined &&
+      bill.tax !== null &&
+      Number(bill.tax) > 0
+    ) {
       const tVal = Number(bill.tax);
       taxAmt = tVal <= 100 ? (taxable * tVal) / 100 : tVal;
     } else {
-      taxAmt = taxable * 0.18;
+      taxAmt = taxable * 0.18; // legacy bills with no tax info
     }
 
-    let genBy = 'Admin';
+    let genBy = "Admin";
     if (bill.generatedBy) {
-      if (typeof bill.generatedBy === 'object') {
-        const gName = bill.generatedBy.name || '';
-        const gRole = bill.generatedBy.role || '';
+      if (typeof bill.generatedBy === "object") {
+        const gName = bill.generatedBy.name || "";
+        const gRole = bill.generatedBy.role || "";
         if (gName && gRole && gName.toLowerCase() !== gRole.toLowerCase()) {
           genBy = `${gName} (${gRole})`;
         } else {
-          genBy = gName || gRole || 'Admin';
+          genBy = gName || gRole || "Admin";
         }
       } else {
         genBy = String(bill.generatedBy);
       }
     } else if (bill.createdBy || bill.billedBy) {
       const by = bill.createdBy || bill.billedBy;
-      genBy = typeof by === 'object' ? `${by.name || ''} (${by.role || ''})` : String(by);
+      genBy =
+        typeof by === "object"
+          ? `${by.name || ""} (${by.role || ""})`
+          : String(by);
     } else if (user) {
-      genBy = user.name && user.role && user.name.toLowerCase() !== user.role.toLowerCase()
-        ? `${user.name} (${user.role})`
-        : user.name || user.role || 'Admin';
+      genBy =
+        user.name &&
+        user.role &&
+        user.name.toLowerCase() !== user.role.toLowerCase()
+          ? `${user.name} (${user.role})`
+          : user.name || user.role || "Admin";
     }
 
     const snapshot = {
-      invoiceNo: bill.invoiceNumber || bill._id?.substring(0, 8) || 'INV',
+      invoiceNo: bill.invoiceNumber || bill._id?.substring(0, 8) || "INV",
       date: new Date(bill.createdAt).toLocaleString(),
-      salonName: bill.salonId?.salonName || bill.salonId?.name || currentSalonName,
+      salonName:
+        bill.salonId?.salonName || bill.salonId?.name || currentSalonName,
       customer: {
-        name: bill.customerDetails?.name || 'Walk-in Customer',
-        phone: bill.customerDetails?.phone || 'N/A'
+        name: bill.customerDetails?.name || "Walk-in Customer",
+        phone: bill.customerDetails?.phone || "N/A",
       },
       staff: {
-        name: bill.staffDetails?.name || 'Assigned Staff'
+        name: bill.staffDetails?.name || "Assigned Staff",
       },
       generatedBy: genBy,
-      items: (bill.services || []).map(s => ({
-        name: s.serviceName || s.serviceId?.serviceName || 'Service',
+      items: (bill.services || []).map((s) => ({
+        name: s.serviceName || s.serviceId?.serviceName || "Service",
         quantity: s.quantity || 1,
-        price: s.price || 0
+        price: s.price || 0,
       })),
       subtotal: sTotal,
       tax: taxAmt,
+      taxApplied: taxAmt > 0,
       discount: dAmount,
       grandTotal: Number(bill.totalAmount || bill.paidAmount || 0),
-      paymentMethod: bill.paymentMethod || 'Cash'
+      paymentMethod: bill.paymentMethod || "Cash",
     };
     setLastBill(snapshot);
     setTimeout(() => {
@@ -1115,66 +1436,90 @@ function Billing() {
     }, 300);
   };
 
-  const filteredHistory = historyList.filter(bill => {
+  const filteredHistory = historyList.filter((bill) => {
     const query = historySearch.toLowerCase().trim();
     if (!query) return true;
-    const custName = (bill.customerDetails?.name || '').toLowerCase();
-    const custPhone = (bill.customerDetails?.phone || '').toLowerCase();
-    const staffName = (bill.staffDetails?.name || '').toLowerCase();
-    const payMethod = (bill.paymentMethod || '').toLowerCase();
-    const invNo = (bill.invoiceNumber || bill._id || '').toLowerCase();
-    return custName.includes(query) || custPhone.includes(query) || staffName.includes(query) || payMethod.includes(query) || invNo.includes(query);
+    const custName = (bill.customerDetails?.name || "").toLowerCase();
+    const custPhone = (bill.customerDetails?.phone || "").toLowerCase();
+    const staffName = (bill.staffDetails?.name || "").toLowerCase();
+    const payMethod = (bill.paymentMethod || "").toLowerCase();
+    const invNo = (bill.invoiceNumber || bill._id || "").toLowerCase();
+    return (
+      custName.includes(query) ||
+      custPhone.includes(query) ||
+      staffName.includes(query) ||
+      payMethod.includes(query) ||
+      invNo.includes(query)
+    );
   });
 
-  const filteredUnbilled = unbilledAppointments.filter(apt => {
-    const status = (apt.status || '').toLowerCase();
-    if (status !== 'completed') return false;
+  const filteredUnbilled = unbilledAppointments.filter((apt) => {
+    const status = (apt.status || "").toLowerCase();
+    if (status !== "completed") return false;
 
     const query = unbilledSearch.toLowerCase().trim();
     if (!query) return true;
-    const custName = (apt.customerDetails?.name || '').toLowerCase();
-    const custPhone = (apt.customerDetails?.phone || '').toLowerCase();
-    const staffName = (apt.staffDetails?.name || '').toLowerCase();
-    const srvNames = (apt.serviceDetails || []).map(s => (s.serviceName || '').toLowerCase()).join(' ');
-    const pkgName = (apt.packageDetails?.packageName || '').toLowerCase();
-    return custName.includes(query) || custPhone.includes(query) || staffName.includes(query) || srvNames.includes(query) || pkgName.includes(query);
+    const custName = (apt.customerDetails?.name || "").toLowerCase();
+    const custPhone = (apt.customerDetails?.phone || "").toLowerCase();
+    const staffName = (apt.staffDetails?.name || "").toLowerCase();
+    const srvNames = (apt.serviceDetails || [])
+      .map((s) => (s.serviceName || "").toLowerCase())
+      .join(" ");
+    const pkgName = (apt.packageDetails?.packageName || "").toLowerCase();
+    return (
+      custName.includes(query) ||
+      custPhone.includes(query) ||
+      staffName.includes(query) ||
+      srvNames.includes(query) ||
+      pkgName.includes(query)
+    );
   });
 
   const handleGenerateBill = async () => {
     if (isSubmitting) return;
 
     if (!selectedCustomer) {
-      setMessage({ text: 'Please select a customer', type: 'error' });
+      setMessage({ text: "Please select a customer", type: "error" });
       return;
     }
     const activeSalonId = selectedSalonId || user?.salonId;
-    if (selectedCustomer?.salonId && activeSalonId && String(selectedCustomer.salonId) !== String(activeSalonId)) {
-      setMessage({ text: 'Selected customer does not belong to this salon. Cannot generate bill.', type: 'error' });
+    if (
+      selectedCustomer?.salonId &&
+      activeSalonId &&
+      String(selectedCustomer.salonId) !== String(activeSalonId)
+    ) {
+      setMessage({
+        text: "Selected customer does not belong to this salon. Cannot generate bill.",
+        type: "error",
+      });
       return;
     }
     if (!selectedStaffId) {
-      setMessage({ text: 'Please select a staff member', type: 'error' });
+      setMessage({ text: "Please select a staff member", type: "error" });
       return;
     }
     if (billItems.length === 0) {
-      setMessage({ text: 'Please add at least one service or package', type: 'error' });
+      setMessage({
+        text: "Please add at least one service or package",
+        type: "error",
+      });
       return;
     }
 
     const confirmed = await confirm({
-      title: 'Generate Bill Confirmation',
+      title: "Generate Bill Confirmation",
       message: `Are you sure you want to generate the bill for ₹${grandTotal.toFixed(2)}?`,
-      confirmText: 'Generate Bill',
-      cancelText: 'Cancel',
-      type: 'info'
+      confirmText: "Generate Bill",
+      cancelText: "Cancel",
+      type: "info",
     });
     if (!confirmed) return;
 
     setIsSubmitting(true);
-    setMessage({ text: '', type: '' });
+    setMessage({ text: "", type: "" });
 
     try {
-      const packageItem = billItems.find(i => i.type === 'package');
+      const packageItem = billItems.find((i) => i.type === "package");
       const selectedPkgId = packageItem ? packageItem.packageId : null;
 
       const payload = {
@@ -1182,64 +1527,80 @@ function Billing() {
         customerId: selectedCustomer._id,
         appointmentId: linkedAppointmentId || null,
         staffId: selectedStaffId,
-        services: billItems.map(i => ({
-          serviceId: i.serviceId && !String(i.serviceId).startsWith('custom_') ? i.serviceId : null,
+        services: billItems.map((i) => ({
+          serviceId:
+            i.serviceId && !String(i.serviceId).startsWith("custom_")
+              ? i.serviceId
+              : null,
           serviceName: i.name,
           price: Number(i.price) || 0,
-          quantity: Number(i.quantity) || 1
+          quantity: Number(i.quantity) || 1,
         })),
         packageId: selectedPkgId,
         promoCode: selectedPromoCode || null,
-        tax: 18,
+        tax: applyTax ? 18 : 0,
         discountAmount: Number(discount),
         paidAmount: grandTotal,
-        paymentMethod
+        paymentMethod,
       };
 
-      const res = await axios.post('/api/billing/generate', payload, { withCredentials: true });
+      const res = await axios.post("/api/billing/generate", payload, {
+        withCredentials: true,
+      });
 
-      let genByText = 'Admin';
+      let genByText = "Admin";
       if (res.data?.data?.generatedBy) {
         const g = res.data.data.generatedBy;
         if (g.name && g.role && g.name.toLowerCase() !== g.role.toLowerCase()) {
           genByText = `${g.name} (${g.role})`;
         } else {
-          genByText = g.name || g.role || 'Admin';
+          genByText = g.name || g.role || "Admin";
         }
       } else if (user) {
-        genByText = user.name && user.role && user.name.toLowerCase() !== user.role.toLowerCase()
-          ? `${user.name} (${user.role})`
-          : user.name || user.role || 'Admin';
+        genByText =
+          user.name &&
+          user.role &&
+          user.name.toLowerCase() !== user.role.toLowerCase()
+            ? `${user.name} (${user.role})`
+            : user.name || user.role || "Admin";
       }
 
       // Save complete last bill snapshot before resetting form
       const generatedBillObj = {
         _id: res.data?.data?._id,
-        invoiceNo: res.data?.data?.invoiceNumber || res.data?.data?._id?.substring(0, 8) || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+        invoiceNo:
+          res.data?.data?.invoiceNumber ||
+          res.data?.data?._id?.substring(0, 8) ||
+          `INV-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         salonName: currentSalonName,
         customer: { ...selectedCustomer },
-        staff: selectedStaff ? { ...selectedStaff } : { name: 'Staff Member' },
+        staff: selectedStaff ? { ...selectedStaff } : { name: "Staff Member" },
         generatedBy: genByText,
         timeSlot: appointmentTimeSlot,
         items: [...billItems],
         subtotal,
+        taxApplied: applyTax,
         tax,
         discount: Number(discount),
         grandTotal,
-        paymentMethod
+        paymentMethod,
       };
 
       setLastBill(generatedBillObj);
-      showToast('📱 Bill generated & sent to customer WhatsApp successfully!', 'success');
+      showToast(
+        "📱 Bill generated & sent to customer WhatsApp successfully!",
+        "success",
+      );
 
       // Reset form fields
       setBillItems([]);
       setSelectedCustomer(null);
-      setSearchCustomer('');
+      setSearchCustomer("");
       setDiscount(0);
-      setSelectedPromoCode('');
-      setPaymentMethod('Cash');
+      setApplyTax(true);
+      setSelectedPromoCode("");
+      setPaymentMethod("Cash");
       setLinkedAppointmentId(null);
       setAppointmentTimeSlot(null);
 
@@ -1250,10 +1611,12 @@ function Billing() {
       setTimeout(() => {
         triggerPrint();
       }, 300);
-
     } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Failed to generate bill', 'error');
+      showToast(
+        err.response?.data?.message || "Failed to generate bill",
+        "error",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1263,13 +1626,13 @@ function Billing() {
     <div className="billing-container">
       {toast.show && (
         <div className={`billing-toast ${toast.type}`}>
-          {toast.type === 'success' ? '✅ ' : '⚠️ '}
+          {toast.type === "success" ? "✅ " : "⚠️ "}
           {toast.message}
         </div>
       )}
       <div className="billing-header">
         <h1>Billing & Payment</h1>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button
             className="btn-secondary"
             onClick={() => {
@@ -1277,34 +1640,39 @@ function Billing() {
               setShowUnbilledModal(true);
             }}
             style={{
-              background: unbilledAppointments.length > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255,255,255,0.05)',
-              color: unbilledAppointments.length > 0 ? '#fbbf24' : '#94a3b8',
-              border: unbilledAppointments.length > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.1)',
+              background:
+                unbilledAppointments.length > 0
+                  ? "rgba(245, 158, 11, 0.12)"
+                  : "rgba(255,255,255,0.05)",
+              color: unbilledAppointments.length > 0 ? "#fbbf24" : "#94a3b8",
+              border:
+                unbilledAppointments.length > 0
+                  ? "1px solid rgba(245, 158, 11, 0.4)"
+                  : "1px solid rgba(255,255,255,0.1)",
               fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px'
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
             }}
             title="View completed bookings awaiting bill generation"
           >
             <Zap size={16} /> Pending Bookings
             {unbilledAppointments.length > 0 && (
-              <span style={{
-                background: '#f59e0b',
-                color: '#000',
-                padding: '1px 7px',
-                borderRadius: '10px',
-                fontSize: '11px',
-                fontWeight: 700
-              }}>
+              <span
+                style={{
+                  background: "#f59e0b",
+                  color: "#000",
+                  padding: "1px 7px",
+                  borderRadius: "10px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
                 {unbilledAppointments.length}
               </span>
             )}
           </button>
-          <button
-            className="btn-secondary"
-            onClick={fetchBillingHistory}
-          >
+          <button className="btn-secondary" onClick={fetchBillingHistory}>
             <Clock size={18} /> All History
           </button>
           {/* <button
@@ -1318,16 +1686,36 @@ function Billing() {
             <>
               <button
                 className="btn-secondary"
-                style={{ background: '#25D366', color: '#fff', border: 'none', fontWeight: 600 }}
-                disabled={sendingWhatsAppId === (lastBill._id || 'last')}
-                onClick={() => handleSendWhatsAppBill(lastBill._id, lastBill.customer?.phone)}
+                style={{
+                  background: "#25D366",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 600,
+                }}
+                disabled={sendingWhatsAppId === (lastBill._id || "last")}
+                onClick={() =>
+                  handleSendWhatsAppBill(lastBill._id, lastBill.customer?.phone)
+                }
               >
-                <WhatsAppIcon size={18} /> {sendingWhatsAppId === (lastBill._id || 'last') ? 'Sending...' : 'Send WhatsApp'}
+                <WhatsAppIcon size={18} />{" "}
+                {sendingWhatsAppId === (lastBill._id || "last")
+                  ? "Sending..."
+                  : "Send WhatsApp"}
               </button>
               <button
                 className="btn-secondary"
-                style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#4ade80', border: '1px solid rgba(37, 211, 102, 0.4)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                onClick={() => openWhatsAppWeb(lastBill.customer?.phone, lastBill)}
+                style={{
+                  background: "rgba(37, 211, 102, 0.15)",
+                  color: "#4ade80",
+                  border: "1px solid rgba(37, 211, 102, 0.4)",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+                onClick={() =>
+                  openWhatsAppWeb(lastBill.customer?.phone, lastBill)
+                }
               >
                 <WhatsAppIcon size={16} /> WhatsApp Web
               </button>
@@ -1336,12 +1724,9 @@ function Billing() {
         </div>
       </div>
 
-      
-
       <div className="billing-grid">
         {/* Left Side - Selection */}
         <div className="billing-left">
-
           {/* Customer Selection */}
           <div className="billing-card">
             <h3>1. Select Customer</h3>
@@ -1360,13 +1745,13 @@ function Billing() {
                 {searchCustomer && (
                   <div className="search-results">
                     {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map(c => (
+                      filteredCustomers.map((c) => (
                         <div
                           key={c._id}
                           className="search-item"
                           onClick={() => {
                             setSelectedCustomer(c);
-                            setSearchCustomer('');
+                            setSearchCustomer("");
                           }}
                         >
                           <div className="c-name">{c.name}</div>
@@ -1386,7 +1771,12 @@ function Billing() {
                   <p>{selectedCustomer.phone}</p>
                 </div>
                 {!linkedAppointmentId && (
-                  <button className="btn-text" onClick={() => setSelectedCustomer(null)}>Change</button>
+                  <button
+                    className="btn-text"
+                    onClick={() => setSelectedCustomer(null)}
+                  >
+                    Change
+                  </button>
                 )}
               </div>
             )}
@@ -1397,71 +1787,90 @@ function Billing() {
             <h3>2. Add Services & Packages</h3>
 
             {/* Mode selection tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginBottom: "16px",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
-                className={`btn-secondary ${itemType === 'service' ? 'active' : ''}`}
-                onClick={() => setItemType('service')}
+                className={`btn-secondary ${itemType === "service" ? "active" : ""}`}
+                onClick={() => setItemType("service")}
                 style={{
-                  background: itemType === 'service' ? '#7c3aed' : '#1e293b',
-                  color: '#fff',
-                  border: itemType === 'service' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500'
+                  background: itemType === "service" ? "#7c3aed" : "#1e293b",
+                  color: "#fff",
+                  border:
+                    itemType === "service"
+                      ? "1px solid #c084fc"
+                      : "1px solid rgba(255,255,255,0.1)",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "500",
                 }}
               >
                 Catalog Service
               </button>
               <button
                 type="button"
-                className={`btn-secondary ${itemType === 'package' ? 'active' : ''}`}
-                onClick={() => setItemType('package')}
+                className={`btn-secondary ${itemType === "package" ? "active" : ""}`}
+                onClick={() => setItemType("package")}
                 style={{
-                  background: itemType === 'package' ? '#7c3aed' : '#1e293b',
-                  color: '#fff',
-                  border: itemType === 'package' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500'
+                  background: itemType === "package" ? "#7c3aed" : "#1e293b",
+                  color: "#fff",
+                  border:
+                    itemType === "package"
+                      ? "1px solid #c084fc"
+                      : "1px solid rgba(255,255,255,0.1)",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "500",
                 }}
               >
                 📦 Add Package
               </button>
               <button
                 type="button"
-                className={`btn-secondary ${itemType === 'custom' ? 'active' : ''}`}
-                onClick={() => setItemType('custom')}
+                className={`btn-secondary ${itemType === "custom" ? "active" : ""}`}
+                onClick={() => setItemType("custom")}
                 style={{
-                  background: itemType === 'custom' ? '#7c3aed' : '#1e293b',
-                  color: '#fff',
-                  border: itemType === 'custom' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500'
+                  background: itemType === "custom" ? "#7c3aed" : "#1e293b",
+                  color: "#fff",
+                  border:
+                    itemType === "custom"
+                      ? "1px solid #c084fc"
+                      : "1px solid rgba(255,255,255,0.1)",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "500",
                 }}
               >
                 ✨ Custom Service
               </button>
               <button
                 type="button"
-                className={`btn-secondary ${itemType === 'other' ? 'active' : ''}`}
-                onClick={() => setItemType('other')}
+                className={`btn-secondary ${itemType === "other" ? "active" : ""}`}
+                onClick={() => setItemType("other")}
                 style={{
-                  background: itemType === 'other' ? '#7c3aed' : '#1e293b',
-                  color: '#fff',
-                  border: itemType === 'other' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500'
+                  background: itemType === "other" ? "#7c3aed" : "#1e293b",
+                  color: "#fff",
+                  border:
+                    itemType === "other"
+                      ? "1px solid #c084fc"
+                      : "1px solid rgba(255,255,255,0.1)",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "500",
                 }}
               >
                 ⚡ Others
@@ -1469,33 +1878,42 @@ function Billing() {
             </div>
 
             {/* Catalog Service Dropdown */}
-            {itemType === 'service' && (
-              <div className="service-add-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {itemType === "service" && (
+              <div
+                className="service-add-row"
+                style={{ display: "flex", gap: "12px", alignItems: "center" }}
+              >
                 <SearchableSelect
                   value={selectedService}
                   onChange={(e) => setSelectedService(e.target.value)}
                   placeholder="-- Select a Service --"
                   searchPlaceholder="Search services by name, category, price..."
-                  options={services.map(s => {
-                    const isAlreadyAdded = billItems.some(item =>
-                      item.serviceId === s._id ||
-                      item.id === s._id ||
-                      (item.name && item.name.toLowerCase().trim() === s.serviceName.toLowerCase().trim())
+                  options={services.map((s) => {
+                    const isAlreadyAdded = billItems.some(
+                      (item) =>
+                        item.serviceId === s._id ||
+                        item.id === s._id ||
+                        (item.name &&
+                          item.name.toLowerCase().trim() ===
+                            s.serviceName.toLowerCase().trim()),
                     );
-                    const isAlreadyBookedToday = todayBookedServiceIdsForCustomer.has(String(s._id)) || 
-                                                 todayBookedServiceIdsForCustomer.has(s.serviceName.toLowerCase().trim());
+                    const isAlreadyBookedToday =
+                      todayBookedServiceIdsForCustomer.has(String(s._id)) ||
+                      todayBookedServiceIdsForCustomer.has(
+                        s.serviceName.toLowerCase().trim(),
+                      );
                     return {
                       value: s._id,
                       label: isAlreadyAdded
                         ? `✓ ${s.serviceName} - ₹${s.price} (Added)`
                         : isAlreadyBookedToday
-                        ? `🚫 ${s.serviceName} - ₹${s.price} (Already booked today)`
-                        : `${s.serviceName} - ₹${s.price}`,
-                      sublabel: isAlreadyBookedToday 
-                        ? 'Already booked for this customer on this date' 
-                        : (s.category || ''),
-                      searchTerms: `${s.serviceName} ${s.category || ''} ${s.price}`,
-                      disabled: isAlreadyAdded || isAlreadyBookedToday
+                          ? `🚫 ${s.serviceName} - ₹${s.price} (Already booked today)`
+                          : `${s.serviceName} - ₹${s.price}`,
+                      sublabel: isAlreadyBookedToday
+                        ? "Already booked for this customer on this date"
+                        : s.category || "",
+                      searchTerms: `${s.serviceName} ${s.category || ""} ${s.price}`,
+                      disabled: isAlreadyAdded || isAlreadyBookedToday,
                     };
                   })}
                 />
@@ -1503,7 +1921,7 @@ function Billing() {
                   className="btn-primary"
                   onClick={handleAddItem}
                   disabled={!selectedService}
-                  style={{ height: '44px', whiteSpace: 'nowrap' }}
+                  style={{ height: "44px", whiteSpace: "nowrap" }}
                 >
                   <Plus size={18} /> Add
                 </button>
@@ -1511,25 +1929,36 @@ function Billing() {
             )}
 
             {/* Package Selection Dropdown */}
-            {itemType === 'package' && (
-              <div className="service-add-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {itemType === "package" && (
+              <div
+                className="service-add-row"
+                style={{ display: "flex", gap: "12px", alignItems: "center" }}
+              >
                 <SearchableSelect
                   value={selectedPackageId}
                   onChange={(e) => setSelectedPackageId(e.target.value)}
                   placeholder="-- Select a Service Package --"
                   searchPlaceholder="Search package by name..."
-                  options={packages.map(p => {
-                    const isAlreadyAdded = billItems.some(item =>
-                      item.packageId === p._id ||
-                      item.id === p._id ||
-                      (item.name && item.name.toLowerCase().trim().includes(p.packageName.toLowerCase().trim()))
+                  options={packages.map((p) => {
+                    const isAlreadyAdded = billItems.some(
+                      (item) =>
+                        item.packageId === p._id ||
+                        item.id === p._id ||
+                        (item.name &&
+                          item.name
+                            .toLowerCase()
+                            .trim()
+                            .includes(p.packageName.toLowerCase().trim())),
                     );
                     return {
                       value: p._id,
                       label: `📦 ${p.packageName} - ₹${p.packagePrice || p.price}`,
-                      sublabel: (p.services || []).map(s => s.serviceName || s.name).filter(Boolean).join(', '),
+                      sublabel: (p.services || [])
+                        .map((s) => s.serviceName || s.name)
+                        .filter(Boolean)
+                        .join(", "),
                       searchTerms: `${p.packageName} ${p.packagePrice || p.price}`,
-                      disabled: isAlreadyAdded
+                      disabled: isAlreadyAdded,
                     };
                   })}
                 />
@@ -1537,7 +1966,7 @@ function Billing() {
                   className="btn-primary"
                   onClick={handleAddItem}
                   disabled={!selectedPackageId}
-                  style={{ height: '44px', whiteSpace: 'nowrap' }}
+                  style={{ height: "44px", whiteSpace: "nowrap" }}
                 >
                   <Plus size={18} /> Add Package
                 </button>
@@ -1545,15 +1974,15 @@ function Billing() {
             )}
 
             {/* Custom Service Inputs (Saves to catalog & adds to bill) */}
-            {itemType === 'custom' && (
-              <div className="service-add-row" style={{ flexWrap: 'wrap' }}>
+            {itemType === "custom" && (
+              <div className="service-add-row" style={{ flexWrap: "wrap" }}>
                 <input
                   type="text"
                   placeholder="Enter Custom Service Name (Saves to Catalog)"
                   value={customServiceName}
                   onChange={(e) => setCustomServiceName(e.target.value)}
                   className="service-select"
-                  style={{ minWidth: '180px', flex: 2 }}
+                  style={{ minWidth: "180px", flex: 2 }}
                 />
                 <input
                   type="number"
@@ -1561,29 +1990,34 @@ function Billing() {
                   value={customServicePrice}
                   onChange={(e) => setCustomServicePrice(e.target.value)}
                   className="service-select"
-                  style={{ width: '110px', flex: 1 }}
+                  style={{ width: "110px", flex: 1 }}
                 />
                 <button
                   className="btn-primary"
                   onClick={handleAddItem}
-                  disabled={!customServiceName.trim() || !customServicePrice || isAddingCustomService}
-                  style={{ height: '44px', whiteSpace: 'nowrap' }}
+                  disabled={
+                    !customServiceName.trim() ||
+                    !customServicePrice ||
+                    isAddingCustomService
+                  }
+                  style={{ height: "44px", whiteSpace: "nowrap" }}
                 >
-                  <Plus size={18} /> {isAddingCustomService ? 'Saving...' : 'Add Custom'}
+                  <Plus size={18} />{" "}
+                  {isAddingCustomService ? "Saving..." : "Add Custom"}
                 </button>
               </div>
             )}
 
             {/* Others Inputs (One-off item, not saved to catalog) */}
-            {itemType === 'other' && (
-              <div className="service-add-row" style={{ flexWrap: 'wrap' }}>
+            {itemType === "other" && (
+              <div className="service-add-row" style={{ flexWrap: "wrap" }}>
                 <input
                   type="text"
                   placeholder="Enter Custom / Other Item Name"
                   value={otherItemName}
                   onChange={(e) => setOtherItemName(e.target.value)}
                   className="service-select"
-                  style={{ minWidth: '180px', flex: 2 }}
+                  style={{ minWidth: "180px", flex: 2 }}
                 />
                 <input
                   type="number"
@@ -1591,13 +2025,13 @@ function Billing() {
                   value={otherItemPrice}
                   onChange={(e) => setOtherItemPrice(e.target.value)}
                   className="service-select"
-                  style={{ width: '110px', flex: 1 }}
+                  style={{ width: "110px", flex: 1 }}
                 />
                 <button
                   className="btn-primary"
                   onClick={handleAddItem}
                   disabled={!otherItemName.trim() || !otherItemPrice}
-                  style={{ height: '44px', whiteSpace: 'nowrap' }}
+                  style={{ height: "44px", whiteSpace: "nowrap" }}
                 >
                   <Plus size={18} /> Add to Bill
                 </button>
@@ -1614,15 +2048,14 @@ function Billing() {
                 onChange={(e) => setSelectedStaffId(e.target.value)}
                 placeholder="-- Select Staff Member --"
                 searchPlaceholder="Search staff by name or role..."
-                options={staffList.map(s => ({
+                options={staffList.map((s) => ({
                   value: s._id,
-                  label: `${s.name} (${s.role || 'Staff'})`,
-                  searchTerms: `${s.name} ${s.role || ''}`
+                  label: `${s.name} (${s.role || "Staff"})`,
+                  searchTerms: `${s.name} ${s.role || ""}`,
                 }))}
               />
             </div>
           </div>
-
         </div>
 
         {/* Right Side - Invoice Details */}
@@ -1631,7 +2064,9 @@ function Billing() {
             <div className="invoice-header-info">
               <h3>Invoice Details</h3>
               <div className="invoice-meta">
-                <span className="invoice-date">Date: {new Date().toLocaleDateString()}</span>
+                <span className="invoice-date">
+                  Date: {new Date().toLocaleDateString()}
+                </span>
               </div>
             </div>
 
@@ -1639,7 +2074,9 @@ function Billing() {
             <div className="invoice-details-section">
               <div className="invoice-details-row">
                 <span className="label">Customer:</span>
-                <span className="value">{selectedCustomer ? selectedCustomer.name : 'Not Selected'}</span>
+                <span className="value">
+                  {selectedCustomer ? selectedCustomer.name : "Not Selected"}
+                </span>
               </div>
               {selectedCustomer?.phone && (
                 <div className="invoice-details-row">
@@ -1649,7 +2086,9 @@ function Billing() {
               )}
               <div className="invoice-details-row">
                 <span className="label">Served By:</span>
-                <span className="value">{selectedStaff ? selectedStaff.name : 'Not Selected'}</span>
+                <span className="value">
+                  {selectedStaff ? selectedStaff.name : "Not Selected"}
+                </span>
               </div>
               {appointmentTimeSlot && (
                 <div className="invoice-details-row">
@@ -1674,7 +2113,7 @@ function Billing() {
                     </tr>
                   </thead>
                   <tbody>
-                    {billItems.map(item => (
+                    {billItems.map((item) => (
                       <tr key={item.id}>
                         <td>{item.name}</td>
                         <td>
@@ -1682,15 +2121,28 @@ function Billing() {
                             type="number"
                             min="1"
                             value={item.quantity}
-                            onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 1)}
+                            onChange={(e) =>
+                              handleQuantityChange(
+                                item.id,
+                                parseInt(e.target.value) || 1,
+                              )
+                            }
                             className="qty-input"
                           />
-                          <span className="print-only" style={{ display: 'none' }}>{item.quantity}</span>
+                          <span
+                            className="print-only"
+                            style={{ display: "none" }}
+                          >
+                            {item.quantity}
+                          </span>
                         </td>
                         <td>₹{item.price}</td>
                         <td>₹{item.price * item.quantity}</td>
                         <td>
-                          <button className="btn-icon danger" onClick={() => handleRemoveItem(item.id)}>
+                          <button
+                            className="btn-icon danger"
+                            onClick={() => handleRemoveItem(item.id)}
+                          >
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -1707,8 +2159,31 @@ function Billing() {
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="summary-row">
-                <span>Tax (18%)</span>
-                <span>₹{tax.toFixed(2)}</span>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={applyTax}
+                    onChange={(e) => setApplyTax(e.target.checked)}
+                    style={{
+                      accentColor: "#c084fc",
+                      width: "16px",
+                      height: "16px",
+                      cursor: "pointer",
+                    }}
+                  />
+                  <span>Apply GST (18%)</span>
+                </label>
+                <span style={{ opacity: applyTax ? 1 : 0.5 }}>
+                  ₹{tax.toFixed(2)}
+                </span>
               </div>
 
               <div className="promo-field-block">
@@ -1717,7 +2192,7 @@ function Billing() {
                   {selectedPromoCode && (
                     <button
                       type="button"
-                      onClick={() => handlePromoCodeChange('')}
+                      onClick={() => handlePromoCodeChange("")}
                       className="promo-clear-btn"
                     >
                       Remove
@@ -1731,8 +2206,10 @@ function Billing() {
                 >
                   <option value="">-- No Offer Applied --</option>
                   {discounts
-                    .filter(d => isDiscountActiveNow(d, selectedCustomer?._id))
-                    .map(d => (
+                    .filter((d) =>
+                      isDiscountActiveNow(d, selectedCustomer?._id),
+                    )
+                    .map((d) => (
                       <option key={d._id} value={d.promoCode}>
                         {getPromoLabel(d)}
                       </option>
@@ -1748,12 +2225,14 @@ function Billing() {
                     min="0"
                     value={discount}
                     onChange={(e) => {
-                      setSelectedPromoCode('');
+                      setSelectedPromoCode("");
                       setDiscount(Number(e.target.value) || 0);
                     }}
                     className="discount-input"
                   />
-                  <span className="print-only" style={{ display: 'none' }}>₹{discount}</span>
+                  <span className="print-only" style={{ display: "none" }}>
+                    ₹{discount}
+                  </span>
                 </div>
               </div>
 
@@ -1769,7 +2248,9 @@ function Billing() {
                     <option value="UPI">UPI</option>
                     <option value="Card">Card</option>
                   </select>
-                  <span className="print-only" style={{ display: 'none' }}>{paymentMethod}</span>
+                  <span className="print-only" style={{ display: "none" }}>
+                    {paymentMethod}
+                  </span>
                 </div>
               </div>
 
@@ -1782,9 +2263,14 @@ function Billing() {
             <button
               className="btn-generate-bill"
               onClick={handleGenerateBill}
-              disabled={isSubmitting || billItems.length === 0 || !selectedCustomer || !selectedStaffId}
+              disabled={
+                isSubmitting ||
+                billItems.length === 0 ||
+                !selectedCustomer ||
+                !selectedStaffId
+              }
             >
-              {isSubmitting ? 'Processing...' : 'Generate Bill'}
+              {isSubmitting ? "Processing..." : "Generate Bill"}
             </button>
           </div>
         </div>
@@ -1796,20 +2282,55 @@ function Billing() {
           <span>{new Date().toLocaleString()}</span>
         </div>
         <div className="receipt-header">
-          <h2>{`${(lastBill?.salonName || currentSalonName || 'Salon').toUpperCase()} TAX RECEIPT`}</h2>
+          <h2>{`${(lastBill?.salonName || currentSalonName || "Salon").toUpperCase()} ${(lastBill ? lastBill.taxApplied !== false : applyTax) ? "TAX " : ""}RECEIPT`}</h2>
           <p>Official Billing & Services Invoice</p>
-          <p className="receipt-date">Date: {lastBill?.date || new Date().toLocaleString()}</p>
+          <p className="receipt-date">
+            Date: {lastBill?.date || new Date().toLocaleString()}
+          </p>
         </div>
 
         <div className="receipt-info-grid">
-          <div><strong>Invoice No:</strong> {lastBill?.invoiceNo || 'INV-DRAFT'}</div>
-          <div><strong>Customer Name:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.customer?.name || selectedCustomer?.name || 'Walk-in Customer'}</span></div>
-          <div><strong>Phone:</strong> {lastBill?.customer?.phone || selectedCustomer?.phone || 'N/A'}</div>
-          <div><strong>Served By:</strong> <span style={{ textTransform: 'capitalize' }}>{lastBill?.staff?.name || selectedStaff?.name || 'Assigned Staff'}</span></div>
-          <div><strong>Generated By:</strong> <span>{lastBill?.generatedBy || (user?.name && user?.role && user.name.toLowerCase() !== user.role.toLowerCase() ? `${user.name} (${user.role})` : user?.name || user?.role || 'Admin')}</span></div>
-          <div><strong>Payment Method:</strong> {lastBill ? lastBill.paymentMethod : paymentMethod}</div>
+          <div>
+            <strong>Invoice No:</strong> {lastBill?.invoiceNo || "INV-DRAFT"}
+          </div>
+          <div>
+            <strong>Customer Name:</strong>{" "}
+            <span style={{ textTransform: "capitalize" }}>
+              {lastBill?.customer?.name ||
+                selectedCustomer?.name ||
+                "Walk-in Customer"}
+            </span>
+          </div>
+          <div>
+            <strong>Phone:</strong>{" "}
+            {lastBill?.customer?.phone || selectedCustomer?.phone || "N/A"}
+          </div>
+          <div>
+            <strong>Served By:</strong>{" "}
+            <span style={{ textTransform: "capitalize" }}>
+              {lastBill?.staff?.name || selectedStaff?.name || "Assigned Staff"}
+            </span>
+          </div>
+          <div>
+            <strong>Generated By:</strong>{" "}
+            <span>
+              {lastBill?.generatedBy ||
+                (user?.name &&
+                user?.role &&
+                user.name.toLowerCase() !== user.role.toLowerCase()
+                  ? `${user.name} (${user.role})`
+                  : user?.name || user?.role || "Admin")}
+            </span>
+          </div>
+          <div>
+            <strong>Payment Method:</strong>{" "}
+            {lastBill ? lastBill.paymentMethod : paymentMethod}
+          </div>
           {(lastBill?.timeSlot || appointmentTimeSlot) && (
-            <div style={{ gridColumn: 'span 2' }}><strong>Time Slot:</strong> {lastBill?.timeSlot || appointmentTimeSlot}</div>
+            <div style={{ gridColumn: "span 2" }}>
+              <strong>Time Slot:</strong>{" "}
+              {lastBill?.timeSlot || appointmentTimeSlot}
+            </div>
           )}
         </div>
 
@@ -1824,11 +2345,13 @@ function Billing() {
           </thead>
           <tbody>
             {((lastBill ? lastBill.items : billItems).length > 0
-              ? (lastBill ? lastBill.items : billItems)
-              : [{ name: 'N/A', quantity: 1, price: 0 }]
+              ? lastBill
+                ? lastBill.items
+                : billItems
+              : [{ name: "N/A", quantity: 1, price: 0 }]
             ).map((item, idx) => (
               <tr key={idx}>
-                <td style={{ textTransform: 'capitalize' }}>{item.name}</td>
+                <td style={{ textTransform: "capitalize" }}>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>₹{item.price}</td>
                 <td>₹{item.price * item.quantity}</td>
@@ -1838,15 +2361,39 @@ function Billing() {
         </table>
 
         <div className="receipt-totals">
-          <div className="row"><span>Subtotal:</span><span>₹{(lastBill ? lastBill.subtotal : subtotal).toFixed(2)}</span></div>
-          <div className="row"><span>GST (18%):</span><span>₹{Number(lastBill ? lastBill.tax : tax).toFixed(2)}</span></div>
-          <div className="row"><span>Discount:</span><span>-₹{Number(lastBill ? lastBill.discount : discount).toFixed(2)}</span></div>
-          <div className="row"><span>Payment Method:</span><span>{lastBill ? lastBill.paymentMethod : paymentMethod}</span></div>
-          <div className="row grand"><span>Grand Total:</span><span>₹{(lastBill ? lastBill.grandTotal : grandTotal).toFixed(2)}</span></div>
+          <div className="row">
+            <span>Subtotal:</span>
+            <span>₹{(lastBill ? lastBill.subtotal : subtotal).toFixed(2)}</span>
+          </div>
+          {(lastBill ? lastBill.taxApplied !== false : applyTax) && (
+            <div className="row">
+              <span>GST (18%):</span>
+              <span>₹{Number(lastBill ? lastBill.tax : tax).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="row">
+            <span>Discount:</span>
+            <span>
+              -₹{Number(lastBill ? lastBill.discount : discount).toFixed(2)}
+            </span>
+          </div>
+          <div className="row">
+            <span>Payment Method:</span>
+            <span>{lastBill ? lastBill.paymentMethod : paymentMethod}</span>
+          </div>
+          <div className="row grand">
+            <span>Grand Total:</span>
+            <span>
+              ₹{(lastBill ? lastBill.grandTotal : grandTotal).toFixed(2)}
+            </span>
+          </div>
         </div>
 
         <div className="receipt-footer">
-          <p>Thank you for visiting {lastBill?.salonName || currentSalonName || 'our Salon'}!</p>
+          <p>
+            Thank you for visiting{" "}
+            {lastBill?.salonName || currentSalonName || "our Salon"}!
+          </p>
           <p>Have a wonderful day ahead.</p>
         </div>
 
@@ -1860,64 +2407,73 @@ function Billing() {
         <div
           className="history-modal-overlay"
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
+            background: "rgba(0, 0, 0, 0.75)",
             zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
           }}
           onClick={() => setShowHistoryModal(false)}
         >
           <div
             className="history-modal-content"
             style={{
-              background: '#181825',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '1050px',
-              maxHeight: '85vh',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-              overflow: 'hidden'
+              background: "#181825",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "1050px",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.6)",
+              overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div
               style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: '#12121c'
+                padding: "20px 24px",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "#12121c",
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
                 <div
                   style={{
-                    padding: '8px',
-                    borderRadius: '8px',
-                    background: 'rgba(192, 132, 252, 0.15)',
-                    color: '#c084fc'
+                    padding: "8px",
+                    borderRadius: "8px",
+                    background: "rgba(192, 132, 252, 0.15)",
+                    color: "#c084fc",
                   }}
                 >
                   <FileText size={22} />
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '18px', color: '#fff', fontWeight: 600 }}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "18px",
+                      color: "#fff",
+                      fontWeight: 600,
+                    }}
+                  >
                     Billing & Payments History
                   </h2>
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                    {historyActiveTab === 'bills'
+                  <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    {historyActiveTab === "bills"
                       ? `Showing all generated bills and payment transactions (${filteredHistory.length} total)`
                       : `Showing all completed bookings awaiting bill generation (${filteredUnbilled.length} total)`}
                   </span>
@@ -1927,15 +2483,15 @@ function Billing() {
               <button
                 onClick={() => setShowHistoryModal(false)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#a1a1aa',
-                  borderRadius: '8px',
-                  padding: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  color: "#a1a1aa",
+                  borderRadius: "8px",
+                  padding: "6px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <X size={20} />
@@ -1946,39 +2502,59 @@ function Billing() {
             <div className="history-modal-tabs">
               <button
                 type="button"
-                className={`history-modal-tab ${historyActiveTab === 'bills' ? 'active' : ''}`}
-                onClick={() => setHistoryActiveTab('bills')}
+                className={`history-modal-tab ${historyActiveTab === "bills" ? "active" : ""}`}
+                onClick={() => setHistoryActiveTab("bills")}
               >
                 <FileText size={16} /> Generated Invoices ({historyList.length})
               </button>
               <button
                 type="button"
-                className={`history-modal-tab ${historyActiveTab === 'unbilled' ? 'active' : ''}`}
-                onClick={() => setHistoryActiveTab('unbilled')}
+                className={`history-modal-tab ${historyActiveTab === "unbilled" ? "active" : ""}`}
+                onClick={() => setHistoryActiveTab("unbilled")}
               >
-                <Zap size={16} /> Pending Bookings Awaiting Bill ({unbilledAppointments.length})
+                <Zap size={16} /> Pending Bookings Awaiting Bill (
+                {unbilledAppointments.length})
               </button>
             </div>
 
             {/* Modal Search Bar */}
-            <div style={{ padding: '16px 24px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Search size={18} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
-                {historyActiveTab === 'bills' ? (
+            <div
+              style={{
+                padding: "16px 24px",
+                background: "#181825",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Search
+                  size={18}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    color: "#94a3b8",
+                  }}
+                />
+                {historyActiveTab === "bills" ? (
                   <input
                     type="text"
                     placeholder="Search history by Customer, Staff, Phone, Invoice No, or Payment Method..."
                     value={historySearch}
                     onChange={(e) => setHistorySearch(e.target.value)}
                     style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 40px',
-                      background: '#0f0f17',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px',
-                      outline: 'none'
+                      width: "100%",
+                      padding: "10px 12px 10px 40px",
+                      background: "#0f0f17",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontSize: "14px",
+                      outline: "none",
                     }}
                   />
                 ) : (
@@ -1988,14 +2564,14 @@ function Billing() {
                     value={unbilledSearch}
                     onChange={(e) => setUnbilledSearch(e.target.value)}
                     style={{
-                      width: '100%',
-                      padding: '10px 12px 10px 40px',
-                      background: '#0f0f17',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px',
-                      outline: 'none'
+                      width: "100%",
+                      padding: "10px 12px 10px 40px",
+                      background: "#0f0f17",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                      fontSize: "14px",
+                      outline: "none",
                     }}
                   />
                 )}
@@ -2003,123 +2579,291 @@ function Billing() {
             </div>
 
             {/* History Table Body */}
-            <div style={{ padding: '0 24px 24px', overflowY: 'auto', flex: 1 }}>
-              {historyActiveTab === 'bills' ? (
+            <div style={{ padding: "0 24px 24px", overflowY: "auto", flex: 1 }}>
+              {historyActiveTab === "bills" ? (
                 loadingHistory ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                  <div
+                    style={{
+                      padding: "40px",
+                      textAlign: "center",
+                      color: "#94a3b8",
+                      fontSize: "14px",
+                    }}
+                  >
                     Loading billing history...
                   </div>
                 ) : filteredHistory.length === 0 ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                  <div
+                    style={{
+                      padding: "40px",
+                      textAlign: "center",
+                      color: "#94a3b8",
+                      fontSize: "14px",
+                    }}
+                  >
                     No billing history found matching your search.
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      marginTop: "16px",
+                    }}
+                  >
                     <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Invoice #</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Served By</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Service</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Total Amount</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Method</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                      <tr
+                        style={{
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                          textAlign: "left",
+                        }}
+                      >
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Date & Time
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Invoice #
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Customer
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Served By
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Service
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Total Amount
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Method
+                        </th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            color: "#94a3b8",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            textAlign: "right",
+                          }}
+                        >
+                          Action
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredHistory.map((b) => (
-                        <tr key={b._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
-                          <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
+                        <tr
+                          key={b._id}
+                          style={{
+                            borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                            fontSize: "13px",
+                            color: "#e2e8f0",
+                          }}
+                        >
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              whiteSpace: "nowrap",
+                              color: "#a1a1aa",
+                            }}
+                          >
                             {new Date(b.createdAt).toLocaleString()}
                           </td>
-                          <td style={{ padding: '12px 8px', fontWeight: 500, color: '#c084fc' }}>
-                            {b.invoiceNumber || b._id?.substring(0, 8) || 'INV'}
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: 500,
+                              color: "#c084fc",
+                            }}
+                          >
+                            {b.invoiceNumber || b._id?.substring(0, 8) || "INV"}
                           </td>
-                          <td style={{ padding: '12px 8px' }}>
-                            <div style={{ fontWeight: 500, color: '#fff' }}>{b.customerDetails?.name || 'Walk-in Customer'}</div>
-                            {b.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{b.customerDetails.phone}</div>}
+                          <td style={{ padding: "12px 8px" }}>
+                            <div style={{ fontWeight: 500, color: "#fff" }}>
+                              {b.customerDetails?.name || "Walk-in Customer"}
+                            </div>
+                            {b.customerDetails?.phone && (
+                              <div
+                                style={{ fontSize: "11px", color: "#71717a" }}
+                              >
+                                {b.customerDetails.phone}
+                              </div>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
-                            {b.staffDetails?.name || 'Staff'}
+                          <td style={{ padding: "12px 8px", color: "#cbd5e1" }}>
+                            {b.staffDetails?.name || "Staff"}
                           </td>
-                          <td style={{ padding: '12px 8px', color: '#94a3b8', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
-                            {(b.services || []).map(s => s.serviceName || s.serviceId?.serviceName || 'Service').join(', ') || 'Service'}
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              color: "#94a3b8",
+                              maxWidth: "180px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {(b.services || [])
+                              .map(
+                                (s) =>
+                                  s.serviceName ||
+                                  s.serviceId?.serviceName ||
+                                  "Service",
+                              )
+                              .join(", ") || "Service"}
                           </td>
-                          <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: 600,
+                              color: "#10b981",
+                            }}
+                          >
                             ₹{b.totalAmount || b.paidAmount || 0}
                           </td>
-                          <td style={{ padding: '12px 8px' }}>
+                          <td style={{ padding: "12px 8px" }}>
                             <span
                               style={{
-                                display: 'inline-block',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
+                                display: "inline-block",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
+                                fontSize: "11px",
                                 fontWeight: 500,
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                color: '#cbd5e1'
+                                background: "rgba(255, 255, 255, 0.08)",
+                                color: "#cbd5e1",
                               }}
                             >
-                              {b.paymentMethod || 'Cash'}
+                              {b.paymentMethod || "Cash"}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "inline-flex",
+                                gap: "6px",
+                                justifyContent: "flex-end",
+                              }}
+                            >
                               <button
                                 onClick={() => handlePrintHistoryBill(b)}
                                 style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 10px',
-                                  background: 'rgba(192, 132, 252, 0.15)',
-                                  border: '1px solid rgba(192, 132, 252, 0.3)',
-                                  color: '#c084fc',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  fontWeight: 500
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "6px 10px",
+                                  background: "rgba(192, 132, 252, 0.15)",
+                                  border: "1px solid rgba(192, 132, 252, 0.3)",
+                                  color: "#c084fc",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  fontWeight: 500,
                                 }}
                                 title="Print Receipt"
                               >
                                 <Printer size={14} /> Receipt
                               </button>
                               <button
-                                onClick={() => handleSendWhatsAppBill(b._id, b.customerDetails?.phone)}
+                                onClick={() =>
+                                  handleSendWhatsAppBill(
+                                    b._id,
+                                    b.customerDetails?.phone,
+                                  )
+                                }
                                 disabled={sendingWhatsAppId === b._id}
                                 style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 10px',
-                                  background: '#25D366',
-                                  border: 'none',
-                                  color: '#fff',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "6px 10px",
+                                  background: "#25D366",
+                                  border: "none",
+                                  color: "#fff",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
                                   fontWeight: 500,
-                                  opacity: sendingWhatsAppId === b._id ? 0.7 : 1
+                                  opacity:
+                                    sendingWhatsAppId === b._id ? 0.7 : 1,
                                 }}
                                 title="Send WhatsApp Bill via Meta Cloud API"
                               >
                                 <WhatsAppIcon />
                               </button>
                               <button
-                                onClick={() => openWhatsAppWeb(b.customerDetails?.phone, b)}
+                                onClick={() =>
+                                  openWhatsAppWeb(b.customerDetails?.phone, b)
+                                }
                                 style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 10px',
-                                  background: 'rgba(37, 211, 102, 0.15)',
-                                  border: '1px solid rgba(37, 211, 102, 0.4)',
-                                  color: '#4ade80',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  fontWeight: 500
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "6px 10px",
+                                  background: "rgba(37, 211, 102, 0.15)",
+                                  border: "1px solid rgba(37, 211, 102, 0.4)",
+                                  color: "#4ade80",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  fontWeight: 500,
                                 }}
                                 title="Open Direct Chat on WhatsApp Web"
                               >
@@ -2132,75 +2876,223 @@ function Billing() {
                     </tbody>
                   </table>
                 )
+              ) : /* Unbilled Tab */
+              loadingUnbilled ? (
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "14px",
+                  }}
+                >
+                  Loading pending bookings...
+                </div>
+              ) : filteredUnbilled.length === 0 ? (
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "14px",
+                  }}
+                >
+                  No pending bookings found awaiting bill generation.
+                </div>
               ) : (
-                /* Unbilled Tab */
-                loadingUnbilled ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-                    Loading pending bookings...
-                  </div>
-                ) : filteredUnbilled.length === 0 ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-                    No pending bookings found awaiting bill generation.
-                  </div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Staff</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Services</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Amount</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Status</th>
-                        <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUnbilled.map((apt) => {
-                        const srvNames = (apt.serviceDetails || []).map(s => s.serviceName).join(', ') ||
-                          (apt.packageDetails?.packageName ? `📦 ${apt.packageDetails.packageName}` : 'Service');
-                        const formattedDate = apt.date ? new Date(apt.date).toLocaleDateString() : '';
-                        const timeStr = typeof apt.timeSlot === 'string' ? apt.timeSlot : (apt.timeSlot?.start || '');
-                        const normStatus = apt.status || 'Completed';
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    marginTop: "16px",
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        textAlign: "left",
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Date & Time
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Customer
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Staff
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Services
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Amount
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Status
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          textAlign: "right",
+                        }}
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUnbilled.map((apt) => {
+                      const srvNames =
+                        (apt.serviceDetails || [])
+                          .map((s) => s.serviceName)
+                          .join(", ") ||
+                        (apt.packageDetails?.packageName
+                          ? `📦 ${apt.packageDetails.packageName}`
+                          : "Service");
+                      const formattedDate = apt.date
+                        ? new Date(apt.date).toLocaleDateString()
+                        : "";
+                      const timeStr =
+                        typeof apt.timeSlot === "string"
+                          ? apt.timeSlot
+                          : apt.timeSlot?.start || "";
+                      const normStatus = apt.status || "Completed";
 
-                        return (
-                          <tr key={apt._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
-                            <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
-                              {formattedDate} {timeStr ? <div style={{ fontSize: '11px', color: '#71717a' }}>{timeStr}</div> : null}
-                            </td>
-                            <td style={{ padding: '12px 8px' }}>
-                              <div style={{ fontWeight: 500, color: '#fff' }}>{apt.customerDetails?.name || 'Walk-in Customer'}</div>
-                              {apt.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{apt.customerDetails.phone}</div>}
-                            </td>
-                            <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
-                              {apt.staffDetails?.name || 'Staff'}
-                            </td>
-                            <td style={{ padding: '12px 8px', color: '#c084fc', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {srvNames}
-                            </td>
-                            <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
-                              ₹{apt.totalAmount || 0}
-                            </td>
-                            <td style={{ padding: '12px 8px' }}>
-                              <span className={`unbilled-status-pill ${normStatus.toLowerCase() === 'completed' ? 'completed' : 'pending'}`}>
-                                {normStatus}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <button
-                                className="btn-bill-now"
-                                onClick={() => handleLoadUnbilledAppointment(apt)}
-                                title="Load booking to Invoice form"
+                      return (
+                        <tr
+                          key={apt._id}
+                          style={{
+                            borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                            fontSize: "13px",
+                            color: "#e2e8f0",
+                          }}
+                        >
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              whiteSpace: "nowrap",
+                              color: "#a1a1aa",
+                            }}
+                          >
+                            {formattedDate}{" "}
+                            {timeStr ? (
+                              <div
+                                style={{ fontSize: "11px", color: "#71717a" }}
                               >
-                                <Zap size={14} /> Bill Now
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )
+                                {timeStr}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td style={{ padding: "12px 8px" }}>
+                            <div style={{ fontWeight: 500, color: "#fff" }}>
+                              {apt.customerDetails?.name || "Walk-in Customer"}
+                            </div>
+                            {apt.customerDetails?.phone && (
+                              <div
+                                style={{ fontSize: "11px", color: "#71717a" }}
+                              >
+                                {apt.customerDetails.phone}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px 8px", color: "#cbd5e1" }}>
+                            {apt.staffDetails?.name || "Staff"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              color: "#c084fc",
+                              maxWidth: "200px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {srvNames}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: 600,
+                              color: "#10b981",
+                            }}
+                          >
+                            ₹{apt.totalAmount || 0}
+                          </td>
+                          <td style={{ padding: "12px 8px" }}>
+                            <span
+                              className={`unbilled-status-pill ${normStatus.toLowerCase() === "completed" ? "completed" : "pending"}`}
+                            >
+                              {normStatus}
+                            </span>
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <button
+                              className="btn-bill-now"
+                              onClick={() => handleLoadUnbilledAppointment(apt)}
+                              title="Load booking to Invoice form"
+                            >
+                              <Zap size={14} /> Bill Now
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -2212,63 +3104,73 @@ function Billing() {
         <div
           className="history-modal-overlay"
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
+            background: "rgba(0, 0, 0, 0.75)",
             zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
           }}
           onClick={() => setShowUnbilledModal(false)}
         >
           <div
             className="history-modal-content"
             style={{
-              background: '#181825',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '950px',
-              maxHeight: '85vh',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-              overflow: 'hidden'
+              background: "#181825",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "950px",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.6)",
+              overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: '#12121c'
+                padding: "20px 24px",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "#12121c",
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
                 <div
                   style={{
-                    padding: '8px',
-                    borderRadius: '8px',
-                    background: 'rgba(245, 158, 11, 0.15)',
-                    color: '#fbbf24'
+                    padding: "8px",
+                    borderRadius: "8px",
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "#fbbf24",
                   }}
                 >
                   <Zap size={22} />
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '18px', color: '#fff', fontWeight: 600 }}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "18px",
+                      color: "#fff",
+                      fontWeight: 600,
+                    }}
+                  >
                     Pending Bookings Awaiting Bill
                   </h2>
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                    Select any completed booking to load its services and generate the invoice ({filteredUnbilled.length} total)
+                  <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    Select any completed booking to load its services and
+                    generate the invoice ({filteredUnbilled.length} total)
                   </span>
                 </div>
               </div>
@@ -2276,97 +3178,266 @@ function Billing() {
               <button
                 onClick={() => setShowUnbilledModal(false)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#a1a1aa',
-                  borderRadius: '8px',
-                  padding: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  color: "#a1a1aa",
+                  borderRadius: "8px",
+                  padding: "6px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div style={{ padding: '16px 24px', background: '#181825', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Search size={18} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
+            <div
+              style={{
+                padding: "16px 24px",
+                background: "#181825",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <Search
+                  size={18}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    color: "#94a3b8",
+                  }}
+                />
                 <input
                   type="text"
                   placeholder="Search pending bookings by Customer, Phone, Staff, or Service..."
                   value={unbilledSearch}
                   onChange={(e) => setUnbilledSearch(e.target.value)}
                   style={{
-                    width: '100%',
-                    padding: '10px 12px 10px 40px',
-                    background: '#0f0f17',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    outline: 'none'
+                    width: "100%",
+                    padding: "10px 12px 10px 40px",
+                    background: "#0f0f17",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "14px",
+                    outline: "none",
                   }}
                 />
               </div>
             </div>
 
-            <div style={{ padding: '0 24px 24px', overflowY: 'auto', flex: 1 }}>
+            <div style={{ padding: "0 24px 24px", overflowY: "auto", flex: 1 }}>
               {loadingUnbilled ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "14px",
+                  }}
+                >
                   Loading pending bookings...
                 </div>
               ) : filteredUnbilled.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "14px",
+                  }}
+                >
                   No pending bookings found awaiting bill generation.
                 </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    marginTop: "16px",
+                  }}
+                >
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left' }}>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Date & Time</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Customer</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Staff</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Services</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Amount</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>Status</th>
-                      <th style={{ padding: '10px 8px', color: '#94a3b8', fontSize: '12px', fontWeight: 600, textAlign: 'right' }}>Action</th>
+                    <tr
+                      style={{
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        textAlign: "left",
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Date & Time
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Customer
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Staff
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Services
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Amount
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Status
+                      </th>
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          textAlign: "right",
+                        }}
+                      >
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUnbilled.map((apt) => {
-                      const srvNames = (apt.serviceDetails || []).map(s => s.serviceName).join(', ') ||
-                        (apt.packageDetails?.packageName ? `📦 ${apt.packageDetails.packageName}` : 'Service');
-                      const formattedDate = apt.date ? new Date(apt.date).toLocaleDateString() : '';
-                      const timeStr = typeof apt.timeSlot === 'string' ? apt.timeSlot : (apt.timeSlot?.start || '');
-                      const normStatus = apt.status || 'Completed';
+                      const srvNames =
+                        (apt.serviceDetails || [])
+                          .map((s) => s.serviceName)
+                          .join(", ") ||
+                        (apt.packageDetails?.packageName
+                          ? `📦 ${apt.packageDetails.packageName}`
+                          : "Service");
+                      const formattedDate = apt.date
+                        ? new Date(apt.date).toLocaleDateString()
+                        : "";
+                      const timeStr =
+                        typeof apt.timeSlot === "string"
+                          ? apt.timeSlot
+                          : apt.timeSlot?.start || "";
+                      const normStatus = apt.status || "Completed";
 
                       return (
-                        <tr key={apt._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '13px', color: '#e2e8f0' }}>
-                          <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#a1a1aa' }}>
-                            {formattedDate} {timeStr ? <div style={{ fontSize: '11px', color: '#71717a' }}>{timeStr}</div> : null}
+                        <tr
+                          key={apt._id}
+                          style={{
+                            borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                            fontSize: "13px",
+                            color: "#e2e8f0",
+                          }}
+                        >
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              whiteSpace: "nowrap",
+                              color: "#a1a1aa",
+                            }}
+                          >
+                            {formattedDate}{" "}
+                            {timeStr ? (
+                              <div
+                                style={{ fontSize: "11px", color: "#71717a" }}
+                              >
+                                {timeStr}
+                              </div>
+                            ) : null}
                           </td>
-                          <td style={{ padding: '12px 8px' }}>
-                            <div style={{ fontWeight: 500, color: '#fff' }}>{apt.customerDetails?.name || 'Walk-in Customer'}</div>
-                            {apt.customerDetails?.phone && <div style={{ fontSize: '11px', color: '#71717a' }}>{apt.customerDetails.phone}</div>}
+                          <td style={{ padding: "12px 8px" }}>
+                            <div style={{ fontWeight: 500, color: "#fff" }}>
+                              {apt.customerDetails?.name || "Walk-in Customer"}
+                            </div>
+                            {apt.customerDetails?.phone && (
+                              <div
+                                style={{ fontSize: "11px", color: "#71717a" }}
+                              >
+                                {apt.customerDetails.phone}
+                              </div>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 8px', color: '#cbd5e1' }}>
-                            {apt.staffDetails?.name || 'Staff'}
+                          <td style={{ padding: "12px 8px", color: "#cbd5e1" }}>
+                            {apt.staffDetails?.name || "Staff"}
                           </td>
-                          <td style={{ padding: '12px 8px', color: '#c084fc', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              color: "#c084fc",
+                              maxWidth: "200px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {srvNames}
                           </td>
-                          <td style={{ padding: '12px 8px', fontWeight: 600, color: '#10b981' }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: 600,
+                              color: "#10b981",
+                            }}
+                          >
                             ₹{apt.totalAmount || 0}
                           </td>
-                          <td style={{ padding: '12px 8px' }}>
-                            <span className={`unbilled-status-pill ${normStatus.toLowerCase() === 'completed' ? 'completed' : 'pending'}`}>
+                          <td style={{ padding: "12px 8px" }}>
+                            <span
+                              className={`unbilled-status-pill ${normStatus.toLowerCase() === "completed" ? "completed" : "pending"}`}
+                            >
                               {normStatus}
                             </span>
                           </td>
-                          <td style={{ padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             <button
                               className="btn-bill-now"
                               onClick={() => handleLoadUnbilledAppointment(apt)}
